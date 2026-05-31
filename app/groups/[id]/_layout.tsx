@@ -1,5 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { TouchableOpacity } from 'react-native';
+import { TouchableOpacity, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography } from '@/constants/theme';
 
@@ -18,8 +18,9 @@ export default function GroupDetailLayout() {
         options={{
           title: 'Grup Detayı',
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginRight: 12 }}>
+            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginLeft: -8, flexDirection: 'row', alignItems: 'center' }}>
               <Ionicons name="chevron-back" size={24} color={Colors.primary} />
+              <Text style={{ fontFamily: Typography.fontBody, fontSize: 17, color: Colors.primary, marginLeft: -2 }}>Geri</Text>
             </TouchableOpacity>
           ),
         }}
