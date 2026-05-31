@@ -689,4 +689,24 @@ supabase functions deploy delete-account
 | Pro placeholder | ✅ Gizli |
 | DEV test | ✅ Butonla Pro toggle |
 
-*Son güncelleme: 2026-05-31 — B39 eklendi (dashboard düzeltmeleri)*
+*Son güncelleme: 2026-05-31 — B41 eklendi (groups butonlar + tips)*
+
+---
+
+## B40: Tips/Yardım popup'ları
+- `TipsModal` + `TipsButton`: "?" butonu → gradient başlıklı ipucu popup'ı
+- Grup detayı, masraf ekleme, üye yönetimi sayfalarına `headerRight` eklendi
+- Dashboard "En Aktif Grup" kartı layout düzeltildi
+- **Dosyalar:** `TipsModal.tsx`, `TipsButton.tsx`, 3 sayfa güncellendi, `locales/*`
+
+## B41: Gruplar ekranı butonları
+- FAB kaldırıldı → alt bar: "Gruba Katıl" (outline sol) + "+ Yeni Grup" (gradient sağ)
+- Yeni Grup: modal → push `/groups/new` screen (yandan slide)
+- Limit: sağ buton gri+kilit, "1 hakkın kaldı" badge
+- **Dosyalar:** `app/(tabs)/groups/index.tsx`, `new.tsx` (yeni), `_layout.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+
+*Son güncelleme: 2026-05-31 — B41 eklendi*

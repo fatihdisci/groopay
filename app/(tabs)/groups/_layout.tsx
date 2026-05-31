@@ -17,6 +17,7 @@ export default function GroupsStackLayout() {
       }}
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="new" options={{ title: 'Yeni Grup' }} />
       <Stack.Screen name="[id]/index" options={{ title: 'Grup Detayı' }} />
       <Stack.Screen name="[id]/add-expense" options={{ title: 'Masraf Ekle', presentation: 'modal' }} />
       <Stack.Screen name="[id]/members" options={{ title: 'Üyeler', presentation: 'modal' }} />
