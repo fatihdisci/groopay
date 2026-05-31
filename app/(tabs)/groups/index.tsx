@@ -9,14 +9,11 @@ import { useGroups, useCreateGroup } from '@/hooks/useGroups';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
 import { usePro } from '@/hooks/usePro';
-import { computeBalances, groupByCurrency } from '@/lib/finance';
-import { fromMinor, getDecimals } from '@/lib/finance/money';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
 import { palette, spacing, fontSizes, radii, minTouchTarget } from '@/constants/theme';
 import Avatar from '@/components/Avatar';
 import { FadeInUp } from '@/components/Animations';
-import type { GroupWithMembers, ExpenseRow, ExpenseSplitRow, SettlementRow } from '@/lib/supabase/types';
-import type { ExpenseForBalance, SplitForBalance, SettlementForBalance } from '@/lib/finance';
+import type { GroupWithMembers } from '@/lib/supabase/types';
 
 const MAX_FREE_GROUPS = 5;
 
@@ -26,95 +23,6 @@ function getInitials(name: string): string {
   return (parts[0]?.[0] ?? '?').toLocaleUpperCase('tr-TR');
 }
 
-/** Per-currency overall balance card — gradient purple, free, hero section */
-function OverallBalanceSummary() {
-  const { t } = useTranslation();
-  const { user } = useAuth();
-
-  const { data: memberGroupIds } = useQuery({
-    queryKey: ['member-group-ids'],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('group_members')
-        .select('group_id')
-        .eq('user_id', user?.id ?? '')
-        .eq('is_active', true);
-      return [...new Set((data ?? []).map((m: { group_id: string }) => m.group_id))] as string[];
-    },
-    enabled: !!user?.id,
-    staleTime: 30_000,
-  });
-
-  const groupIds = memberGroupIds ?? [];
-
-  const { data: overallBalance, isLoading } = useQuery({
-    queryKey: ['overall-balance', groupIds],
-    queryFn: async () => {
-      if (groupIds.length === 0) return [];
-      const [{ data: expenses }, { data: splits }, { data: settlements }] = await Promise.all([
-        supabase.from('expenses').select('id, paid_by, amount, currency, deleted_at').in('group_id', groupIds).is('deleted_at', null),
-        supabase.from('expense_splits').select('expense_id, member_id, share_amount').in('expense_id', (await supabase.from('expenses').select('id').in('group_id', groupIds).is('deleted_at', null)).data?.map(e => e.id) ?? []),
-        supabase.from('settlements').select('from_member, to_member, amount, currency, status').in('group_id', groupIds).eq('status', 'confirmed'),
-      ]);
-
-      const { data: myMembers } = await supabase
-        .from('group_members')
-        .select('id')
-        .eq('user_id', user?.id ?? '')
-        .eq('is_active', true);
-      const myMemberIds = new Set((myMembers ?? []).map((m: { id: string }) => m.id));
-
-      const balances = computeBalances(
-        (expenses ?? []) as unknown as ExpenseForBalance[],
-        (splits ?? []) as unknown as SplitForBalance[],
-        (settlements ?? []) as unknown as SettlementForBalance[],
-      );
-
-      const myBalances = balances.filter((b) => myMemberIds.has(b.memberId));
-      const grouped = groupByCurrency(myBalances);
-
-      return [...grouped.entries()].map(([currency, currencyBalances]) => {
-        const totalMinor = currencyBalances.reduce((sum, b) => sum + b.netMinor, 0);
-        return { currency, netMinor: totalMinor };
-      }).filter((b) => b.netMinor !== 0);
-    },
-    enabled: groupIds.length > 0,
-    staleTime: 30_000,
-  });
-
-  if (isLoading || !overallBalance || overallBalance.length === 0) return null;
-
-  return (
-    <LinearGradient
-      colors={[Colors.gradientStart, '#5B54E8']}
-      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-      style={styles.obCard}
-    >
-      <Text style={styles.obLabel}>{t('balance.overallStatus').toLocaleUpperCase('tr-TR')}</Text>
-      {overallBalance.map((b, i) => {
-        const amount = fromMinor(Math.abs(b.netMinor), b.currency);
-        const dec = getDecimals(b.currency);
-        const formatted = amount.toLocaleString('tr-TR', {
-          minimumFractionDigits: dec,
-          maximumFractionDigits: dec,
-        });
-        const isPositive = b.netMinor > 0;
-
-        return (
-          <View key={b.currency} style={[styles.obRow, i > 0 && styles.obRowBorder]}>
-            <Text style={styles.obCurrencyBadge}>{b.currency}</Text>
-            <Text style={[styles.obAmount, isPositive && styles.obAmountCredit]}>
-              {formatted}
-            </Text>
-            <Text style={styles.obStatus}>
-              {isPositive ? t('balance.youAreOwed') : t('balance.youOwe')}
-            </Text>
-          </View>
-        );
-      })}
-    </LinearGradient>
-  );
-}
 
 export default function GroupsScreen() {
   const { t } = useTranslation();
@@ -194,7 +102,6 @@ export default function GroupsScreen() {
         data={activeGroups}
         keyExtractor={(g) => g.group.id}
         contentContainerStyle={activeGroups.length === 0 ? styles.emptyContainer : styles.list}
-        ListHeaderComponent={<OverallBalanceSummary />}
         ListEmptyComponent={
           <View style={styles.emptyInner}>
             <Ionicons name="people-outline" size={64} color={Colors.textTertiary} />

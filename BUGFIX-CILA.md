@@ -653,4 +653,40 @@ supabase functions deploy delete-account
 | Kategori (Pro) | ✅ Gerçek veri |
 | Eski dashboard | ✅ Silindi |
 
-*Son güncelleme: 2026-05-31 — B38 eklendi (dashboard 4. sekme + ücretsiz/Pro ayrımı)*
+*Son güncelleme: 2026-05-31 — B39 eklendi (dashboard düzeltmeleri)*
+
+---
+
+## B39: Dashboard düzeltmeleri
+
+> Tarih: 2026-05-31
+
+### Hero kart
+- +/- işaretleri kaldırıldı; yön bilgisi renk + kelime ile (alacaklısın/borglusun)
+- Her para birimi ayrı satır: [TRY badge küçük] + [rakam büyük bold] + [durum kelimesi]
+- Font boyutu dinamik: 1 birim → 40, 2 birim → 34, 3+ birim → 28
+- Alacak: `#A7F3D0` (açık yeşil tint), borç: `rgba(255,255,255,0.5)` (yarı-saydam beyaz)
+- Padding: 20px
+
+### Kategori Dağılımı — herkese açık
+- Kategori listesinden blur **kaldırıldı** — ücretsizde de açık
+- Kategori noktaları: `CATEGORY_COLORS` ile her kategori kendi rengi
+- Para birimi `Intl.NumberFormat` ile otomatik (₺/€/$)
+
+### Pro kilitli bölümler
+- Sadece "Harcama Trendi" ve "Detaylı Grup Analizi" blur'lu
+- Pro modda bu bölümler **tamamen gizli** (placeholder/"Yakında" yok)
+
+**Değişen dosyalar:** `app/(tabs)/dashboard.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Hero taşma | ✅ Düzeltildi |
+| +/- işareti | ✅ Kaldırıldı |
+| Kategori blur | ✅ Kaldırıldı (free) |
+| Kategori renk | ✅ categories.ts |
+| Pro placeholder | ✅ Gizli |
+| DEV test | ✅ Butonla Pro toggle |
+
+*Son güncelleme: 2026-05-31 — B39 eklendi (dashboard düzeltmeleri)*
