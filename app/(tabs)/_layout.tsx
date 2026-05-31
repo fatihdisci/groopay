@@ -54,6 +54,7 @@ export default function TabLayout() {
         name="groups"
         options={{
           title: t('tabs.groups'),
+          headerShown: false,
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons name={focused ? ICONS.groups!.filled : ICONS.groups!.outline} size={size} color={color} />
           ),
