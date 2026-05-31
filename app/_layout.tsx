@@ -94,7 +94,10 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(onboarding)" />
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="groups/[id]" options={{ headerShown: false }} />
+            <Stack.Screen name="groups/[id]/index" options={{ headerShown: true, title: 'Grup Detayı', headerBackTitle: 'Geri', headerTintColor: '#4F46E5', headerTitleStyle: { color: '#111827', fontWeight: '600' } }} />
+<Stack.Screen name="groups/[id]/add-expense" options={{ headerShown: true, title: 'Masraf Ekle', presentation: 'modal', headerTintColor: '#4F46E5', headerTitleStyle: { color: '#111827', fontWeight: '600' } }} />
+<Stack.Screen name="groups/[id]/members" options={{ headerShown: true, title: 'Üyeler', presentation: 'modal', headerTintColor: '#4F46E5', headerTitleStyle: { color: '#111827', fontWeight: '600' } }} />
+<Stack.Screen name="groups/[id]/edit" options={{ headerShown: true, title: 'Grubu Düzenle', headerBackTitle: 'Geri', headerTintColor: '#4F46E5', headerTitleStyle: { color: '#111827', fontWeight: '600' } }} />
             <Stack.Screen name="groups/new" options={{ headerShown: true, title: 'Yeni Grup', headerTintColor: '#4F46E5', headerTitleStyle: { color: '#111827', fontWeight: '600' } }} />
             <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal' }} />
           </Stack>
