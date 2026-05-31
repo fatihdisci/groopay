@@ -567,4 +567,55 @@
 - **Değişen dosyalar:** `app/(tabs)/_layout.tsx`, `app/(tabs)/groups/_layout.tsx`
 - Ayrıca: `StackHeaderBorder.tsx` (kullanılmayan) silindi.
 
-*Son güncelleme: 2026-05-31 — B36 eklendi (tab bar + animasyonlar + header düzeltmeleri)*
+*Son güncelleme: 2026-05-31 — B37 eklendi (hesap silme + veri dışa aktarma)*
+
+---
+
+## B37: Hesap silme + veri dışa aktarma (8. Tur)
+
+> Tarih: 2026-05-31
+> Apple zorunlu: uygulama içi hesap silme
+
+### Edge Function: `delete-account`
+- `supabase/functions/delete-account/index.ts`
+- JWT doğrulama → kurucu grup kontrolü (başka gerçek üyeli gruplar varsa 409 FOUNDER_GROUPS_EXIST)
+- Solo kurucu gruplarını sil → `auth.admin.deleteUser()` ile kullanıcıyı sil
+- Cascade: auth.users → profiles, groups (solo), group_members
+- Service-role key ile RLS baypas
+
+### Hesap Silme Akışı (`app/(tabs)/account.tsx`)
+- **Adım 0:** Kurucu grup kontrolü (client-side) → başka üyeli gruplar varsa Alert + engelle
+- **Adım 1:** İlk onay dialog'u — uyarı metni + İptal/Hesabımı Sil
+- **Adım 2:** "SİL" yazma dialog'u — yanlışlıkla basmayı önleme
+- **Adım 3:** Edge Function çağrısı → signOut → giriş ekranı
+
+### Veri Dışa Aktarma
+- "Verilerimi İndir" butonu → `Share.share(JSON)` ile kullanıcının profili + üyelikleri + grupları
+
+### i18n
+- `account.exportData`, `account.deleteAccount`, `account.deleteWarning`, `account.deleteFinalTitle`, `account.deleteFinalConfirm`, `account.typeSil`, `account.deleteError`, `account.founderGroupsBlockTitle`, `account.founderGroupsBlock`
+
+**Yeni dosyalar:** `supabase/functions/delete-account/index.ts`
+
+**Değişen dosyalar:** `app/(tabs)/account.tsx`, `locales/tr.json`, `locales/en.json`
+
+### Edge Function Deploy (Faz 8'de)
+```bash
+supabase functions deploy delete-account
+# Fonksiyon URL: https://<project-ref>.supabase.co/functions/v1/delete-account
+```
+
+### Test (Expo Go)
+- Edge Function çağrısı Expo Go'da çalışır (auth token geçerli olduğu sürece)
+- Hesap → en alt "Hesabımı Sil" → kurucu grupları varsa engellenir → yoksa çift onay → silinir
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Edge Function kodu | ✅ Hazır |
+| Hesap silme akışı | ✅ 3 adımlı |
+| Kurucu grup kontrolü | ✅ Client + server |
+| Veri dışa aktarma | ✅ JSON Share |
+| i18n (tr + en) | ✅ 10 anahtar |
+
+*Son güncelleme: 2026-05-31 — B37 eklendi (hesap silme + veri dışa aktarma)*

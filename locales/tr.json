@@ -313,7 +313,18 @@
     "signOut": "Çıkış yap",
     "signOutConfirm": "Çıkış yapmak istediğinize emin misiniz?",
     "cancel": "Vazgeç",
-    "save": "Kaydet"
+    "save": "Kaydet",
+    "exportData": "Verilerimi İndir",
+    "exportError": "Veri dışa aktarılamadı",
+    "deleteAccount": "Hesabımı Sil",
+    "deleteWarning": "Hesabın ve tüm verilerin (gruplar, masraflar, üyelikler) kalıcı olarak silinecek. Bu işlem GERİ ALINAMAZ.",
+    "deleteFinalTitle": "Son Onay",
+    "deleteFinalConfirm": "Devam etmek için aşağıya SİL yazın:",
+    "typeSil": "\"SİL\" yazın",
+    "deleteError": "Hesap silinemedi. Lütfen tekrar deneyin.",
+    "founderGroupsBlockTitle": "Kurucu Olduğunuz Gruplar",
+    "founderGroupsBlock": "Hesabınızı silmeden önce şu gruplarda kuruculuğu devretmeniz gerekiyor: {{groups}}",
+    "ok": "Tamam"
   },
   "balance": {
     "empty": "Henüz bakiye yok. İlk masrafı ekleyin!",

@@ -311,7 +311,18 @@
     "dashboard": "Dashboard",
     "dashboardDesc": "Overall balance summary and analytics across all your groups.",
     "profileSaved": "Profile updated ✓",
-    "profileSaveError": "Update failed"
+    "profileSaveError": "Update failed",
+    "exportData": "Export My Data",
+    "exportError": "Could not export data",
+    "deleteAccount": "Delete My Account",
+    "deleteWarning": "Your account and all data (groups, expenses, memberships) will be permanently deleted. This CANNOT be undone.",
+    "deleteFinalTitle": "Final Confirmation",
+    "deleteFinalConfirm": "Type DELETE below to continue:",
+    "typeSil": "Type \"DELETE\"",
+    "deleteError": "Could not delete account. Please try again.",
+    "founderGroupsBlockTitle": "Groups You Founded",
+    "founderGroupsBlock": "Before deleting your account, you must transfer ownership of: {{groups}}",
+    "ok": "OK"
   },
   "balance": {
     "empty": "No balances yet. Add your first expense!",

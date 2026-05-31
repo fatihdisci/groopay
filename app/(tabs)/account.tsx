@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -116,15 +117,130 @@ export default function AccountScreen() {
       Alert.alert('DEV Hatası', error.message);
       return;
     }
-    // Refresh local state via AuthContext's profile fetch
     queryClient.invalidateQueries({ queryKey: ['profile'] });
-    // Force-refresh by reloading the profile row directly into the user object
-    // The auth listener won't fire for a profile-only change, so we update locally
     await supabase.auth.refreshSession();
     showToast(
       newVal ? '🛠 [DEV] Pro AÇIK — sayfayı yenileyin' : '🛠 [DEV] Pro KAPALI',
       'info',
     );
+  };
+
+  // ── Export Data ──
+  const handleExportData = async () => {
+    if (!user) return;
+    try {
+      const [{ data: profiles }, { data: members }, { data: myGroups }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user.id).single(),
+        supabase.from('group_members').select('*, groups:groups(*)').eq('user_id', user.id),
+        supabase.from('groups').select('*').eq('created_by', user.id),
+      ]);
+
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        profile: profiles,
+        memberships: members,
+        createdGroups: myGroups,
+      };
+
+      await Share.share({
+        message: JSON.stringify(exportData, null, 2),
+        title: 'Groopay Verilerim',
+      });
+    } catch (e: any) {
+      showToast(t('account.exportError'), 'error');
+    }
+  };
+
+  // ── Delete Account Flow ──
+  const [deleteStep, setDeleteStep] = useState<'none' | 'confirm1' | 'confirm2'>('none');
+  const [deleteInput, setDeleteInput] = useState('');
+
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+
+    // Check founder groups with other real members
+    try {
+      const { data: founderGroups } = await supabase
+        .from('groups')
+        .select('id, name')
+        .eq('created_by', user.id);
+
+      if (founderGroups && founderGroups.length > 0) {
+        // Check which groups have other real members
+        const groupIds = founderGroups.map((g: any) => g.id);
+        const { data: otherMembers } = await supabase
+          .from('group_members')
+          .select('group_id, user_id')
+          .in('group_id', groupIds)
+          .eq('is_active', true)
+          .neq('user_id', user.id)
+          .not('user_id', 'is', null);
+
+        if (otherMembers && otherMembers.length > 0) {
+          const blockedGroupIds = [...new Set(otherMembers.map((m: any) => m.group_id))];
+          const blockedNames = founderGroups
+            .filter((g: any) => blockedGroupIds.includes(g.id))
+            .map((g: any) => g.name)
+            .join(', ');
+
+          Alert.alert(
+            t('account.founderGroupsBlockTitle'),
+            t('account.founderGroupsBlock', { groups: blockedNames }),
+            [{ text: t('account.ok'), style: 'default' }],
+          );
+          return;
+        }
+      }
+    } catch (_) {
+      // If check fails, proceed anyway — server will also validate
+    }
+
+    // First confirmation
+    setDeleteStep('confirm1');
+  };
+
+  const confirmDeleteStep1 = () => {
+    setDeleteStep('confirm2');
+    setDeleteInput('');
+  };
+
+  const executeDeleteAccount = async () => {
+    if (!user) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        showToast(t('account.deleteError'), 'error');
+        return;
+      }
+
+      const fnUrl = `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/delete-account`;
+      const res = await fetch(fnUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        if (json.error === 'FOUNDER_GROUPS_EXIST') {
+          Alert.alert(t('account.founderGroupsBlockTitle'), json.message);
+        } else {
+          showToast(json.message ?? t('account.deleteError'), 'error');
+        }
+        setDeleteStep('none');
+        return;
+      }
+
+      await signOut();
+      queryClient.clear();
+      router.replace('/(auth)/sign-in');
+    } catch (e: any) {
+      showToast(t('account.deleteError'), 'error');
+      setDeleteStep('none');
+    }
   };
 
   if (!user) return null;
@@ -296,7 +412,70 @@ export default function AccountScreen() {
         </TouchableOpacity>
       )}
 
+      {/* ── Export Data ── */}
+      <TouchableOpacity style={styles.exportButton} onPress={handleExportData} activeOpacity={0.7}>
+        <Ionicons name="download-outline" size={18} color={Colors.primary} />
+        <Text style={styles.exportButtonText}>{t('account.exportData')}</Text>
+      </TouchableOpacity>
+
+      {/* ── Delete Account ── */}
+      <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount} activeOpacity={0.7}>
+        <Ionicons name="trash-outline" size={16} color={Colors.textTertiary} />
+        <Text style={styles.deleteAccountText}>{t('account.deleteAccount')}</Text>
+      </TouchableOpacity>
+
     </ScrollView>
+
+    {/* ── Delete Account Confirmation Modals ── */}
+    {/* Step 1: Initial warning */}
+    {deleteStep === 'confirm1' && (
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>{t('account.deleteAccount')}</Text>
+          <Text style={styles.modalSub}>{t('account.deleteWarning')}</Text>
+          <View style={styles.modalBtns}>
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setDeleteStep('none')}>
+              <Text style={styles.modalCancelText}>{t('account.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalConfirm, { backgroundColor: Colors.debt }]} onPress={confirmDeleteStep1}>
+              <Text style={styles.modalConfirmText}>{t('account.deleteAccount')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    )}
+
+    {/* Step 2: Final confirmation — type SİL */}
+    {deleteStep === 'confirm2' && (
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>{t('account.deleteFinalTitle')}</Text>
+          <Text style={styles.modalSub}>{t('account.deleteFinalConfirm')}</Text>
+          <Text style={styles.typeHint}>{t('account.typeSil')}</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={deleteInput}
+            onChangeText={setDeleteInput}
+            placeholder="SİL"
+            placeholderTextColor={Colors.textTertiary}
+            autoCapitalize="characters"
+            autoFocus
+          />
+          <View style={styles.modalBtns}>
+            <TouchableOpacity style={styles.modalCancel} onPress={() => setDeleteStep('none')}>
+              <Text style={styles.modalCancelText}>{t('account.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalConfirm, { backgroundColor: deleteInput === 'SİL' ? Colors.debt : Colors.textTertiary }]}
+              onPress={executeDeleteAccount}
+              disabled={deleteInput !== 'SİL'}
+            >
+              <Text style={styles.modalConfirmText}>{t('account.deleteAccount')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    )}
     <Toast
       message={toast.message}
       type={toast.type}
@@ -416,4 +595,52 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   devProButtonText: { fontSize: fontSizes.sm, color: palette.warning, fontWeight: '600' },
+  // Export data
+  exportButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: Spacing.sm, paddingVertical: Spacing.md,
+    borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border,
+    marginBottom: Spacing.md,
+  },
+  exportButtonText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, color: Colors.primary },
+  // Delete account
+  deleteAccountButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: Spacing.sm, paddingVertical: Spacing.sm,
+    marginBottom: 40,
+  },
+  deleteAccountText: { fontFamily: Typography.fontBody, fontSize: Typography.size.xs, color: Colors.textTertiary },
+  // Modal
+  modalOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center',
+    alignItems: 'center', padding: spacing.xl, zIndex: 200,
+  },
+  modalCard: {
+    backgroundColor: palette.background, borderRadius: radii.xl,
+    padding: spacing.lg, width: '100%', maxWidth: 340,
+  },
+  modalTitle: { fontSize: fontSizes.lg, fontWeight: '700', color: palette.text, marginBottom: spacing.xs },
+  modalSub: { fontSize: fontSizes.sm, color: palette.textSecondary, marginBottom: spacing.md, lineHeight: fontSizes.sm * 1.5 },
+  modalInput: {
+    borderWidth: 1, borderColor: Colors.debt, borderRadius: radii.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
+    fontSize: fontSizes.xl, fontWeight: '800', color: Colors.debt,
+    backgroundColor: palette.surface, minHeight: minTouchTarget,
+    textAlign: 'center', letterSpacing: 4, marginBottom: spacing.md,
+  },
+  typeHint: { fontSize: fontSizes.xs, color: Colors.textTertiary, marginBottom: spacing.sm },
+  modalBtns: { flexDirection: 'row', gap: spacing.sm },
+  modalCancel: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: spacing.md, borderRadius: radii.lg, borderWidth: 1, borderColor: palette.border,
+    minHeight: minTouchTarget,
+  },
+  modalCancelText: { fontSize: fontSizes.md, color: palette.textSecondary, fontWeight: '600' },
+  modalConfirm: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: spacing.md, borderRadius: radii.lg,
+    minHeight: minTouchTarget,
+  },
+  modalConfirmText: { fontSize: fontSizes.md, color: 'white', fontWeight: '700' },
 });
