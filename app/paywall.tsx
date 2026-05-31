@@ -19,10 +19,8 @@ import {
   restorePurchases,
   type OfferingsResult,
 } from '@/lib/revenuecat';
-import { useAuth } from '@/lib/auth';
 import { usePro } from '@/hooks/usePro';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
-import { palette, spacing, fontSizes, radii, minTouchTarget } from '@/constants/theme';
 
 type ProFeature = { icon: keyof typeof Ionicons.glyphMap; labelKey: string };
 
@@ -187,7 +185,7 @@ export default function PaywallScreen() {
         ) : (
           <Text style={styles.ctaButtonText}>
             {offeringsLoaded
-              ? t('paywall.purchaseUserPro', { price: '' })
+              ? t('paywall.purchaseUserPro', { price: userProPrice || '' })
               : t('paywall.loading')}
           </Text>
         )}
@@ -285,8 +283,8 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: minTouchTarget,
-    marginTop: 20,
+    minHeight: 44,
+    marginTop: 16,
     ...Shadows.md,
   },
   ctaButtonDisabled: { opacity: 0.6 },
@@ -295,7 +293,7 @@ const styles = StyleSheet.create({
   // Restore
   restoreButton: {
     alignItems: 'center', paddingVertical: 16,
-    minHeight: minTouchTarget, justifyContent: 'center',
+    minHeight: 44, justifyContent: 'center',
   },
   restoreText: { fontFamily: Typography.fontBodyMedium, fontSize: 14, color: Colors.textTertiary },
 
@@ -324,7 +322,7 @@ const styles = StyleSheet.create({
   alreadyBtn: {
     marginTop: 24, backgroundColor: Colors.primary,
     borderRadius: 14, paddingHorizontal: 40, paddingVertical: 14,
-    minHeight: minTouchTarget, justifyContent: 'center',
+    minHeight: 44, justifyContent: 'center',
   },
   alreadyBtnText: { fontFamily: Typography.fontBodyBold, fontSize: 16, color: 'white' },
 });

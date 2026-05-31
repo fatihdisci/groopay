@@ -34,7 +34,7 @@
 
 <br />
 
-[![Phase](https://img.shields.io/badge/Faz-0→7_tamamlandı-10B981?style=flat-square&labelColor=1B1B1F)](.)
+[![Phase](https://img.shields.io/badge/Faz-0→7_tamam,_Faz_8_devam-10B981?style=flat-square&labelColor=1B1B1F)](.)
 [![i18n](https://img.shields.io/badge/i18n-TR_|_EN-4F46E5?style=flat-square&labelColor=1B1B1F)](.)
 [![Strict](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&labelColor=1B1B1F)](.)
 [![License](https://img.shields.io/badge/License-MIT-F43F5E?style=flat-square&labelColor=1B1B1F)](LICENSE)
@@ -85,7 +85,7 @@
 | 🔐 | **IBAN Saklanmaz** — Sunucuda ASLA. Realtime broadcast ile anlık iletilir, uçar. |
 | 👻 | **Hayalet Üyeler** — Gruba ekle, sonradan hesap açınca geçmişi devralsın. |
 | 🔒 | **Row-Level Security** — PostgreSQL RLS. Her kullanıcı sadece kendi gruplarını görür. |
-| 💎 | **Pro Özellikler** — Fiş/OCR, tekrarlayan masraf, PDF/CSV export, dashboard. |
+| 💎 | **Panel & Pro** — 4. sekme genel bakiye + kategori analizi. Pro ile sınırsız grup. |
 
 </div>
 
@@ -585,10 +585,24 @@ Supabase Dashboard'da şunları aç:
 <td><code>/(tabs)/groups</code></td>
 <td>
 
-- Genel bakiye özet kartı (gradient mor, para birimi bazında)
-- Grup kartları: gradient avatar + üye sayısı
-- Extended FAB: "Yeni Grup", 5-grup limit göstergesi
-- Demo grup badge
+- Grup kartları: gradient/emoji avatar + üye sayısı
+- Alt bar: "Gruba Katıl" + "+ Yeni Grup" yan yana
+- 5-grup limiti → paywall yönlendirme
+- Demo grup badge, Pro rozeti
+
+</td>
+</tr>
+
+<tr>
+<td>📈 <b>Panel</b></td>
+<td><code>/(tabs)/dashboard</code></td>
+<td>
+
+- 4. sekme, herkese açık
+- Gradient hero: para birimi bazında genel bakiye
+- Temel istatistikler (grup/masraf sayısı, en aktif grup)
+- Free: blur'lu Pro önizleme + "Pro'ya Geç" CTA
+- Pro: kategori dağılımı gerçek veriyle
 
 </td>
 </tr>
@@ -613,8 +627,10 @@ Supabase Dashboard'da şunları aç:
 
 - Dinamik gradient header (avatar rengine göre)
 - Avatar renk seçici (8 renk, gradient önizleme)
-- Pro durum kartı + Dashboard linki
-- Dil seçimi (TR/EN), canlı değişim
+- Pro durum kartı + DEV Pro toggle
+- Hesap silme (çift onay + SİL yazma)
+- Veri dışa aktarma (JSON)
+- Dil seçimi (TR/EN)
 
 </td>
 </tr>
@@ -624,10 +640,25 @@ Supabase Dashboard'da şunları aç:
 <td><code>/groups/[id]</code></td>
 <td>
 
-- Full-bleed gradient header
+- Full-bleed gradient header + geri butonu
+- Emoji/renk avatar + açıklama
 - Masraflar/Bakiyeler tab seçici
-- Pro özellikler collapsed banner (LayoutAnimation)
 - Genişleyebilir masraf kartları
+- Kurucu: düzenleme butonu (headerRight)
+- ? yardım butonu (TipsModal)
+
+</td>
+</tr>
+
+<tr>
+<td>✏️ <b>Grubu Düzenle</b></td>
+<td><code>/groups/[id]/edit</code></td>
+<td>
+
+- Ad, açıklama, avatar rengi, emoji (16 seçenek)
+- Canlı header önizleme + "DÜZENLEME MODU"
+- Kurucu devri + gruptan ayrılma
+- Grubu sil (hard delete, cascade)
 
 </td>
 </tr>
@@ -641,7 +672,7 @@ Supabase Dashboard'da şunları aç:
 - Para birimi pill seçici
 - Kategori chips (renk kodlu)
 - Bölüşme tipi: Eşit / Özel / Alt-Küme
-- Canlı önizleme listesi
+- ? yardım butonu
 
 </td>
 </tr>
@@ -651,10 +682,12 @@ Supabase Dashboard'da şunları aç:
 <td><code>/groups/[id]/members</code></td>
 <td>
 
-- Founder/normal üye yetki ayrımı
+- Founder/normal üye yetki ayrımı + açıklamalar
 - Hayalet üye ekleme (founder only)
+- Gruptan ayrılma (RPC tabanlı)
 - Davet kodu oluşturma + paylaşma
 - Claim: hayalet profili sahiplenme
+- ? yardım butonu
 
 </td>
 </tr>
@@ -664,23 +697,10 @@ Supabase Dashboard'da şunları aç:
 <td><code>/paywall</code></td>
 <td>
 
-- Context-aware (limit / group-pro / feature)
-- Grup Pro + User Pro seçenekleri
-- RevenueCat fiyatlandırma
+- Modern fintech: açık feature row'lar, soft shadow
+- Sadece User Pro (aylık), canlı fiyat
 - Restore purchases (Apple zorunlu)
-
-</td>
-</tr>
-
-<tr>
-<td>📈 <b>Dashboard</b></td>
-<td><code>/dashboard</code></td>
-<td>
-
-- User Pro özel
-- Para birimi bazında bakiye kartları
-- Kategori dağılımı
-- Free kullanıcıya kilit ekranı
+- X kapatma butonu
 
 </td>
 </tr>
@@ -809,31 +829,29 @@ IBAN **hiçbir tabloda KALICI SAKLANMAZ**. Realtime broadcast channel ile anlık
 
 ```
 Client (RevenueCat SDK)
-  ├── Grup Pro → tek seferlik, gruba kalıcı, herkes faydalanır
-  └── User Pro → tüm gruplar + sınırsız grup + dashboard
+  └── User Pro → aylık abonelik, tüm gruplar + sınırsız grup + panel + kategori analizi
 
 Webhook (revenuecat-webhook)
-  ├── INITIAL_PURCHASE → profiles.user_pro = true
-  └── group_pro → groups.is_pro = true (attributes'tan group_id)
+  └── INITIAL_PURCHASE → profiles.user_pro = true
 
 Pro Kontrol Zinciri:
-  hasProAccess(group) = user_pro OR group.is_pro
-  ├── True  → ProGate göster, ProFeatureRow aktif
-  └── False → ProGate kilit, paywall'a yönlendir
+  hasProAccess() = user_pro
+  ├── True  → Panel'de tüm bölümler açık, sınırsız grup
+  └── False → Panel'de kilitli önizleme (blur), 5 grup limiti
 ```
 
-| Özellik | Free | Grup Pro | User Pro |
-|:--------|:----:|:--------:|:--------:|
-| Grup oluşturma | 5 max | 5 max | **Sınırsız** |
-| Masraf ekleme | ✅ | ✅ | ✅ |
-| Bakiye görme | ✅ | ✅ | ✅ |
-| Netleşme (ödedim) | ✅ | ✅ | ✅ |
-| IBAN iste/paylaş | ✅ | ✅ | ✅ |
-| Fiş/OCR | ❌ | ✅ | ✅ |
-| Tekrarlayan masraf | ❌ | ✅ | ✅ |
-| PDF/CSV export | ❌ | ✅ | ✅ |
-| Dashboard | ❌ | ❌ | ✅ |
-| Gelişmiş grafikler | ❌ | ✅ | ✅ |
+> **Not:** Grup Pro şimdilik kaldırıldı. Sadece User Pro (aylık) aktif. Kod altyapısı duruyor, ileride eklenebilir.
+
+| Özellik | Free | User Pro |
+|:--------|:----:|:--------:|
+| Grup oluşturma | 5 max | **Sınırsız** |
+| Masraf ekleme | ✅ | ✅ |
+| Bakiye & Netleşme | ✅ | ✅ |
+| IBAN iste/paylaş | ✅ | ✅ |
+| Panel (genel bakiye) | ✅ | ✅ |
+| Kategori analizi | ✅ | ✅ |
+| Panel kilitli bölümler | 🔒 blur | ✅ açık |
+| Harcama trendi | 🔒 blur | 🔜 Yakında |
 
 ---
 
@@ -855,19 +873,27 @@ groopay/
 │   │   ├── groups.tsx                # Gruplar ana ekranı
 │   │   ├── activity.tsx              # Aktivite akışı
 │   │   └── account.tsx               # Hesap / Profil
-│   ├── groups/[id]/                  # Grup detay
-│   │   ├── _layout.tsx               # Stack navigator
-│   │   ├── index.tsx                 # Detay (masraf + bakiye)
-│   │   ├── add-expense.tsx           # Masraf ekleme
-│   │   └── members.tsx               # Üye yönetimi
+│   ├── (tabs)/groups.tsx             # Gruplar ana ekranı
+│   ├── (tabs)/dashboard.tsx          # Panel (4. sekme)
+│   ├── (tabs)/activity.tsx           # Aktivite akışı
+│   ├── (tabs)/account.tsx            # Hesap / Profil
+│   ├── groups/                       # Grup detay (root stack)
+│   │   ├── [id]/_layout.tsx          # Stack navigator
+│   │   ├── [id]/index.tsx            # Detay (masraf + bakiye)
+│   │   ├── [id]/add-expense.tsx      # Masraf ekleme
+│   │   ├── [id]/members.tsx          # Üye yönetimi
+│   │   └── [id]/edit.tsx             # Grubu düzenle
+│   ├── groups/new.tsx                # Yeni grup oluştur
 │   └── join/                         # Kodla katılma
 │       ├── index.tsx                 # Kod giriş
 │       └── [token].tsx               # Deep link handler
 │
 ├── components/                       # Paylaşılan bileşenler
-│   ├── Avatar.tsx                    # Gradient avatar (LinearGradient)
+│   ├── Avatar.tsx                    # Gradient/emoji avatar (LinearGradient)
 │   ├── Toast.tsx                     # Toast bildirim (animasyonlu)
-│   └── ProGate.tsx                   # Pro kapısı bileşenleri
+│   ├── TabBarButton.tsx             # Animasyonlu tab bar butonu (Reanimated)
+│   ├── Animations.tsx               # FadeInUp + ScaleOnPress
+│   ├── TipsButton.tsx + TipsModal.tsx # ? yardım popup'ları
 │
 ├── constants/                        # Design System
 │   ├── theme.ts                      # Colors, Typography, Spacing, Radius, Shadows
@@ -904,17 +930,19 @@ groopay/
 │   └── en.json                       # İngilizce (fallback)
 │
 ├── supabase/
-│   ├── migrations/                   # 6 migration dosyası
+│   ├── migrations/                   # 7 migration dosyası
 │   │   ├── 0001_initial_schema.sql   #   8 tablo + RLS + trigger
 │   │   ├── 0002_invite_preview_rpc.sql
 │   │   ├── 0003_ghost_preview_rpc.sql
 │   │   ├── 0004_drop_fx_columns_add_expense_rpc.sql
 │   │   ├── 0005_realtime_publication.sql
-│   │   └── 0006_settlements_currency_iban.sql
+│   │   ├── 0006_settlements_currency_iban.sql
+│   │   └── 0007_group_management.sql #   Grup yönetimi RPC'leri
 │   └── functions/                    # Edge Functions (Deno)
 │       ├── join-via-invite/          #   Davetle katılım
 │       ├── send-push/                #   Push bildirimi
-│       └── revenuecat-webhook/       #   RevenueCat → DB
+│       ├── revenuecat-webhook/       #   RevenueCat → DB
+│       └── delete-account/           #   Hesap silme (Apple zorunlu)
 │
 ├── assets/                           # İkon, splash, font
 ├── docs/                             # Scope + Build Spec
@@ -949,28 +977,18 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 ## 🐛 Bugfix Günlüğü
 
 <details open>
-<summary><b>18 bugfix, 3 tur — hepsi kapandı ✅</b></summary>
+<summary><b>43 bugfix, 8 tur — hepsi kapandı ✅</b></summary>
 
-| ID | Tur | Sorun | Durum |
-|:---|:---:|:------|:-----:|
-| B1 | 1 | Aktivite'de ham event type metinleri | ✅ |
-| B2 | 1 | Ödedim/IBAN butonları dar + pending kontrolü yok | ✅ |
-| B3 | 1 | Büyük harf Türkçe karakter (İ→I, Ş→S) | ✅ |
-| B4 | 1 | Profil kaydedince Alert → Toast | ✅ |
-| B5 | 1 | Avatar rengi gruplara yansımıyor | ✅ |
-| B6 | 1 | Sabit metinler → i18n | ✅ |
-| B7 | 2 | Masraf FAB belirsiz | ✅ |
-| B8 | 2 | Üye sayısı eski üyeleri sayıyor | ✅ |
-| B9 | 2 | Grup oluşturma FAB belirsiz + limit | ✅ |
-| B10 | 2 | Üye ekleme butonu "Düzenle" | ✅ |
-| B11 | 2 | Founder/üye yetki UI | ✅ |
-| B12 | 2 | Masraf kartı genişleyemiyor | ✅ |
-| B13 | 3 | Aktivite settlement metninde "?" | ✅ |
-| B14 | 3 | FAB çift "+" ikonu | ✅ |
-| B15 | 3 | FAB yazı boyutu | ✅ |
-| B16 | 3 | Butonlar alt satıra + küçültme | ✅ |
-| B17 | 3 | Kapalı masraf kartı split gizleme | ✅ |
-| B18 | 4 | simplifyDebts kuruş crash | ✅ |
+| Tur | ID'ler | Konular |
+|:---:|:-------|:--------|
+| 1 | B1-B6 | Aktivite metinleri, butonlar, uppercase, toast, avatar rengi, i18n |
+| 2 | B7-B12 | FAB'lar, üye sayısı, limit, masraf kartı genişleme |
+| 3 | B13-B18 | Settlement metni, FAB yazısı, buton düzeni, kuruş crash |
+| 4 | B19-B24 | Pro sadeleştirme (Grup Pro kaldırıldı), paywall gerçekleştirme |
+| 5 | B25-B31 | Grup yönetimi (düzenleme, silme, üye çıkarma, kurucu devri) |
+| 6 | B32-B35 | Route yapısı, header/geri butonu, avatar emoji |
+| 7 | B36 | Alt bar tasarımı + animasyonlar + header çizgisi |
+| 8 | B37-B43 | Hesap silme, dashboard 4. sekme, tips popup'ları, butonlar, paywall |
 
 </details>
 
@@ -979,7 +997,7 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 ## 🎨 Tasarım Revizyonu
 
 <details open>
-<summary><b>5 tur, modern fintech estetiği ✅</b></summary>
+<summary><b>8 tur, modern fintech estetiği ✅</b></summary>
 
 | Tur | Kapsam | Durum |
 |:---:|:-------|:-----:|
@@ -988,6 +1006,9 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 | 3 | Grup detay (header, masraf, bakiye, pro banner) | ✅ |
 | 4 | Cila (onboarding, aktivite, hesap, paywall, üyeler) | ✅ |
 | 5 | Hesap düzeltmeleri (buton, header dinamik, toast) | ✅ |
+| 6 | Pro sadeleştirme + dashboard 4. sekme + blur önizleme | ✅ |
+| 7 | Tab bar animasyonu + header tutarlılığı | ✅ |
+| 8 | Paywall modern fintech + X kapatma + fiyat gösterme | ✅ |
 
 </details>
 
@@ -999,14 +1020,14 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 
 <table>
 <tr>
-<td align="center"><b>61</b><br><sub>dosya</sub></td>
-<td align="center"><b>10.184</b><br><sub>satır kod</sub></td>
-<td align="center"><b>34</b><br><sub>commit</sub></td>
+<td align="center"><b>80+</b><br><sub>dosya</sub></td>
+<td align="center"><b>12.000+</b><br><sub>satır kod</sub></td>
+<td align="center"><b>50+</b><br><sub>commit</sub></td>
 <td align="center"><b>75</b><br><sub>test (✅)</sub></td>
-<td align="center"><b>200+</b><br><sub>i18n anahtarı</sub></td>
+<td align="center"><b>250+</b><br><sub>i18n anahtarı</sub></td>
 <td align="center"><b>8</b><br><sub>veritabanı tablosu</sub></td>
-<td align="center"><b>6</b><br><sub>migration</sub></td>
-<td align="center"><b>3</b><br><sub>Edge Function</sub></td>
+<td align="center"><b>7</b><br><sub>migration</sub></td>
+<td align="center"><b>4</b><br><sub>Edge Function</sub></td>
 </tr>
 </table>
 
