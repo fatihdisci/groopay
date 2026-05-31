@@ -94,9 +94,8 @@ export default function RootLayout() {
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(onboarding)" />
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="groups/[id]" options={{ headerShown: true, title: 'Grup Detayı', headerBackTitle: 'Geri', headerTintColor: '#4F46E5', headerTitleStyle: { color: '#111827', fontWeight: '600' } }} />
             <Stack.Screen name="paywall" options={{ headerShown: true, title: 'Pro', headerTintColor: '#4F46E5', headerTitleStyle: { color: '#111827', fontWeight: '600' }, presentation: 'modal' }} />
-            <Stack.Screen name="dashboard" options={{ headerShown: true, title: 'Dashboard', headerTintColor: '#4F46E5', headerTitleStyle: { color: '#111827', fontWeight: '600' } }} />
+            <Stack.Screen name="dashboard" options={{ headerShown: true, title: 'Dashboard', headerBackTitle: 'Geri', headerTintColor: '#4F46E5', headerTitleStyle: { color: '#111827', fontWeight: '600' } }} />
           </Stack>
         </AuthProvider>
       </QueryClientProvider>

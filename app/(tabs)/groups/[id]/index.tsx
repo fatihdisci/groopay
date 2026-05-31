@@ -22,7 +22,6 @@ import type { Category } from '@/lib/finance/categories';
 import type { GroupMemberRow, ExpenseWithSplits, ExpenseRow, ExpenseSplitRow, ActivityLogRow, SettlementRow } from '@/lib/supabase/types';
 import { getGroupActivity, generateWhatsAppSummary, requestIban, getPendingIbanRequests, fulfillIbanRequest } from '@/lib/supabase/queries';
 import { supabase } from '@/lib/supabase/client';
-import { ProFeatureRow, ProBadge } from '@/components/ProGate';
 import Avatar from '@/components/Avatar';
 
 // ── Helpers ──
@@ -63,7 +62,6 @@ export default function GroupDetailScreen() {
   const [showFx, setShowFx] = useState(false);
   const [activeTab, setActiveTab] = useState<'expenses' | 'balances'>('expenses');
   const [balanceMode, setBalanceMode] = useState<'simplified' | 'raw'>('simplified');
-  const [proBannerOpen, setProBannerOpen] = useState(false);
   const fabAnim = useRef(new Animated.Value(1)).current;
   const fabScale = useRef(new Animated.Value(1)).current;
 
@@ -205,6 +203,7 @@ export default function GroupDetailScreen() {
 
   const { group, members } = data;
   const actorMember = getActorMember(members as GroupMemberRow[], user?.id);
+  const isFounder = actorMember?.role === 'founder';
 
   // ── IBAN handlers ──
   const handleIbanRequest = (to: GroupMemberRow, _currency: string) => {
@@ -290,14 +289,42 @@ export default function GroupDetailScreen() {
   return (
     <View style={styles.flex}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {/* Group header — soft gradient, avatar'la kontrast için daha açık */}
+        {/* Group header — gradient with back/edit buttons at top corners */}
         <LinearGradient
           colors={['#6366F1', '#8B5CF6']}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
-          <Avatar initials={getInitials(group.name)} size={64} />
+          {/* Back button — top-left corner */}
+          <TouchableOpacity
+            style={styles.headerBackButton}
+            onPress={() => router.back()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="chevron-back" size={22} color="white" />
+          </TouchableOpacity>
+
+          {/* Edit button — top-right corner, founder only */}
+          {isFounder && (
+            <TouchableOpacity
+              style={styles.headerEditButton}
+              onPress={() => router.push(`/groups/${id}/edit`)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="pencil-outline" size={18} color="rgba(255,255,255,0.85)" />
+            </TouchableOpacity>
+          )}
+
+          <Avatar
+            initials={getInitials(group.name)}
+            color={group.avatar_color}
+            emoji={group.avatar_emoji}
+            size={64}
+          />
           <Text style={styles.groupName}>{group.name}</Text>
+          {group.description ? (
+            <Text style={styles.groupDescription}>{group.description}</Text>
+          ) : null}
           <Text style={styles.groupMeta}>{members.filter((m: GroupMemberRow) => m.is_active).length} {t('groups.members')}</Text>
           {group.is_demo && (
             <View style={styles.demoBadge}><Text style={styles.demoBadgeText}>{t('groups.demoBadge')}</Text></View>
@@ -352,32 +379,6 @@ export default function GroupDetailScreen() {
         {/* ── TAB: Expenses ── */}
         {activeTab === 'expenses' && (
           <>
-            {/* Pro feature banner — collapsed by default */}
-            <View style={styles.proBanner}>
-              <TouchableOpacity
-                style={styles.proBannerHeader}
-                onPress={() => {
-                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                  setProBannerOpen(!proBannerOpen);
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <ProBadge />
-                  <Text style={styles.proBannerLabel}>{t('paywall.proFeatures')}</Text>
-                </View>
-                <Ionicons name={proBannerOpen ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.primary} />
-              </TouchableOpacity>
-              {proBannerOpen && (
-                <View style={styles.proBannerBody}>
-                  <ProFeatureRow group={{ id: id!, is_pro: group.is_pro }} icon="receipt-outline" label={t('paywall.features.receipt')} />
-                  <ProFeatureRow group={{ id: id!, is_pro: group.is_pro }} icon="repeat-outline" label={t('paywall.features.recurring')} />
-                  <ProFeatureRow group={{ id: id!, is_pro: group.is_pro }} icon="download-outline" label={t('paywall.features.export')} />
-                  <ProFeatureRow group={{ id: id!, is_pro: group.is_pro }} icon="stats-chart-outline" label={t('paywall.features.charts')} />
-                </View>
-              )}
-            </View>
-
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
               <TouchableOpacity style={[styles.filterChip, !filterCategory && styles.filterChipActive]} onPress={() => setFilterCategory(null)}>
                 <Text style={[styles.filterChipText, !filterCategory && styles.filterChipTextActive]}>{t('expense.allCategories')}</Text>
@@ -932,8 +933,11 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xxl * 2 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.background },
   emptyText: { color: palette.textSecondary, fontSize: fontSizes.md },
-  headerGradient: { alignItems: 'center', paddingTop: 60, paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
+  headerGradient: { alignItems: 'center', paddingTop: 52, paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
+  headerBackButton: { position: 'absolute', top: 8, left: 8, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', zIndex: 10 },
+  headerEditButton: { position: 'absolute', top: 8, right: 8, padding: 8, zIndex: 10 },
   groupName: { fontFamily: Typography.fontDisplayBold, fontSize: Typography.size.xl, color: '#FFFFFF', marginTop: Spacing.sm },
+  groupDescription: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: 'rgba(255,255,255,0.6)', marginTop: 4, textAlign: 'center', paddingHorizontal: Spacing.md },
   groupMeta: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
   demoBadge: { marginTop: Spacing.sm, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: Spacing.sm, paddingVertical: 3, borderRadius: Radius.sm },
   demoBadgeText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.xs, color: '#FFFFFF' },
@@ -1054,27 +1058,6 @@ const styles = StyleSheet.create({
   modalCancelText: { fontSize: fontSizes.sm, color: palette.textSecondary, fontWeight: '600' },
   modalConfirm: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radii.md, backgroundColor: palette.primary },
   modalConfirmText: { fontSize: fontSizes.sm, color: 'white', fontWeight: '700' },
-  // Pro features banner
-  proBanner: {
-    backgroundColor: Colors.surfaceTinted,
-    borderRadius: Radius.sm,
-    marginBottom: Spacing.sm,
-    overflow: 'hidden',
-  },
-  proBannerHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: Spacing.sm, paddingVertical: 10,
-  },
-  proBannerLabel: {
-    fontFamily: Typography.fontBodyBold,
-    fontSize: Typography.size.sm,
-    color: Colors.primary,
-  },
-  proBannerBody: {
-    paddingHorizontal: Spacing.sm,
-    paddingBottom: Spacing.sm,
-    gap: 6,
-  },
   // IBAN
   remindBtn: { paddingHorizontal: spacing.xs, paddingVertical: 3 },
   ibanInput: { backgroundColor: palette.surface, borderRadius: radii.md, padding: spacing.md, fontSize: fontSizes.md, color: palette.text, borderWidth: 1, borderColor: palette.border, marginBottom: spacing.sm, fontFamily: 'monospace', letterSpacing: 0.5 },

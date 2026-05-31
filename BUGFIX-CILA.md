@@ -282,4 +282,245 @@
 
 ---
 
-*Son güncelleme: 2026-05-31 — B18 eklendi*
+*Son güncelleme: 2026-05-31 — B19-B24 eklendi (Pro sadeleştirme)*
+
+---
+
+## Pro Modeli Sadeleştirme (4. Tur — 6 değişiklik)
+
+> Tarih: 2026-05-31
+> Amaç: İki Pro tipi (Grup Pro + User Pro) kullanıcıyı kafalıyordu. Paywall'da çalışmayan 4 özellik vaat ediliyordu. TEK Pro (aylık User Pro) modeline geçildi.
+
+### ✅ B19: Grup Pro arayüzden kaldırıldı
+
+**Sorun:** Paywall'da iki Pro seçeneği (Grup Pro + User Pro) kafa karıştırıyordu. Grup Pro tek seferlik, User Pro aylık — ikisi arasındaki fark net değildi.
+
+**Yapılan:**
+- `app/paywall.tsx` — "Bu Grubu Pro Yap" kartı TAMAMEN kaldırıldı. Tek "Pro'ya Geç" (User Pro) kartı kaldı, her zaman vurgulu (primary border). "aylık" badge'i eklendi.
+- `hooks/usePro.ts` — `hasProAccess` artık sadece `isUserPro` kontrol ediyor. `isGroupPro` fonksiyonu kodda duruyor ama UI'da kullanılmıyor.
+- Grup detayındaki Grup Pro referansları kaldırıldı.
+- **ÖNEMLİ:** `purchaseGroupPro` fonksiyonu, `handlePurchaseGroupPro` handler'ı ve webhook'taki `group_pro` mantığı KODDA KALDI (ileride lazım olabilir). Sadece ARAYÜZDEN gizlendi.
+
+**Değişen dosyalar:** `app/paywall.tsx`, `hooks/usePro.ts`
+
+---
+
+### ✅ B20: Paywall özellik listesi gerçekçileştirildi
+
+**Sorun:** Paywall'da 5 özellik vaat ediliyordu — Fiş/OCR, Tekrarlayan masraf, PDF/CSV dışa aktarma, Gelişmiş grafikler, Sınırsız grup. Bunlardan 4'ü YAZILMAMIŞTI. Apple bunu reddeder.
+
+**Yapılan:**
+- `PRO_FEATURES` listesi 3 çalışan özelliğe indirildi:
+  1. "Tüm gruplarını tek panelde gör" (Dashboard) — `stats-chart-outline`
+  2. "Sınırsız grup oluştur" — `add-circle-outline`
+  3. "Kategori bazlı analiz ve özet" — `pie-chart-outline`
+- İkonlar yeşil (`palette.success`) → mor (`palette.primary`) — marka tutarlılığı.
+- `paywall.subtitle`: "Tüm özellikleri aç" → "Tüm gruplarını tek yerden yönet, sınırsız grup oluştur."
+
+**Değişen dosyalar:** `app/paywall.tsx`, `locales/tr.json`, `locales/en.json`
+
+---
+
+### ✅ B21: Grup detayı Pro banner kaldırıldı
+
+**Sorun:** Masraf sekmesindeki collapsed "Pro özellikler" banner'ı (Fiş/OCR, Tekrarlayan, Dışa Aktarma, Grafikler) artık vaat edilmeyen özellikleri gösteriyordu. Masraf listesini gereksiz yere sıkıştırıyordu.
+
+**Yapılan:**
+- Pro banner JSX bloğu (`proBanner`, `proBannerHeader`, `proBannerBody`) tamamen kaldırıldı.
+- `ProFeatureRow`, `ProBadge` import'ları kaldırıldı.
+- `proBannerOpen` state'i kaldırıldı.
+- Pro banner stilleri (`proBanner*`, 5 stil) temizlendi.
+- Masraf listesi artık temiz, banner yok.
+
+**Değişen dosyalar:** `app/groups/[id]/index.tsx`
+
+---
+
+### ✅ B22: Dashboard "Trendler" placeholder'ı kaldırıldı
+
+**Sorun:** Dashboard'da "Trendler: Yakında" placeholder'ı vardı. Çalışmayan bir özellik gösteriliyordu.
+
+**Yapılan:**
+- "Trendler" section'ı tamamen kaldırıldı.
+- `comingSoonCard`, `comingSoonText` stilleri temizlendi.
+- `t('dashboard.comingSoon')` → `t('balance.empty')` (boş kategori durumu için).
+- Dashboard artık sadece çalışan 2 bölüm: Genel Bakiye + Kategori Dağılımı.
+
+**Değişen dosyalar:** `app/dashboard.tsx`
+
+---
+
+### ✅ B23: DEV-only Pro toggle butonu eklendi
+
+**Sorun:** Expo Go'da RevenueCat IAP çalışmadığı için Pro ekranlarını (Dashboard, sınırsız grup) test etmek imkansızdı.
+
+**Yapılan:**
+- `app/(tabs)/account.tsx` — Çıkış yap butonunun altına, SADECE `__DEV__` modunda görünen buton eklendi: "🛠 [DEV] Pro'yu Aç/Kapat".
+- `handleDevTogglePro`: `supabase.from('profiles').update({ user_pro: newVal })` ile DB'ye yazar, sonra `supabase.auth.refreshSession()` + `queryClient.invalidateQueries` ile state'i yeniler.
+- Buton stili: kesik çizgili warning renkli çerçeve, sarımsı arka plan — production'da ASLA görünmez.
+
+**Değişen dosyalar:** `app/(tabs)/account.tsx`
+
+---
+
+### ✅ B24: i18n temizliği
+
+**Sorun:** Kaldırılan özelliklere ait i18n anahtarları (`paywall.features.receipt`, `paywall.groupProTitle`, `pro.lockedMessage` vs.) gereksiz yer kaplıyordu.
+
+**Yapılan:**
+- `tr.json` + `en.json` — KALDIRILAN anahtarlar:
+  - `paywall.features.receipt`, `paywall.features.recurring`, `paywall.features.export`, `paywall.features.charts`
+  - `paywall.groupProTitle`, `paywall.groupProDesc`, `paywall.groupProDetail`, `paywall.purchaseGroupPro`, `paywall.groupProSuccess`
+  - `pro.lockedMessage`, `pro.groupProBadge`
+  - `dashboard.trends`, `dashboard.comingSoon`
+- EKLENEN anahtarlar (tr + en):
+  - `paywall.features.dashboard`, `paywall.features.categoryAnalytics`
+  - `paywall.monthly`
+- GÜNCELLENEN anahtarlar:
+  - `paywall.subtitle`, `paywall.userProDesc`, `paywall.userProDetail`
+  - `paywall.features.unlimitedGroups`
+
+**Değişen dosyalar:** `locales/tr.json`, `locales/en.json`
+
+---
+
+## Sonuç
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Paywall'da tek Pro seçeneği | ✅ Sadece User Pro (aylık) |
+| Boş vaat (yazılmamış özellik) | ✅ 0 |
+| Grup detay Pro banner | ✅ Kaldırıldı |
+| Dashboard placeholder | ✅ Kaldırıldı |
+| DEV Pro toggle | ✅ Sadece `__DEV__` |
+| Grup Pro altyapısı | ✅ Kodda duruyor, UI'da gizli |
+
+*Son güncelleme: 2026-05-31 — B19-B24 eklendi (Pro sadeleştirme)*
+
+---
+
+## Grup Yönetim Özellikleri (5. Tur — B25-B31)
+
+> Tarih: 2026-05-31
+> Migration: `0007_group_management.sql`
+
+### ✅ B25: Migration — 3 sütun + 3 RPC
+- `groups` → `description`, `avatar_emoji`, `avatar_color`
+- `delete_group(group_id)` — kurucu hard delete + cascade
+- `remove_member(group_id, member_id)` — kurucu herkesi / üye kendini
+- `transfer_ownership(group_id, new_founder_id)` — kurucu devri
+- **Dosya:** `supabase/migrations/0007_group_management.sql`
+
+### ✅ B26: Grup düzenleme ekranı (`app/groups/[id]/edit.tsx`)
+- Ad, açıklama, avatar rengi (8), emoji (16), Kaydet
+- Gruptan Ayrıl (normal/kurucu akışı), Grubu Sil (kurucu)
+- **Dosyalar:** `edit.tsx` (yeni), `_layout.tsx`
+
+### ✅ B27: Avatar emoji desteği
+- `Avatar` bileşenine `emoji` prop'u eklendi
+- **Dosyalar:** `components/Avatar.tsx`, `index.tsx`, `groups.tsx`
+
+### ✅ B28: Açıklama gösterimi
+- Header'da yarı-saydam beyaz metin
+- **Dosya:** `app/groups/[id]/index.tsx`
+
+### ✅ B29: Edit butonu
+- `navigation.setOptions({ headerRight })` — sadece kurucu
+- **Dosya:** `app/groups/[id]/index.tsx`
+
+### ✅ B30: RPC tabanlı üye çıkarma
+- `useRemoveMember` → `remove_member` RPC
+- Normal üye için "Gruptan Ayrıl" butonu
+- **Dosyalar:** `members.tsx`, `hooks/useGroupDetail.ts`
+
+### ✅ B31: i18n + tipler
+- `GroupRow`: description, avatar_emoji, avatar_color
+- `group.*` namespace (12 anahtar tr+en)
+- `deleteGroupRpc`, `removeMemberRpc`, `transferOwnershipRpc`
+- **Dosyalar:** `types.ts`, `queries.ts`, `hooks/*`, `locales/*`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Grup düzenleme | ✅ Ad, açıklama, renk, emoji |
+| Emoji avatar | ✅ Grup detay + liste |
+| Açıklama | ✅ Header'da görünür |
+| Üye çıkarma | ✅ RPC + yetki kontrolü |
+| Kurucu devri | ✅ Seç → devret → ayrıl |
+| Grup silme | ✅ Hard delete + cascade |
+
+*Son güncelleme: 2026-05-31 — B25-B31 eklendi (grup yönetimi)*
+
+---
+
+## B32: Route + hooks düzeltmesi (5. Tur sonrası)
+
+> Tarih: 2026-05-31
+
+**Sorun 1:** `WARN: No route named "groups/[id]/edit"` — `_layout.tsx`'te edit route'u tanımlı değildi.
+
+**Yapılan:** `app/groups/[id]/_layout.tsx` → edit Stack.Screen eklendi. Root `_layout.tsx`'ten mükerrer tanım kaldırıldı.
+
+**Sorun 2:** `ERROR: Rendered more hooks than during the previous render` — `useEffect` early return sonrasında çağrılıyordu. `isLoading=true` iken atlanıyor, false olunca fazladan hook ekleniyordu.
+
+**Yapılan:** `useEffect` + `navigation.setOptions` kaldırıldı. Edit butonu doğrudan gradient header JSX içine `position: absolute` ile yerleştirildi (sadece `isFounder` ise). Ayrıca `edit.tsx`'teki hatalı `useState` initialization → `useRef` + `useEffect` ile düzeltildi.
+
+**Değişen dosyalar:** `app/groups/[id]/_layout.tsx`, `app/_layout.tsx`, `app/groups/[id]/index.tsx`, `app/groups/[id]/edit.tsx`
+
+*Son güncelleme: 2026-05-31 — B35 eklendi*
+
+---
+
+## B33-B35: Grup detayı tabs içine taşıma + header/geri butonu (6. Tur)
+
+### ✅ B33: Rota yapısı — tabs içine taşıma
+
+**Sorun:** Grup detayı root Stack'te tabs DIŞINDAYDI → alt bar kayboluyordu. Ayrıca root Stack `headerShown: false` nedeniyle header/geri butonu da yoktu. Nested `_layout.tsx` edit route'unu tanımıyordu.
+
+**Yapılan:**
+- Tüm grup detay dosyaları `app/groups/[id]/` → `app/(tabs)/groups/[id]/` taşındı
+- `app/(tabs)/groups.tsx` → `app/(tabs)/groups/index.tsx`
+- `app/(tabs)/groups/_layout.tsx` — Stack layout (liste → detay → modal'lar)
+- Root `_layout.tsx`'ten `groups/[id]` kaldırıldı
+- Eski `app/groups/[id]/` dizini silindi
+- `[id]/index` screen: `headerShown: false, animation: 'none'` (Stack header yok)
+- `[id]/edit` screen: `headerShown: false, animation: 'none'`
+- Geri butonları gradient header içine `position: absolute, top: 8, left: 8` ile yerleştirildi
+
+**Değişen dosyalar:** `app/(tabs)/groups/_layout.tsx` (yeni), `app/(tabs)/groups/index.tsx` (taşındı), `app/(tabs)/groups/[id]/index.tsx` (taşındı), `app/(tabs)/groups/[id]/edit.tsx` (taşındı), `app/(tabs)/groups/[id]/add-expense.tsx` (taşındı), `app/(tabs)/groups/[id]/members.tsx` (taşındı), `app/_layout.tsx`, eski `app/groups/[id]/` silindi, eski `app/(tabs)/groups.tsx` silindi
+
+### ✅ B34: Avatar emoji görünmezliği + header fontu
+
+**Sorun:** `fontSize: 0` emoji'yi görünmez yapıyordu. Header `fontFamily` eksikti. Avatar'da emoji ile harf arasında font farkı yoktu.
+
+**Yapılan:**
+- `components/Avatar.tsx`: emoji → `fontSize: size * 0.52` (sistem fontu), harf → `fontFamily: Typography.fontDisplay, fontSize: size * 0.38`
+- `_layout.tsx`: `headerTitleStyle.fontFamily: Typography.fontDisplayMedium`
+- Gereksiz `emoji` style'ı kaldırıldı, `fontFamily` inline veriliyor
+
+**Değişen dosyalar:** `components/Avatar.tsx`, `app/(tabs)/groups/_layout.tsx`
+
+### ✅ B35: Edit sayfası — aynı header + canlı önizleme + "DÜZENLEME MODU"
+
+**Yapılan:**
+- Edit sayfasına grup detayındakinin BİREBİR aynısı gradient header eklendi (renk, padding, stil)
+- Geri butonu: aynı konum `top: 8, left: 8`, aynı stil `rgba(255,255,255,0.15)`
+- Avatar, isim, açıklama: form değiştikçe header'da canlı önizleme
+- Avatar üstüne yarı-saydam "DÜZENLEME MODU" etiketi eklendi (`group.editMode`)
+- `useSafeAreaInsets` kaldırıldı, sabit `paddingTop: 52` kullanılıyor
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/edit.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Alt bar | ✅ Grup detayında görünür |
+| Geri butonu (detay) | ✅ Gradient header sol-üst |
+| Geri butonu (edit) | ✅ Aynı konum, aynı stil |
+| Header fontu | ✅ Plus Jakarta Sans |
+| Avatar emoji | ✅ Görünür, canlı önizleme |
+| Düzenleme modu etiketi | ✅ Avatar üstünde |
+| Stack header sıçraması | ✅ `animation: 'none'` ile yok |
+
+*Son güncelleme: 2026-05-31 — B33-B35 eklendi (header/geri butonu)*

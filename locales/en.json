@@ -86,6 +86,24 @@
     "edit": "Edit",
     "addMember": "Add Member"
   },
+  "group": {
+    "edit": "Edit Group",
+    "description": "Description",
+    "descriptionPlaceholder": "e.g. Izmir trip 2026",
+    "emoji": "Avatar Emoji",
+    "avatarPreview": "Preview",
+    "deleteGroup": "Delete Group",
+    "deleteConfirm": "This group and all its expenses will be permanently deleted.",
+    "deleteWarning": "This cannot be undone!",
+    "leaveGroup": "Leave Group",
+    "leaveAsFounder": "Leave (Founder)",
+    "leaveTitle": "Leave Group",
+    "leaveConfirm": "Are you sure you want to leave? Your expense history remains.",
+    "leaveSoloFounder": "You're the only member. If you leave, the group becomes unusable. Delete it instead?",
+    "transferOwnership": "Transfer Ownership",
+    "transferRequired": "You're the founder. Transfer ownership to another member before leaving.",
+    "editMode": "EDIT MODE"
+  },
   "expense": {
     "addTitle": "Add Expense",
     "editTitle": "Edit Expense",
@@ -222,22 +240,17 @@
   },
   "paywall": {
     "title": "Go Pro",
-    "subtitle": "Unlock all features, use with your group",
+    "subtitle": "Manage all your groups in one place, create unlimited groups.",
     "proFeatures": "Pro Features",
     "features": {
-      "receipt": "Receipt/OCR: Auto-scan receipts",
-      "recurring": "Recurring expenses",
-      "export": "PDF/CSV export",
-      "charts": "Advanced charts & analytics",
-      "unlimitedGroups": "Unlimited group creation"
+      "dashboard": "View all groups in one dashboard",
+      "unlimitedGroups": "Create unlimited groups",
+      "categoryAnalytics": "Category-based analytics and summary"
     },
-    "groupProTitle": "Make This Group Pro",
-    "groupProDesc": "One-time — permanent for this group",
-    "groupProDetail": "All members benefit. Receipts, recurring expenses, export, and charts are unlocked for this group.",
     "userProTitle": "Go Pro",
-    "userProDesc": "All your groups + personal features",
-    "userProDetail": "Pro features in all your groups + unlimited groups + personal dashboard and analytics.",
-    "purchaseGroupPro": "Purchase{{price}}",
+    "userProDesc": "Monthly subscription — Pro in all your groups",
+    "userProDetail": "Pro features in all your groups + unlimited group creation + personal dashboard and category analytics.",
+    "monthly": "monthly",
     "purchaseUserPro": "Go Pro{{price}}",
     "restore": "Restore purchases",
     "recommended": "Recommended",
@@ -245,7 +258,6 @@
     "loading": "Loading...",
     "ok": "OK",
     "successTitle": "Success",
-    "groupProSuccess": "Group upgraded to Pro! Pro features are now active for this group.",
     "userProSuccess": "Upgraded to Pro! All Pro features are now active.",
     "restoreTitle": "Restore",
     "restoreSuccess": "Your purchases have been restored.",
@@ -263,10 +275,8 @@
   },
   "pro": {
     "locked": "Pro Feature",
-    "lockedMessage": "This feature requires Pro. Upgrade to unlock receipts/OCR, recurring expenses, export, and more.",
     "upgrade": "Go Pro",
     "badge": "Pro",
-    "groupProBadge": "Pro Group",
     "userProBadge": "Pro Member"
   },
   "dashboard": {
@@ -278,9 +288,7 @@
     "totalAcrossGroups": "Your status across all groups",
     "lockedTitle": "Dashboard is Pro Only",
     "lockedMessage": "Upgrade to Pro to see your overall balance across all groups and personal analytics.",
-    "categoryBreakdown": "Category Breakdown",
-    "trends": "Trends",
-    "comingSoon": "Coming soon"
+    "categoryBreakdown": "Category Breakdown"
   },
   "account": {
     "title": "Account",

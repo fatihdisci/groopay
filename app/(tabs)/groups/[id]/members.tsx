@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useGroupDetail, useAddGhostMember, useDeactivateMember, useCreateInvite } from '@/hooks/useGroupDetail';
+import { useGroupDetail, useAddGhostMember, useDeactivateMember, useRemoveMember, useCreateInvite } from '@/hooks/useGroupDetail';
 import { useAuth } from '@/lib/auth';
 import { palette, spacing, fontSizes, radii, minTouchTarget } from '@/constants/theme';
 import Avatar from '@/components/Avatar';
@@ -25,6 +25,7 @@ export default function MembersScreen() {
   const { data, isLoading } = useGroupDetail(id!);
   const addGhost = useAddGhostMember(id!);
   const deactivate = useDeactivateMember(id!);
+  const removeMember = useRemoveMember(id!);
   const createInvite = useCreateInvite(id!);
 
   const [showAdd, setShowAdd] = useState(false);
@@ -58,7 +59,7 @@ export default function MembersScreen() {
       Alert.alert(t('members.warning'), t('members.removeSelf'));
       return;
     }
-    if (member.role === 'founder' && activeMembers.filter((m: GroupMemberRow) => m.role === 'founder').length <= 1) {
+    if (member.role === 'founder') {
       Alert.alert(t('members.warning'), t('members.removeLastFounder'));
       return;
     }
@@ -67,7 +68,27 @@ export default function MembersScreen() {
       t('members.removeConfirm', { name: member.display_name }),
       [
         { text: t('groups.cancel'), style: 'cancel' },
-        { text: t('members.remove'), style: 'destructive', onPress: () => deactivate.mutate(member.id) },
+        {
+          text: t('members.remove'),
+          style: 'destructive',
+          onPress: () => removeMember.mutate(member.id),
+        },
+      ],
+    );
+  };
+
+  const handleLeaveGroup = () => {
+    if (!myMember) return;
+    Alert.alert(
+      t('group.leaveTitle'),
+      t('group.leaveConfirm'),
+      [
+        { text: t('groups.cancel'), style: 'cancel' },
+        {
+          text: t('group.leaveGroup'),
+          style: 'destructive',
+          onPress: () => removeMember.mutate(myMember.id),
+        },
       ],
     );
   };
@@ -117,12 +138,22 @@ export default function MembersScreen() {
           {item.user_id ? t('members.realMember') : t('members.ghost')}
         </Text>
       </View>
-      {isFounder && item.is_active && item.user_id !== user?.id && (
+      {/* Founder can remove any non-founder active member */}
+      {isFounder && item.is_active && item.role !== 'founder' && (
         <TouchableOpacity
           onPress={() => handleDeactivate(item)}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
           <Ionicons name="remove-circle-outline" size={22} color={palette.danger} />
+        </TouchableOpacity>
+      )}
+      {/* Regular member sees leave button for themselves */}
+      {!isFounder && item.is_active && item.user_id === user?.id && (
+        <TouchableOpacity
+          onPress={handleLeaveGroup}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name="exit-outline" size={22} color={palette.danger} />
         </TouchableOpacity>
       )}
     </View>

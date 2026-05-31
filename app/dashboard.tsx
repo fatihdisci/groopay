@@ -220,7 +220,7 @@ export default function DashboardScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>{t('dashboard.categoryBreakdown')}</Text>
         {categories.length === 0 ? (
-          <Text style={styles.emptyText}>{t('dashboard.comingSoon')}</Text>
+          <Text style={styles.emptyText}>{t('balance.empty')}</Text>
         ) : (
           <View style={styles.categoryList}>
             {categories.map((c) => (
@@ -238,14 +238,6 @@ export default function DashboardScreen() {
         )}
       </View>
 
-      {/* Trends — placeholder */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t('dashboard.trends')}</Text>
-        <View style={styles.comingSoonCard}>
-          <Ionicons name="stats-chart-outline" size={32} color={palette.muted} />
-          <Text style={styles.comingSoonText}>{t('dashboard.comingSoon')}</Text>
-        </View>
-      </View>
     </ScrollView>
   );
 }
@@ -312,18 +304,6 @@ const styles = StyleSheet.create({
   },
   categoryName: { fontSize: fontSizes.md, color: palette.text },
   categoryAmount: { fontSize: fontSizes.md, fontWeight: '600', color: palette.text },
-
-  // Coming soon
-  comingSoonCard: {
-    backgroundColor: palette.surface,
-    borderRadius: radii.lg,
-    padding: spacing.xxl,
-    borderWidth: 1,
-    borderColor: palette.border,
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  comingSoonText: { fontSize: fontSizes.sm, color: palette.muted },
 
   emptyText: { fontSize: fontSizes.sm, color: palette.muted },
 });

@@ -28,11 +28,9 @@ import { palette, spacing, fontSizes, radii, minTouchTarget } from '@/constants/
 type ProFeature = { icon: keyof typeof Ionicons.glyphMap; labelKey: string };
 
 const PRO_FEATURES: ProFeature[] = [
-  { icon: 'receipt-outline', labelKey: 'paywall.features.receipt' },
-  { icon: 'repeat-outline', labelKey: 'paywall.features.recurring' },
-  { icon: 'download-outline', labelKey: 'paywall.features.export' },
-  { icon: 'stats-chart-outline', labelKey: 'paywall.features.charts' },
+  { icon: 'stats-chart-outline', labelKey: 'paywall.features.dashboard' },
   { icon: 'add-circle-outline', labelKey: 'paywall.features.unlimitedGroups' },
+  { icon: 'pie-chart-outline', labelKey: 'paywall.features.categoryAnalytics' },
 ];
 
 export default function PaywallScreen() {
@@ -59,7 +57,7 @@ export default function PaywallScreen() {
   }, []);
 
   const highlightUserPro = context === 'limit';
-  const highlightGroupPro = (context === 'group-pro' || context === 'feature') && !!groupId;
+  const hasGroupContext = (context === 'group-pro' || context === 'feature') && !!groupId;
 
   const handlePurchaseGroupPro = async () => {
     if (!offerings?.groupPro?.id) {
@@ -81,7 +79,7 @@ export default function PaywallScreen() {
       if (result.devBuildRequired) {
         Alert.alert(t('paywall.devBuildTitle'), t('paywall.devBuildMessage'));
       } else if (result.success) {
-        Alert.alert(t('paywall.successTitle'), t('paywall.groupProSuccess'), [
+        Alert.alert(t('paywall.successTitle'), t('paywall.userProSuccess'), [
           { text: t('paywall.ok'), onPress: () => router.back() },
         ]);
       } else if (result.error !== 'cancelled') {
@@ -180,58 +178,28 @@ export default function PaywallScreen() {
         <Text style={styles.featuresTitle}>{t('paywall.proFeatures')}</Text>
         {PRO_FEATURES.map((f) => (
           <View key={f.labelKey} style={styles.featureRow}>
-            <Ionicons name={f.icon} size={20} color={palette.success} />
+            <Ionicons name={f.icon} size={20} color={palette.primary} />
             <Text style={styles.featureText}>{t(f.labelKey)}</Text>
           </View>
         ))}
       </View>
 
-      {/* Group Pro Option */}
-      {groupId ? (
-        <View style={[styles.optionCard, highlightGroupPro && styles.optionHighlighted]}>
-          {highlightGroupPro && (
-            <View style={styles.recommendedBadge}>
-              <Text style={styles.recommendedText}>{t('paywall.recommended')}</Text>
-            </View>
-          )}
-          <View style={styles.optionHeader}>
-            <Ionicons name="people" size={24} color={palette.primary} />
-            <View style={styles.optionInfo}>
-              <Text style={styles.optionTitle}>{t('paywall.groupProTitle')}</Text>
-              <Text style={styles.optionDesc}>{t('paywall.groupProDesc')}</Text>
-            </View>
-          </View>
-          <Text style={styles.optionDetail}>{t('paywall.groupProDetail')}</Text>
-          <TouchableOpacity
-            style={[styles.buyButton, purchasing === 'group' && styles.buyButtonDisabled]}
-            onPress={handlePurchaseGroupPro}
-            disabled={purchasing !== null || !offeringsLoaded}
-            activeOpacity={0.7}
-          >
-            {purchasing === 'group' ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Text style={styles.buyButtonText}>
-                {offeringsLoaded
-                  ? t('paywall.purchaseGroupPro', { price: formatPrice(groupProPrice) })
-                  : t('paywall.loading')}
-              </Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      ) : null}
-
-      {/* User Pro Option */}
-      <View style={[styles.optionCard, highlightUserPro && styles.optionHighlighted]}>
+      {/* User Pro Option — the only Pro tier */}
+      <View style={[styles.optionCard, styles.optionHighlighted]}>
         {highlightUserPro && (
           <View style={styles.recommendedBadge}>
             <Text style={styles.recommendedText}>{t('paywall.recommended')}</Text>
           </View>
         )}
         <View style={styles.optionHeader}>
-          <Ionicons name="person" size={24} color={palette.primaryDark} />
+          <Ionicons name="diamond" size={24} color={palette.primary} />
           <View style={styles.optionInfo}>
-            <Text style={styles.optionTitle}>{t('paywall.userProTitle')}</Text>
+            <View style={styles.optionTitleRow}>
+              <Text style={styles.optionTitle}>{t('paywall.userProTitle')}</Text>
+              <View style={styles.monthlyBadge}>
+                <Text style={styles.monthlyBadgeText}>{t('paywall.monthly')}</Text>
+              </View>
+            </View>
             <Text style={styles.optionDesc}>{t('paywall.userProDesc')}</Text>
           </View>
         </View>
@@ -240,7 +208,7 @@ export default function PaywallScreen() {
         )}
         <Text style={styles.optionDetail}>{t('paywall.userProDetail')}</Text>
         <TouchableOpacity
-          style={[styles.buyButton, styles.buyButtonSecondary, purchasing === 'user' && styles.buyButtonDisabled]}
+          style={[styles.buyButton, purchasing === 'user' && styles.buyButtonDisabled]}
           onPress={handlePurchaseUserPro}
           disabled={purchasing !== null || !offeringsLoaded}
           activeOpacity={0.7}
@@ -331,6 +299,14 @@ const styles = StyleSheet.create({
   optionHeader: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm },
   optionInfo: { flex: 1 },
   optionTitle: { fontSize: fontSizes.lg, fontWeight: '700', color: palette.text },
+  optionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  monthlyBadge: {
+    backgroundColor: palette.primary + '15',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radii.full,
+  },
+  monthlyBadgeText: { fontSize: fontSizes.xs, fontWeight: '600', color: palette.primary },
   optionDesc: { fontSize: fontSizes.sm, color: palette.textSecondary, marginTop: 2 },
   optionDetail: { fontSize: fontSizes.sm, color: palette.textSecondary, marginBottom: spacing.md, lineHeight: fontSizes.sm * 1.5 },
   limitNote: {

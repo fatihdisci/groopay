@@ -17,6 +17,7 @@ import { useAuth, AVATAR_COLORS } from '@/lib/auth';
 import { getAvatarHeaderGradient } from '@/constants/avatarColors';
 import { usePro } from '@/hooks/usePro';
 import { isRevenueCatAvailable, restorePurchases } from '@/lib/revenuecat';
+import { supabase } from '@/lib/supabase/client';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
 import { palette, spacing, fontSizes, radii, minTouchTarget } from '@/constants/theme';
@@ -102,6 +103,28 @@ export default function AccountScreen() {
     } finally {
       setRestoring(false);
     }
+  };
+
+  const handleDevTogglePro = async () => {
+    if (!user) return;
+    const newVal = !isUserPro;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ user_pro: newVal })
+      .eq('id', user.id);
+    if (error) {
+      Alert.alert('DEV Hatası', error.message);
+      return;
+    }
+    // Refresh local state via AuthContext's profile fetch
+    queryClient.invalidateQueries({ queryKey: ['profile'] });
+    // Force-refresh by reloading the profile row directly into the user object
+    // The auth listener won't fire for a profile-only change, so we update locally
+    await supabase.auth.refreshSession();
+    showToast(
+      newVal ? '🛠 [DEV] Pro AÇIK — sayfayı yenileyin' : '🛠 [DEV] Pro KAPALI',
+      'info',
+    );
   };
 
   if (!user) return null;
@@ -263,6 +286,16 @@ export default function AccountScreen() {
         <Text style={styles.signOutText}>{t('account.signOut')}</Text>
       </TouchableOpacity>
 
+      {/* DEV-only: Pro toggle — NEVER in production */}
+      {__DEV__ && (
+        <TouchableOpacity style={styles.devProButton} onPress={handleDevTogglePro} activeOpacity={0.7}>
+          <Ionicons name="construct-outline" size={16} color={palette.warning} />
+          <Text style={styles.devProButtonText}>
+            🛠 [DEV] {isUserPro ? "Pro'yu Kapat" : "Pro'yu Aç"}
+          </Text>
+        </TouchableOpacity>
+      )}
+
     </ScrollView>
     <Toast
       message={toast.message}
@@ -375,4 +408,12 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md, marginBottom: Spacing.lg,
   },
   signOutText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.base, color: Colors.debt },
+  devProButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: Spacing.sm, paddingVertical: Spacing.sm, marginBottom: Spacing.lg,
+    backgroundColor: palette.warning + '15',
+    borderRadius: Radius.md, borderWidth: 1, borderColor: palette.warning + '40',
+    borderStyle: 'dashed',
+  },
+  devProButtonText: { fontSize: fontSizes.sm, color: palette.warning, fontWeight: '600' },
 });

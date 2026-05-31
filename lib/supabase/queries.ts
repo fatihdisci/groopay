@@ -156,7 +156,7 @@ export async function createGroup(
 
 export async function updateGroup(
   groupId: string,
-  updates: Partial<Pick<GroupRow, 'name' | 'base_currency' | 'archived'>>,
+  updates: Partial<Pick<GroupRow, 'name' | 'base_currency' | 'archived' | 'description' | 'avatar_emoji' | 'avatar_color'>>,
 ): Promise<void> {
   const { error } = await supabase.from('groups').update(updates).eq('id', groupId);
   if (error) throw error;
@@ -170,13 +170,25 @@ export async function archiveGroup(groupId: string): Promise<void> {
   });
 }
 
-export async function deleteGroup(groupId: string): Promise<void> {
-  // Check no expenses exist
-  const { data: exps } = await supabase
-    .from('expenses').select('id').eq('group_id', groupId).is('deleted_at', null).limit(1);
-  if (exps && exps.length > 0) throw new Error('Cannot delete group with expenses');
+export async function deleteGroupRpc(groupId: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_group', { p_group_id: groupId });
+  if (error) throw error;
+}
 
-  await supabase.from('groups').delete().eq('id', groupId);
+export async function removeMemberRpc(groupId: string, memberId: string): Promise<void> {
+  const { error } = await supabase.rpc('remove_member', {
+    p_group_id: groupId,
+    p_member_id: memberId,
+  });
+  if (error) throw error;
+}
+
+export async function transferOwnershipRpc(groupId: string, newFounderMemberId: string): Promise<void> {
+  const { error } = await supabase.rpc('transfer_ownership', {
+    p_group_id: groupId,
+    p_new_founder_member_id: newFounderMemberId,
+  });
+  if (error) throw error;
 }
 
 // ── Members ──

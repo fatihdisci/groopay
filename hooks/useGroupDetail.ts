@@ -3,6 +3,9 @@ import {
   getGroupDetail,
   addGhostMember,
   deactivateMember,
+  deleteGroupRpc,
+  removeMemberRpc,
+  transferOwnershipRpc,
   updateMember,
   createInvite,
   getGroupInvites,
@@ -33,6 +36,39 @@ export function useDeactivateMember(groupId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (memberId: string) => deactivateMember(groupId, memberId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['group', groupId] });
+      qc.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+}
+
+export function useRemoveMember(groupId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (memberId: string) => removeMemberRpc(groupId, memberId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['group', groupId] });
+      qc.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+}
+
+export function useDeleteGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (groupId: string) => deleteGroupRpc(groupId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['groups'] });
+      qc.invalidateQueries({ queryKey: ['group'] });
+    },
+  });
+}
+
+export function useTransferOwnership(groupId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (newFounderMemberId: string) => transferOwnershipRpc(groupId, newFounderMemberId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['group', groupId] });
       qc.invalidateQueries({ queryKey: ['groups'] });

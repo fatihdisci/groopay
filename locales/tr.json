@@ -36,6 +36,24 @@
     "edit": "Düzenle",
     "addMember": "Üye Ekle"
   },
+  "group": {
+    "edit": "Grubu Düzenle",
+    "description": "Açıklama",
+    "descriptionPlaceholder": "örn. İzmir tatili 2026",
+    "emoji": "Avatar Emoji",
+    "avatarPreview": "Seçimin önizlemesi",
+    "deleteGroup": "Grubu Sil",
+    "deleteConfirm": "Bu grup ve tüm masrafları kalıcı olarak silinecek.",
+    "deleteWarning": "Bu işlem geri alınamaz!",
+    "leaveGroup": "Gruptan Ayrıl",
+    "leaveAsFounder": "Ayrıl (Kurucu)",
+    "leaveTitle": "Gruptan Ayrıl",
+    "leaveConfirm": "Gruptan ayrılmak istediğine emin misin? Geçmiş masrafların kalır.",
+    "leaveSoloFounder": "Grupta başka üye yok. Ayrılırsan grup işlevsiz kalır. Grubu silmek ister misin?",
+    "transferOwnership": "Kurucu Devri",
+    "transferRequired": "Kurucu olduğun için ayrılmadan önce grubu başka birine devretmelisin.",
+    "editMode": "DÜZENLEME MODU"
+  },
   "expense": {
     "addTitle": "Masraf Ekle",
     "editTitle": "Masrafı Düzenle",
@@ -220,22 +238,17 @@
   },
   "paywall": {
     "title": "Pro'ya Geç",
-    "subtitle": "Tüm özellikleri aç, grubunla birlikte kullan",
+    "subtitle": "Tüm gruplarını tek yerden yönet, sınırsız grup oluştur.",
     "proFeatures": "Pro Özellikleri",
     "features": {
-      "receipt": "Fiş/OCR: Fiş fotoğrafından otomatik okuma",
-      "recurring": "Tekrarlayan masraf tanımlama",
-      "export": "PDF/CSV dışa aktarma",
-      "charts": "Gelişmiş grafik ve analizler",
-      "unlimitedGroups": "Sınırsız grup oluşturma"
+      "dashboard": "Tüm gruplarını tek panelde gör",
+      "unlimitedGroups": "Sınırsız grup oluştur",
+      "categoryAnalytics": "Kategori bazlı analiz ve özet"
     },
-    "groupProTitle": "Bu Grubu Pro Yap",
-    "groupProDesc": "Tek seferlik — bu gruba kalıcı",
-    "groupProDetail": "Gruptaki herkes faydalanır. Fiş, tekrarlayan masraf, dışa aktarma ve grafikler bu grup için açılır.",
     "userProTitle": "Pro'ya Geç",
-    "userProDesc": "Tüm gruplarında Pro + kişisel özellikler",
-    "userProDetail": "Tüm gruplarında Pro özellikleri + sınırsız grup oluşturma + kişisel dashboard ve analiz.",
-    "purchaseGroupPro": "Satın Al{{price}}",
+    "userProDesc": "Aylık abonelik — tüm gruplarında Pro",
+    "userProDetail": "Tüm gruplarında Pro özellikleri + sınırsız grup oluşturma + kişisel dashboard ve kategori analizi.",
+    "monthly": "aylık",
     "purchaseUserPro": "Pro'ya Geç{{price}}",
     "restore": "Satın alımları geri yükle",
     "recommended": "Önerilen",
@@ -243,7 +256,6 @@
     "loading": "Yükleniyor...",
     "ok": "Tamam",
     "successTitle": "Başarılı",
-    "groupProSuccess": "Grup Pro'ya yükseltildi! Pro özellikleri artık bu grup için aktif.",
     "userProSuccess": "Pro'ya yükseltildiniz! Tüm Pro özellikleri aktif.",
     "restoreTitle": "Geri Yükle",
     "restoreSuccess": "Satın alımlarınız geri yüklendi.",
@@ -261,10 +273,8 @@
   },
   "pro": {
     "locked": "Pro Özelliği",
-    "lockedMessage": "Bu özellik Pro'ya özel. Pro'ya geçerek fiş/OCR, tekrarlayan masraf, dışa aktarma ve daha fazlasını açabilirsiniz.",
     "upgrade": "Pro'ya Geç",
     "badge": "Pro",
-    "groupProBadge": "Pro Grup",
     "userProBadge": "Pro Üye"
   },
   "dashboard": {
@@ -276,9 +286,7 @@
     "totalAcrossGroups": "Tüm gruplardaki durumun",
     "lockedTitle": "Dashboard Pro'ya Özel",
     "lockedMessage": "Tüm gruplarındaki genel bakiyeni ve kişisel analizlerini görmek için Pro'ya geç.",
-    "categoryBreakdown": "Kategori Dağılımı",
-    "trends": "Trendler",
-    "comingSoon": "Yakında"
+    "categoryBreakdown": "Kategori Dağılımı"
   },
   "account": {
     "title": "Hesap",

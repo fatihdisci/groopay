@@ -4,7 +4,7 @@ import {
   createGroup,
   updateGroup,
   archiveGroup,
-  deleteGroup,
+  deleteGroupRpc,
 } from '@/lib/supabase/queries';
 
 export function useGroups() {
@@ -44,7 +44,7 @@ export function useArchiveGroup() {
 export function useDeleteGroup() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (groupId: string) => deleteGroup(groupId),
+    mutationFn: (groupId: string) => deleteGroupRpc(groupId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['groups'] }),
   });
 }

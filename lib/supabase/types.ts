@@ -28,6 +28,9 @@ export interface GroupRow {
   pro_purchased_at: string | null;
   is_demo: boolean;
   archived: boolean;
+  description: string | null;
+  avatar_emoji: string | null;
+  avatar_color: string;
   created_at: string;
 }
 

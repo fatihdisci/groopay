@@ -210,7 +210,7 @@ export default function GroupsScreen() {
               activeOpacity={0.95}
             >
               <View style={styles.cardLeft}>
-                <Avatar initials={getInitials(item.group.name)} size={48} />
+                <Avatar initials={getInitials(item.group.name)} color={item.group.avatar_color} emoji={item.group.avatar_emoji} size={48} />
                 <View style={styles.cardInfo}>
                   <View style={styles.cardNameRow}>
                     <Text style={styles.cardName}>{item.group.name}</Text>

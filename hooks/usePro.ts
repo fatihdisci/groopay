@@ -13,9 +13,9 @@ export interface ProStatus {
 /**
  * Hook to check Pro status for the current user.
  *
- * Pro access for a group = group.is_pro OR profile.user_pro.
- * User Pro grants Pro access to ALL groups the user is in.
- * Group Pro grants Pro access only for that specific group, to all members.
+ * Simplified Phase 8: Pro access = profile.user_pro only.
+ * Group Pro infrastructure (group.is_pro, purchaseGroupPro, webhook)
+ * is kept in code but hidden from UI for potential future use.
  */
 export function usePro(): ProStatus {
   const { user } = useAuth();
@@ -30,8 +30,9 @@ export function usePro(): ProStatus {
   );
 
   const hasProAccess = useCallback(
-    (group: Pick<GroupRow, 'is_pro'>): boolean => {
-      return isUserPro || group.is_pro === true;
+    (_group?: Pick<GroupRow, 'is_pro'>): boolean => {
+      // Phase 8: simplified to User Pro only — group.is_pro infrastructure kept for future use
+      return isUserPro;
     },
     [isUserPro],
   );

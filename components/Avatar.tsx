@@ -7,15 +7,17 @@ import { Colors, Typography, Radius } from '@/constants/theme';
  * Kullanıcının seçtiği base renkten gradient avatar üretir.
  * Fallback: düz renk (base hex gradient haritasında yoksa).
  * Ghost üyeler için ghostColor ile muted görünüm.
+ * Emoji varsa harf yerine emoji gösterir (grup avatarları için).
  */
 interface AvatarProps {
   initials: string;
-  color?: string | null;        // base hex (profiles.avatar_color)
+  color?: string | null;        // base hex (profiles.avatar_color / groups.avatar_color)
   ghostColor?: string;          // ghost üyeler için düz renk
+  emoji?: string | null;        // grup avatarları için emoji (harf yerine)
   size?: number;
 }
 
-export default function Avatar({ initials, color, ghostColor, size = 44 }: AvatarProps) {
+export default function Avatar({ initials, color, ghostColor, emoji, size = 44 }: AvatarProps) {
   // Ghost üye: düz renk, gradient yok
   if (ghostColor) {
     return (
@@ -24,7 +26,7 @@ export default function Avatar({ initials, color, ghostColor, size = 44 }: Avata
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
         style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}
       >
-        <Text style={[styles.text, { fontSize: size * 0.38 }]}>{initials}</Text>
+        <Text style={[styles.text, { fontFamily: Typography.fontDisplay, fontSize: size * 0.38 }]}>{initials}</Text>
       </LinearGradient>
     );
   }
@@ -41,7 +43,18 @@ export default function Avatar({ initials, color, ghostColor, size = 44 }: Avata
       start={start} end={end}
       style={[styles.avatar, { width: size, height: size, borderRadius: size / 2 }]}
     >
-      <Text style={[styles.text, { fontSize: size * 0.38 }]}>{initials}</Text>
+      <Text
+        style={[
+          styles.text,
+          emoji
+            ? { fontSize: size * 0.52 }
+            : { fontFamily: Typography.fontDisplay, fontSize: size * 0.38 },
+        ]}
+        adjustsFontSizeToFit
+        numberOfLines={1}
+      >
+        {emoji ?? initials}
+      </Text>
     </LinearGradient>
   );
 }
@@ -52,7 +65,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   text: {
-    fontFamily: Typography.fontDisplay,
     fontWeight: '700',
     color: '#FFFFFF',
   },
