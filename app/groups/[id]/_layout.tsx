@@ -18,9 +18,9 @@ export default function GroupDetailLayout() {
         options={{
           title: 'Grup Detayı',
           headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginLeft: -8, flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="chevron-back" size={24} color={Colors.primary} />
-              <Text style={{ fontFamily: Typography.fontBody, fontSize: 17, color: Colors.primary, marginLeft: -2 }}>Geri</Text>
+            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={{ marginLeft: -8, paddingRight: 6, flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="chevron-back" size={18} color={Colors.primary} style={{ marginTop: -1 }} />
+              <Text style={{ fontSize: 17, color: Colors.primary, marginLeft: 4 }}>Geri</Text>
             </TouchableOpacity>
           ),
         }}
