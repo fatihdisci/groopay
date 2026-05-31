@@ -723,4 +723,17 @@ supabase functions deploy delete-account
 
 **Dosyalar:** `app/(tabs)/_layout.tsx`, `app/(tabs)/groups/_layout.tsx`
 
-*Son güncelleme: 2026-05-31 — B42 eklendi*
+*Son güncelleme: 2026-05-31 — B43 eklendi*
+
+---
+
+## B43: Paywall modern fintech tasarımı + Grup Pro temizliği
+- Grup Pro ölü kodları temizlendi
+- Tasarım: bordered kartlar → açık row'lar, soft shadow price kart, full-width CTA
+- Feature ikonları: 44px purple ghost yuvarlak
+- Tüm opacity concat → solid Colors sabitleri
+- Already Pro: aynı tasarım dili
+
+**Dosya:** `app/paywall.tsx`
+
+*Son güncelleme: 2026-05-31 — B43 eklendi*

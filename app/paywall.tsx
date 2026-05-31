@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -16,13 +15,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   isRevenueCatAvailable,
   getOfferings,
-  purchaseGroupPro,
   purchaseUserPro,
   restorePurchases,
   type OfferingsResult,
 } from '@/lib/revenuecat';
 import { useAuth } from '@/lib/auth';
 import { usePro } from '@/hooks/usePro';
+import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
 import { palette, spacing, fontSizes, radii, minTouchTarget } from '@/constants/theme';
 
 type ProFeature = { icon: keyof typeof Ionicons.glyphMap; labelKey: string };
@@ -36,18 +35,15 @@ const PRO_FEATURES: ProFeature[] = [
 export default function PaywallScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { user } = useAuth();
   const { isUserPro } = usePro();
 
   const params = useLocalSearchParams<{ context?: string; groupId?: string }>();
   const context = params.context ?? 'feature';
-  const groupId = params.groupId;
 
-  const [purchasing, setPurchasing] = useState<string | null>(null); // 'group' | 'user' | 'restore'
+  const [purchasing, setPurchasing] = useState<string | null>(null);
   const [offerings, setOfferings] = useState<OfferingsResult | null>(null);
   const [offeringsLoaded, setOfferingsLoaded] = useState(false);
 
-  // Load offerings on mount
   useEffect(() => {
     (async () => {
       const off = await getOfferings();
@@ -55,40 +51,6 @@ export default function PaywallScreen() {
       setOfferingsLoaded(true);
     })();
   }, []);
-
-  const highlightUserPro = context === 'limit';
-  const hasGroupContext = (context === 'group-pro' || context === 'feature') && !!groupId;
-
-  const handlePurchaseGroupPro = async () => {
-    if (!offerings?.groupPro?.id) {
-      Alert.alert(t('paywall.unavailable'), t('paywall.noProduct'));
-      return;
-    }
-    if (!isRevenueCatAvailable()) {
-      Alert.alert(t('paywall.devBuildTitle'), t('paywall.devBuildMessage'));
-      return;
-    }
-    if (!groupId) {
-      Alert.alert(t('paywall.errorTitle'), t('paywall.missingGroup'));
-      return;
-    }
-
-    setPurchasing('group');
-    try {
-      const result = await purchaseGroupPro(offerings.groupPro.id, groupId);
-      if (result.devBuildRequired) {
-        Alert.alert(t('paywall.devBuildTitle'), t('paywall.devBuildMessage'));
-      } else if (result.success) {
-        Alert.alert(t('paywall.successTitle'), t('paywall.userProSuccess'), [
-          { text: t('paywall.ok'), onPress: () => router.back() },
-        ]);
-      } else if (result.error !== 'cancelled') {
-        Alert.alert(t('paywall.errorTitle'), result.error);
-      }
-    } finally {
-      setPurchasing(null);
-    }
-  };
 
   const handlePurchaseUserPro = async () => {
     if (!offerings?.userPro?.id) {
@@ -140,90 +102,88 @@ export default function PaywallScreen() {
     }
   };
 
-  const formatPrice = (priceString: string | undefined): string => {
-    if (!priceString) return '';
-    // RevenueCat returns localized price string
-    return priceString;
-  };
-
   const userProPrice = offerings?.userPro?.priceString;
-  const groupProPrice = offerings?.groupPro?.priceString;
 
+  // ── Already Pro ──
   if (isUserPro) {
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.alreadyPro}>
-          <Ionicons name="checkmark-circle" size={64} color={palette.success} />
-          <Text style={styles.alreadyProTitle}>{t('paywall.alreadyPro')}</Text>
-          <Text style={styles.alreadyProSub}>{t('paywall.alreadyProSub')}</Text>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>{t('paywall.ok')}</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+      <View style={styles.alreadyContainer}>
+        <Ionicons name="checkmark-circle" size={72} color={Colors.credit} />
+        <Text style={styles.alreadyTitle}>{t('paywall.alreadyPro')}</Text>
+        <Text style={styles.alreadySub}>{t('paywall.alreadyProSub')}</Text>
+        <TouchableOpacity style={styles.alreadyBtn} onPress={() => router.back()} activeOpacity={0.7}>
+          <Text style={styles.alreadyBtnText}>{t('paywall.ok')}</Text>
+        </TouchableOpacity>
+      </View>
     );
   }
 
+  // ── Paywall ──
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
       <View style={styles.header}>
-        <Ionicons name="diamond" size={48} color={palette.primary} />
+        <View style={styles.diamondIcon}>
+          <Ionicons name="diamond" size={36} color={Colors.primary} />
+        </View>
         <Text style={styles.title}>{t('paywall.title')}</Text>
         <Text style={styles.subtitle}>{t('paywall.subtitle')}</Text>
       </View>
 
-      {/* Features */}
-      <View style={styles.featuresCard}>
-        <Text style={styles.featuresTitle}>{t('paywall.proFeatures')}</Text>
-        {PRO_FEATURES.map((f) => (
-          <View key={f.labelKey} style={styles.featureRow}>
-            <Ionicons name={f.icon} size={20} color={palette.primary} />
+      {/* Feature rows — open, no box */}
+      <View style={styles.featuresSection}>
+        {PRO_FEATURES.map((f, i) => (
+          <View key={f.labelKey} style={[styles.featureRow, i > 0 && styles.featureRowBorder]}>
+            <View style={styles.featureIcon}>
+              <Ionicons name={f.icon} size={22} color={Colors.primary} />
+            </View>
             <Text style={styles.featureText}>{t(f.labelKey)}</Text>
           </View>
         ))}
       </View>
 
-      {/* User Pro Option — the only Pro tier */}
-      <View style={[styles.optionCard, styles.optionHighlighted]}>
-        {highlightUserPro && (
-          <View style={styles.recommendedBadge}>
-            <Text style={styles.recommendedText}>{t('paywall.recommended')}</Text>
-          </View>
-        )}
-        <View style={styles.optionHeader}>
-          <Ionicons name="diamond" size={24} color={palette.primary} />
-          <View style={styles.optionInfo}>
-            <View style={styles.optionTitleRow}>
-              <Text style={styles.optionTitle}>{t('paywall.userProTitle')}</Text>
-              <View style={styles.monthlyBadge}>
-                <Text style={styles.monthlyBadgeText}>{t('paywall.monthly')}</Text>
-              </View>
+      {/* User Pro price card */}
+      <View style={styles.priceCard}>
+        <View style={styles.priceRow}>
+          <View style={styles.priceLeft}>
+            <Text style={styles.priceTitle}>{t('paywall.userProTitle')}</Text>
+            <View style={styles.monthlyBadge}>
+              <Text style={styles.monthlyBadgeText}>{t('paywall.monthly')}</Text>
             </View>
-            <Text style={styles.optionDesc}>{t('paywall.userProDesc')}</Text>
           </View>
-        </View>
-        {highlightUserPro && (
-          <Text style={styles.limitNote}>{t('paywall.limitNote')}</Text>
-        )}
-        <Text style={styles.optionDetail}>{t('paywall.userProDetail')}</Text>
-        <TouchableOpacity
-          style={[styles.buyButton, purchasing === 'user' && styles.buyButtonDisabled]}
-          onPress={handlePurchaseUserPro}
-          disabled={purchasing !== null || !offeringsLoaded}
-          activeOpacity={0.7}
-        >
-          {purchasing === 'user' ? (
-            <ActivityIndicator size="small" color="white" />
+          {offeringsLoaded && userProPrice ? (
+            <Text style={styles.priceValue}>{userProPrice}</Text>
           ) : (
-            <Text style={styles.buyButtonText}>
-              {offeringsLoaded
-                ? t('paywall.purchaseUserPro', { price: formatPrice(userProPrice) })
-                : t('paywall.loading')}
-              </Text>
+            <Text style={styles.priceLoading}>{t('paywall.loading')}</Text>
           )}
-        </TouchableOpacity>
+        </View>
+        <Text style={styles.priceDesc}>{t('paywall.userProDetail')}</Text>
+
+        {context === 'limit' && (
+          <View style={styles.limitNote}>
+            <Ionicons name="alert-circle-outline" size={16} color={Colors.warning} />
+            <Text style={styles.limitNoteText}>{t('paywall.limitNote')}</Text>
+          </View>
+        )}
       </View>
+
+      {/* CTA Button */}
+      <TouchableOpacity
+        style={[styles.ctaButton, purchasing === 'user' && styles.ctaButtonDisabled]}
+        onPress={handlePurchaseUserPro}
+        disabled={purchasing !== null || !offeringsLoaded}
+        activeOpacity={0.85}
+      >
+        {purchasing === 'user' ? (
+          <ActivityIndicator size="small" color="white" />
+        ) : (
+          <Text style={styles.ctaButtonText}>
+            {offeringsLoaded
+              ? t('paywall.purchaseUserPro', { price: '' })
+              : t('paywall.loading')}
+          </Text>
+        )}
+      </TouchableOpacity>
 
       {/* Restore */}
       <TouchableOpacity
@@ -233,16 +193,16 @@ export default function PaywallScreen() {
         activeOpacity={0.7}
       >
         {purchasing === 'restore' ? (
-          <ActivityIndicator size="small" color={palette.muted} />
+          <ActivityIndicator size="small" color={Colors.textTertiary} />
         ) : (
           <Text style={styles.restoreText}>{t('paywall.restore')}</Text>
         )}
       </TouchableOpacity>
 
-      {/* Dev build notice if not available */}
+      {/* Dev build notice */}
       {!isRevenueCatAvailable() && (
         <View style={styles.devNotice}>
-          <Ionicons name="construct-outline" size={16} color={palette.warning} />
+          <Ionicons name="construct-outline" size={14} color={Colors.warning} />
           <Text style={styles.devNoticeText}>{t('paywall.devBuildNotice')}</Text>
         </View>
       )}
@@ -253,131 +213,109 @@ export default function PaywallScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.background },
-  content: { padding: spacing.lg, paddingBottom: spacing.xxl },
-  header: { alignItems: 'center', marginBottom: spacing.lg, paddingTop: spacing.md },
-  title: { fontSize: fontSizes.xxl, fontWeight: '700', color: palette.text, marginTop: spacing.md },
-  subtitle: { fontSize: fontSizes.md, color: palette.textSecondary, marginTop: spacing.sm, textAlign: 'center' },
+  container: { flex: 1, backgroundColor: Colors.background },
+  content: { paddingHorizontal: 24, paddingTop: 48, paddingBottom: 48 },
 
-  // Features
-  featuresCard: {
-    backgroundColor: palette.surface,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    borderWidth: 1,
-    borderColor: palette.border,
+  // Header
+  header: { alignItems: 'center', marginBottom: 40 },
+  diamondIcon: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: Colors.primaryGhost,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: Spacing.md,
   },
-  featuresTitle: { fontSize: fontSizes.lg, fontWeight: '700', color: palette.text, marginBottom: spacing.md },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.sm },
-  featureText: { fontSize: fontSizes.md, color: palette.textSecondary, flex: 1 },
+  title: { fontFamily: Typography.fontDisplayBold, fontSize: 28, color: Colors.textPrimary, textAlign: 'center' },
+  subtitle: { fontFamily: Typography.fontBody, fontSize: 16, color: Colors.textSecondary, marginTop: 8, textAlign: 'center', lineHeight: 22 },
 
-  // Options
-  optionCard: {
-    backgroundColor: palette.background,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: palette.border,
+  // Features — open rows
+  featuresSection: { marginBottom: 32 },
+  featureRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 16, gap: 14,
   },
-  optionHighlighted: {
-    borderColor: palette.primary,
-    borderWidth: 2,
-    backgroundColor: palette.primary + '08',
+  featureRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
+  featureIcon: {
+    width: 44, height: 44, borderRadius: 14,
+    backgroundColor: Colors.primaryGhost,
+    alignItems: 'center', justifyContent: 'center',
   },
-  recommendedBadge: {
-    position: 'absolute',
-    top: -12,
-    right: spacing.md,
-    backgroundColor: palette.primary,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: radii.full,
+  featureText: { flex: 1, fontFamily: Typography.fontBody, fontSize: 15, color: Colors.textPrimary, lineHeight: 21 },
+
+  // Price card — soft shadow, no harsh border
+  priceCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    padding: 20,
+    ...Shadows.md,
   },
-  recommendedText: { fontSize: fontSizes.xs, fontWeight: '700', color: 'white' },
-  optionHeader: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm },
-  optionInfo: { flex: 1 },
-  optionTitle: { fontSize: fontSizes.lg, fontWeight: '700', color: palette.text },
-  optionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  priceLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  priceTitle: { fontFamily: Typography.fontDisplayMedium, fontSize: 18, color: Colors.textPrimary },
   monthlyBadge: {
-    backgroundColor: palette.primary + '15',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 2,
-    borderRadius: radii.full,
+    backgroundColor: Colors.primaryGhost,
+    paddingHorizontal: 10, paddingVertical: 3,
+    borderRadius: Radius.full,
   },
-  monthlyBadgeText: { fontSize: fontSizes.xs, fontWeight: '600', color: palette.primary },
-  optionDesc: { fontSize: fontSizes.sm, color: palette.textSecondary, marginTop: 2 },
-  optionDetail: { fontSize: fontSizes.sm, color: palette.textSecondary, marginBottom: spacing.md, lineHeight: fontSizes.sm * 1.5 },
-  limitNote: {
-    fontSize: fontSizes.sm,
-    color: palette.warning,
-    fontWeight: '600',
-    marginBottom: spacing.sm,
-    backgroundColor: palette.warning + '15',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: radii.sm,
-    overflow: 'hidden',
-  },
+  monthlyBadgeText: { fontFamily: Typography.fontBodyBold, fontSize: 12, color: Colors.primary },
+  priceValue: { fontFamily: Typography.fontDisplayBold, fontSize: 22, color: Colors.primary },
+  priceLoading: { fontFamily: Typography.fontDisplayMedium, fontSize: 16, color: Colors.textTertiary },
+  priceDesc: { fontFamily: Typography.fontBody, fontSize: 13, color: Colors.textSecondary, lineHeight: 19 },
 
-  // Buttons
-  buyButton: {
-    backgroundColor: palette.primary,
-    borderRadius: radii.lg,
-    paddingVertical: spacing.md,
+  // Limit note
+  limitNote: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 12, padding: 12,
+    backgroundColor: '#FFF7ED', borderRadius: Radius.sm,
+  },
+  limitNoteText: { flex: 1, fontFamily: Typography.fontBodyMedium, fontSize: 13, color: Colors.warning },
+
+  // CTA Button
+  ctaButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
-    minHeight: minTouchTarget,
     justifyContent: 'center',
+    minHeight: minTouchTarget,
+    marginTop: 20,
+    ...Shadows.md,
   },
-  buyButtonSecondary: {
-    backgroundColor: palette.primaryDark,
-  },
-  buyButtonDisabled: { opacity: 0.6 },
-  buyButtonText: { fontSize: fontSizes.md, fontWeight: '700', color: 'white' },
+  ctaButtonDisabled: { opacity: 0.6 },
+  ctaButtonText: { fontFamily: Typography.fontBodyBold, fontSize: 17, color: 'white' },
 
   // Restore
   restoreButton: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    minHeight: minTouchTarget,
-    justifyContent: 'center',
+    alignItems: 'center', paddingVertical: 16,
+    minHeight: minTouchTarget, justifyContent: 'center',
   },
-  restoreText: { fontSize: fontSizes.sm, color: palette.muted, fontWeight: '500' },
+  restoreText: { fontFamily: Typography.fontBodyMedium, fontSize: 14, color: Colors.textTertiary },
 
   // Dev notice
   devNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.md,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 8, marginBottom: 16,
   },
-  devNoticeText: { fontSize: fontSizes.xs, color: palette.warning },
+  devNoticeText: { fontFamily: Typography.fontBody, fontSize: 12, color: Colors.warning },
 
+  // Fine print
   finePrint: {
-    fontSize: fontSizes.xs,
-    color: palette.muted,
-    textAlign: 'center',
-    lineHeight: fontSizes.xs * 1.6,
+    fontFamily: Typography.fontBody, fontSize: 11,
+    color: Colors.textTertiary, textAlign: 'center',
+    lineHeight: 16,
   },
 
   // Already Pro
-  alreadyPro: {
-    alignItems: 'center',
-    paddingVertical: spacing.xxl,
+  alreadyContainer: {
+    flex: 1, backgroundColor: Colors.background,
+    alignItems: 'center', justifyContent: 'center',
+    padding: 40,
   },
-  alreadyProTitle: { fontSize: fontSizes.xxl, fontWeight: '700', color: palette.text, marginTop: spacing.md },
-  alreadyProSub: { fontSize: fontSizes.md, color: palette.textSecondary, marginTop: spacing.sm, textAlign: 'center' },
-  backButton: {
-    marginTop: spacing.lg,
-    backgroundColor: palette.primary,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    minHeight: minTouchTarget,
-    justifyContent: 'center',
+  alreadyTitle: { fontFamily: Typography.fontDisplayBold, fontSize: 24, color: Colors.textPrimary, marginTop: 16 },
+  alreadySub: { fontFamily: Typography.fontBody, fontSize: 15, color: Colors.textSecondary, marginTop: 8, textAlign: 'center' },
+  alreadyBtn: {
+    marginTop: 24, backgroundColor: Colors.primary,
+    borderRadius: 14, paddingHorizontal: 40, paddingVertical: 14,
+    minHeight: minTouchTarget, justifyContent: 'center',
   },
-  backButtonText: { fontSize: fontSizes.md, fontWeight: '600', color: 'white' },
+  alreadyBtnText: { fontFamily: Typography.fontBodyBold, fontSize: 16, color: 'white' },
 });
