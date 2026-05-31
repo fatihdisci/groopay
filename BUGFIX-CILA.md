@@ -736,4 +736,31 @@ supabase functions deploy delete-account
 
 **Dosya:** `app/paywall.tsx`
 
-*Son güncelleme: 2026-05-31 — B43 eklendi*
+*Son güncelleme: 2026-06-01 — B44 eklendi*
+
+---
+
+## B44: Pro analitik paneli + Wise numpad (10. Tur)
+
+> Tarih: 2026-06-01
+
+### Pro Dashboard Analitiği
+- `getProDashboardAnalytics()` — aylık harcama trendi, top kategori, en hareketli ay
+- `SimpleBarChart`: View-tabanlı bar chart, sıfır native bağımlılık
+- gifted-charts + react-native-svg → Expo 54 uyumsuz → kaldırıldı
+- Pro: BarChart + insight kartları (En Hareketli Ay, Popüler Kategori)
+- Free: kilitli placeholder + "Pro'ya Geç" CTA
+
+### Wise Numpad (Add Expense)
+- Geleneksel input → Wise tarzı numpad grid (48px bold tutar)
+- Para birimi pill seçici, genişletilebilir detaylar
+
+**Dosyalar:** `lib/supabase/queries.ts`, `app/(tabs)/dashboard.tsx`, `app/groups/[id]/add-expense.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| BarChart | ✅ View-tabanlı |
+| Numpad | ✅ Wise tarzı |
+
+*Son güncelleme: 2026-06-01 — B44 eklendi*
