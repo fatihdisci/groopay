@@ -1,99 +1,36 @@
 # Groopay — Oturum Özeti
 
-> Son oturum: 2026-05-30
-> Durum: Faz 0-7 tamam ✅, Faz 8'e hazır
+> Son oturum: 2026-06-01
+> Durum: Faz 0-7 tamam ✅, Faz 8'e hazır ✅, Bugfix turu B1-B56 tamam ✅
 
 ---
 
 ## Şu an neredeyiz?
 
-Faz 0-7 tamam. Uygulama Expo Go'da iki telefonla test edildi: grup oluşturma, masraf ekleme, bakiye hesaplama, netleşme (ödedim/onayla/reddet), IBAN iste/paylaş (Realtime broadcast, saklamasız), WhatsApp paylaş, manuel hatırlatma çalışıyor. Monetizasyon altyapısı (RevenueCat + paywall + Pro kapıları) kodlandı, Expo Go'da paywall UI'ı çalışıyor.
+Faz 0-7 tamam. 12 tur bugfix (B1-B56) tamamlandı. Uygulama Expo Go'da çalışır durumda. Tüm kritik işlevler (masraf ekleme/düzenleme, bölüşme equal/custom/subset, çoklu para birimi, bakiye, netleşme, IBAN, aktivite, grup yönetimi, hesap silme, veri dışa aktarma, dashboard, paywall) yerinde. Para birimi karışması giderildi. Header mimarisi oturdu. Alt bar 4 sekmeli.
 
-### Bu oturumda tamamlanan (Faz 7: Monetizasyon)
+---
 
-**RevenueCat SDK Wrapper (`lib/revenuecat/index.ts`):**
-- `initRevenueCat(appUserId)` — API key env'den, Expo Go'da zarif fallback (çökme yok)
-- `getOfferings()` → Grup Pro + User Pro fiyat bilgileri
-- `purchaseGroupPro(offeringId, groupId)` — metadata'ya group_id yazar, webhook okuyabilir
-- `purchaseUserPro(offeringId)` — standart satın alma
-- `restorePurchases()` — Apple zorunlu geri yükleme
-- `isRevenueCatAvailable()` → Expo Go'da false, dev build'de true
-- Native modül yoksa `devBuildRequired: true` + Alert ile bilgilendirme
+## Bugfix Turları (B1-B56)
 
-**RevenueCat Webhook (`supabase/functions/revenuecat-webhook/index.ts`):**
-- RevenueCat'ten INITIAL_PURCHASE/RENEWAL olaylarını alır
-- `Authorization: Bearer <secret>` ile doğrular
-- `user_pro` entitlement → `profiles.user_pro = true`
-- `group_pro` entitlement → subscriber attributes'ten group_id okuyup `groups.is_pro = true`
-- Service-role ile RLS baypas
-- Deploy: Faz 8'de yapılacak (adımlar FAZ7-PLAN.md'de)
+Detaylar için: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
 
-**Paywall Ekranı (`app/paywall.tsx`):**
-- Route: `/paywall?context=<limit|group-pro|feature>&groupId=<id>`
-- Grup Pro + User Pro seçenekleri, fiyat RevenueCat offering'den
-- Pro özellik listesi (fiş/OCR, tekrarlayan, dışa aktarma, grafikler, sınırsız grup)
-- Context-aware vurgulama (limit → User Pro, feature → Grup Pro)
-- Restore butonu (Apple zorunlu)
-- Expo Go: UI görünür, "Satın al" → "dev build gerekli" Alert, çökme yok
-- Zaten Pro ise "Zaten Pro'sunuz!" ekranı
+| Tur | Kapsam | B#'lar |
+|---|---|---|
+| 1 | Aktivite metinleri, bakiyeler, TR karakter, toast, avatar rengi, i18n | B1-B6 |
+| 2 | FAB butonları, üye sayısı, kurucu yetkileri, genişleyebilir kart | B7-B12 |
+| 3 | Aktivite settlement metni, FAB metinleri, buton boyutları, split gizleme | B13-B17 |
+| 4 | simplifyDebts kuruş crash, Pro sadeleştirme (tek User Pro) | B18-B24 |
+| 5 | Grup yönetimi (edit, delete, emoji avatar, transfer, remove member) | B25-B31 |
+| 6 | Route düzeltme, hooks, edit sayfası header | B32-B35 |
+| 7 | Alt bar tasarımı, animasyonlar, header alt çizgisi | B36 |
+| 8 | Hesap silme, veri dışa aktarma, delete-account Edge Function | B37 |
+| 9 | Dashboard 4. sekme, ücretsiz/Pro ayrımı | B38-B39 |
+| 10 | Tips/yardım popupları, Wise numpad, Pro dashboard analitiği | B40-B44 |
+| 11 | Header mimarisi (B45-B46), add-expense regresyon (B47-B53) | B45-B53 |
+| 12 | Dashboard para birimi karışması (B54-B56) | B54-B56 |
 
-**Pro Hook (`hooks/usePro.ts`):**
-- `isUserPro` — `profile.user_pro`
-- `isGroupPro(group)` — `group.is_pro`
-- `hasProAccess(group)` — `user_pro VEYA group.is_pro`
-
-**Pro Kapıları (`components/ProGate.tsx`):**
-- `ProGate` — Pro erişimi varsa children, yoksa kilitli placeholder
-- `ProBadge` — küçük "Pro" rozeti
-- `ProFeatureRow` — menü öğesi, kilitliyse paywall'a yönlendirir
-
-**5-Grup Limiti (Free kapısı):**
-- Grup oluşturmadan önce `count(created_by=uid, is_demo=false) >= 5` kontrolü
-- Limit aşımı → `/paywall?context=limit`
-- Demo gruplar sayıma DAHİL DEĞİL
-- FAB üstünde kilit rozeti (limit dolunca)
-- User Pro olan kullanıcıda limit kontrolü YOK
-
-**Genel Bakiye Özeti (ÜCRETSİZ, gruplar sekmesi üstünde):**
-- Tüm gruplardaki net bakiye, para birimi bazında
-- Her para birimi ayrı satır: `[birim] [tutar] [borçlusun/alacaklısın]`
-- Eksi işareti YOK, tutar her zaman pozitif (mutlak değer)
-- Renk + kelime: yeşil "alacaklısın", kırmızı "borçlusun"
-- Çevirme YOK, para birimleri toplanmaz
-
-**Dashboard (`app/dashboard.tsx`):**
-- User Pro'ya özel, free kullanıcıya kilit ekranı + "Pro'ya Geç"
-- Tüm gruplar para birimi bazında bakiye kartları
-- Kategori dağılımı (kullanıcının tüm gruplardaki payları)
-- Trend placeholder ("Yakında")
-- Tek toplam net varlık GÖSTERİLMEZ (para birimleri ayrı)
-
-**Hesap Pro Bölümü (`app/(tabs)/account.tsx`):**
-- Pro durum kartı (aktif Pro → yeşil, Free → "Pro'ya Geç" butonu)
-- Dashboard linki (free'de kilit ikonu)
-- "Satın alımları geri yükle" butonu
-- User Pro rozeti avatar altında
-
-**Aktivite Ekranı Düzeltmeleri (`app/(tabs)/activity.tsx`):**
-- Üye isimleri ve grup isimleri artık gösteriliyor (member/group lookup map'leri)
-- Her aktivite satırında grup adı rozeti
-- Aktiviteler tarihe göre gruplanmış
-
-**i18n:**
-- `paywall.*` — 22 anahtar (tr + en)
-- `pro.*` — 5 anahtar
-- `dashboard.*` — 10 anahtar
-- `account.*` — 10 yeni anahtar
-- `balance.*` — 5 yeni anahtar (overallSummary, overallEmpty, overallDebt, overallCredit, overallMixed)
-
-**Diğer:**
-- `app.json` — `react-native-purchases` plugin KALDIRILDI (pakette config plugin yok, native modül otomatik linklenir)
-- `package.json` — `react-native-purchases` eklendi
-- `.env.example` — `EXPO_PUBLIC_REVENUECAT_APPLE_KEY`, `EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY` placeholder
-- `lib/auth/types.ts` — `Profile` interface'ine `user_pro`, `user_pro_purchased_at` eklendi
-- `lib/auth/AuthContext.tsx` — `profileRowToProfile` user_pro alanlarını taşıyor
-- `app/_layout.tsx` — `RevenueCatInit` bileşeni, paywall/dashboard route'ları
-- `app/groups/[id]/index.tsx` — Pro özellik kapıları (4 adet ProFeatureRow)
+---
 
 ## Faz Faz Durum
 
@@ -109,58 +46,102 @@ Faz 0-7 tamam. Uygulama Expo Go'da iki telefonla test edildi: grup oluşturma, m
 | 7 | Monetizasyon (RevenueCat + paywall + Pro kapıları) | ✅ |
 | 8 | Store-hazırlık + cila + OAuth + dev build | ⏳ |
 
-## Faz 7 Önemli Mimari Eklemeler
+---
 
-### RevenueCat mimarisi
+## Önemli Mimari Kararlar (güncel — Haziran 2026)
+
+1. **Auth:** `lib/auth/AuthContext.tsx` — `useAuth()` hook'u. Anonim auth aktif. Profile `user_pro` içeriyor.
+2. **Hayalet üye:** `group_members.user_id = NULL`. Claim → aynı satıra `user_id` yazılır.
+3. **Para:** ASLA float, integer kuruş + Postgres numeric.
+4. **FX:** Masraf orijinal para biriminde saklanır. Çevrim sadece görüntüleme (canlı kur, kaydedilmez).
+5. **Bakiye:** Türetilmiş (saklanmaz), expenses + splits + confirmed settlements'tan PARA BİRİMİ BAZINDA hesaplanır.
+6. **Para birimleri ASLA toplanmaz/çevrilmez:** Trend, kategori, dashboard hep tek para birimi bazında. Dominant para birimi otomatik belirlenir, diğerleri için not düşülür.
+7. **RLS:** `is_member_of(gid)` SECURITY DEFINER — recursion'ı önler.
+8. **Header mimarisi (KRİTİK):** Tabs `headerShown: false` (groups). Stack yönetir: `app/(tabs)/groups/_layout.tsx`. ASLA root Stack'e taşıma (alt bar kaybolur). ASLA nested `app/groups/[id]/_layout.tsx` (route çakışması).
+9. **Realtime:** Supabase channel ile canlı güncelleme (masraf ekle/sil, bakiye, aktivite).
+10. **IBAN:** HİÇBİR TABLODA KALICI SAKLANMAZ. Realtime broadcast channel ile anlık iletilir.
+11. **Push:** Expo Go'da push ÇALIŞMAZ. Altyapı hazır. Dev build (Faz 8) bekleniyor.
+12. **Monetizasyon — sadece User Pro:** RevenueCat SDK (client) + webhook (sunucu). Expo Go'da IAP çalışmaz — zarif fallback. `hasProAccess()` sadece `user_pro` kontrol eder. Group Pro kodu duruyor ama UI'da gizli.
+13. **Pro entitlement:** Sunucuda (`profiles.user_pro`), client'ta değil. Webhook yazar. DEV-only toggle butonu (`__DEV__` guard) ile test edilebilir.
+14. **Grup limiti:** 5 grup (demo hariç), User Pro ile sınırsız.
+15. **Bugfix kaydı:** Her düzeltme/geliştirme `BUGFIX-CILA.md`'ye kaydedilir. B numarası ile takip.
+
+---
+
+## Proje Yapısı (güncel — Haziran 2026)
+
 ```
-Client (lib/revenuecat/index.ts)
-  ├── initRevenueCat(uid)          ← _layout.tsx, oturum açılınca
-  ├── getOfferings()               → fiyatları RevenueCat'ten çeker
-  ├── purchaseGroupPro(id, gid)    → setAttributes({group_id}) + purchasePackage
-  ├── purchaseUserPro(id)          → purchasePackage
-  └── restorePurchases()           → Apple zorunlu
-
-Webhook (supabase/functions/revenuecat-webhook)
-  ├── user_pro olayı  → profiles.user_pro = true
-  └── group_pro olayı → groups.is_pro = true (attributes'tan group_id)
-
-Pro kontrol zinciri (client)
-  profile.user_pro ─┬─→ usePro().hasProAccess(group)
-  group.is_pro ─────┘       ↓
-                    ProGate / ProFeatureRow / paywall
+C:\Users\fatih\groopay\
+  app/
+    _layout.tsx                          # Root: QueryClient + AuthProvider + RevenueCatInit + Stack
+    index.tsx                            # Auth gate
+    paywall.tsx                          # Pro satın alma ekranı (modern fintech tasarım)
+    (auth)/                              # Giriş
+    (onboarding)/                        # Onboarding turu
+    (tabs)/
+      _layout.tsx                        # 4 tab: Gruplar · Panel · Aktivite · Hesap
+      groups/
+        _layout.tsx                      # Stack: index → [id] → add-expense → members → edit → new
+        index.tsx                        # Grup listesi + genel bakiye özeti + join/new butonları
+        [id]/
+          index.tsx                      # Grup detay (masraflar/bakiyeler sekmeleri, FAB)
+          add-expense.tsx                # Masraf ekle/düzenle (Wise numpad, split, tarih, diğer para birimi)
+          members.tsx                    # Üye yönetimi (hayalet ekle, davet, yetki kontrolleri)
+          edit.tsx                       # Grup düzenleme (ad, açıklama, renk, emoji, sil, ayrıl, devret)
+      dashboard.tsx                      # Panel (hero + stats + kategori + Pro: trend bar chart)
+      activity.tsx                       # Tüm gruplar aktivite akışı
+      account.tsx                        # Profil, dil, Pro, restore, hesap silme, veri dışa aktarma
+    join/                                # Kodla katılma + deep link
+  lib/
+    auth/                                # AuthProvider + useAuth
+    supabase/                            # client, types, queries (getProDashboardAnalytics dahil)
+    finance/                             # money, split, fx, balance, simplify, categories + tests (75/75)
+    i18n/
+    notifications/                       # registerPushToken, sendPushToUser, remindDebtor
+    revenuecat/                          # RevenueCat SDK wrapper
+  hooks/                                 # useGroups, useGroupDetail, useExpenses, useBalance, useFxRate, useSettlements, useRealtime, usePro
+  components/                            # Toast, TabBarButton, Animations, TipsModal, TipsButton, Avatar, ProGate, ProBadge, ProFeatureRow
+  constants/theme.ts                     # Design token'ları
+  locales/ tr.json en.json               # i18n (tüm namespace'ler)
+  supabase/
+    migrations/                          # 0001-0007
+    functions/
+      join-via-invite/                   # Faz 3: davetle katılım
+      send-push/                         # Faz 6: Expo Push API
+      revenuecat-webhook/                # Faz 7: RevenueCat → DB entitlement
+      delete-account/                    # Faz 8: hesap silme (Apple zorunlu)
+  docs/                                  # groopay-scope.md, groopay-build-spec.md
+  CLAUDE.md                             # Proje kuralları + bugfix kayıt kuralı
+  BUGFIX-CILA.md                        # Tüm bugfix kayıtları (B1-B56)
+  SESSION-OZET.md                       # Bu dosya
+  FAZ0-PLAN.md ... FAZ7-PLAN.md
+  .env
 ```
 
-### Pro erişim mantığı
-- `group.is_pro OR profile.user_pro` → Pro özellikleri açık
-- Group Pro = tek seferlik, gruba kalıcı, herkes faydalanır
-- User Pro = tüm gruplarda Pro + sınırsız grup + kişisel dashboard
-- Entitlement sunucuda (`groups.is_pro` / `profiles.user_pro`), client'ta değil
+---
 
-### 5-grup limiti
-- `count(groups where created_by=uid, is_demo=false) >= 5 && !user_pro` → paywall
-- Demo grup sayılmaz
+## Migration'lar
 
-### Para birimi (değişmedi, pekiştirildi)
-- Genel bakiye özeti ve dashboard'da para birimleri ASLA toplanmaz, ASLA çevrilmez
-- Her para birimi ayrı satır/kart
-
-## Çalıştırılan SQL Migration'lar
-
-1. `0001_initial_schema.sql` — Tüm tablolar (profiles.user_pro, groups.is_pro zaten var), RLS, trigger
+1. `0001_initial_schema.sql` — Tüm tablolar, RLS, trigger
 2. `0002_invite_preview_rpc.sql` — preview_invite RPC
 3. `0003_ghost_preview_rpc.sql` — preview_ghosts RPC
 4. `0004_drop_fx_columns_add_expense_rpc.sql` — FX sütunları DROP + add_expense_with_splits RPC
 5. `0005_realtime_publication.sql` — Realtime publication
 6. `0006_settlements_currency_iban.sql` — Settlement para birimi + IBAN requests + 3 RPC
+7. `0007_group_management.sql` — groups.description, avatar_emoji, avatar_color + delete_group, remove_member, transfer_ownership RPC
 
-**Faz 7: Yeni migration YOK.** `profiles.user_pro` ve `groups.is_pro` alanları Faz 2'de zaten tanımlı.
+---
 
-## Supabase Ayarları
+## Edge Functions
 
-- **Allow Anonymous Sign-ins:** AÇIK
-- **Edge Function (deploy edildi):** `join-via-invite`
-- **Edge Function (yazıldı, deploy bekliyor):** `send-push`, `revenuecat-webhook` (Faz 8)
-- **Realtime:** Tüm tablolar + IBAN requests dinlemesi + broadcast channel aktif
+| Fonksiyon | Durum |
+|---|---|
+| `join-via-invite` | ✅ Deploy edildi |
+| `send-push` | ✅ Yazıldı, deploy bekliyor |
+| `revenuecat-webhook` | ✅ Yazıldı, deploy bekliyor |
+| `delete-account` | ✅ Yazıldı, deploy bekliyor |
+
+---
 
 ## Bağlantı Bilgileri (.env)
 
@@ -178,77 +159,41 @@ cd C:\Users\fatih\groopay
 npx expo start --tunnel --clear
 ```
 
-## Önemli Mimari Kararlar (güncel)
+## Güncel Kontroller
 
-1. **Auth:** `lib/auth/AuthContext.tsx` — `useAuth()` hook'u. Anonim auth aktif. Profile artık `user_pro` içeriyor.
-2. **Hayalet üye:** `group_members.user_id = NULL`. Claim → aynı satıra `user_id` yazılır.
-3. **Para:** ASLA float, integer kuruş + Postgres numeric.
-4. **FX:** Masraf orijinal para biriminde saklanır. Çevrim sadece görüntüleme (canlı kur, kaydedilmez).
-5. **Bakiye:** Türetilmiş (saklanmaz), expenses + splits + confirmed settlements'tan PARA BİRİMİ BAZINDA hesaplanır.
-6. **RLS:** `is_member_of(gid)` SECURITY DEFINER — recursion'ı önler.
-7. **Route:** `groups/[id]` tabs DIŞINDA (`app/groups/[id]/`) — tab bar'da görünmez. Paywall ve Dashboard stack ekran.
-8. **Realtime:** Supabase channel ile canlı güncelleme (masraf ekle/sil, bakiye, aktivite).
-9. **IBAN:** HİÇBİR TABLODA KALICI SAKLANMAZ. Realtime broadcast channel ile anlık iletilir.
-10. **Push:** Expo Go'da push ÇALIŞMAZ. Altyapı hazır. Dev build (Faz 8) bekleniyor.
-11. **Monetizasyon:** RevenueCat SDK (client) + webhook (sunucu). Expo Go'da IAP çalışmaz — zarif fallback, çökme yok. Dev build'de tam IAP.
-12. **Pro entitlement:** Sunucuda (`groups.is_pro` / `profiles.user_pro`), client'ta değil. Webhook yazar.
-13. **Grup limiti:** 5 grup (demo hariç), User Pro ile sınırsız.
-
-## Çözülen Bug'lar
-
-| Bug | Çözüm |
+| Kontrol | Durum |
 |---|---|
-| SDK 56 Expo Go'da çalışmıyor | SDK 54'e düşürüldü |
-| RLS recursion | `is_member_of` SECURITY DEFINER |
-| Geri butonu siyahlaşıyor | `headerTintColor: '#4F46E5'` |
-| Tutar 50050050 hatası | Virgül→nokta normalizasyonu (`parseNumericInput`) |
-| React hooks sıralama hatası | `useBalance` erken return öncesine alındı |
-| Alacak/borç kelimesi ters | `net>0` → `youAreOwed`, `net<0` → `youOwe` |
-| İki telefonda aynı bakiye | `getActorMember` artık `userId` ile eşleşiyor |
-| Web build hatası | AsyncStorage web'de çalışmaz → sadece iOS/Android |
-| Rules of Hooks: useAuth conditional sonrası | `useAuth()` component tepesine taşındı |
-| Ngrok tunnel bağlantı hatası | Geçici — `--tunnel` olmadan LAN modunda başlat |
-| Aktivite ekranında isimler boş | member/group lookup map'leri eklendi, grup rozeti gösteriliyor |
-| react-native-purchases config plugin hatası | Plugin app.json'dan kaldırıldı (pakette yok, native otomatik link) |
+| `npx tsc --noEmit` | ✅ Temiz |
+| Split testleri (vitest, 75 test) | ✅ 75/75 geçti |
+| Add-expense: equal/custom/subset | ✅ Çalışıyor |
+| Add-expense: diğer para birimi (20) | ✅ Modal seçim |
+| Add-expense: canlı önizleme | ✅ Anlık |
+| Add-expense: düzenleme modu | ✅ expenseId ile |
+| Add-expense: tarih seçici | ✅ View-tabanlı takvim |
+| Add-expense: numpad toggle | ✅ Detay açınca gizlenir |
+| Dashboard: para birimi karışması | ✅ Giderildi |
+| Dashboard: trend dominant currency | ✅ Otomatik |
+| Dashboard: kategori formatlama | ✅ Gerçek para birimi |
+| Pro model: sadece User Pro | ✅ Group Pro UI'da gizli |
+| DEV Pro toggle | ✅ `__DEV__` guard |
+| Header: çift header yok | ✅ Stack yönetiyor |
+| Alt bar: 4 sekme | ✅ Gruplar · Panel · Aktivite · Hesap |
+| Hesap silme | ✅ 3 adımlı |
+| Veri dışa aktarma | ✅ JSON Share |
 
-## Proje Yapısı (güncel — Faz 7 sonrası)
+---
 
-```
-C:\Users\fatih\groopay\
-  app/
-    _layout.tsx                # Root: QueryClient + AuthProvider + RevenueCatInit + Stack
-    index.tsx                  # Auth gate
-    paywall.tsx                # Pro satın alma ekranı (Faz 7)
-    dashboard.tsx              # User Pro dashboard (Faz 7)
-    (auth)/                    # Giriş
-    (onboarding)/              # Onboarding turu
-    (tabs)/                    # Ana sekmeler (groups, activity, account)
-    groups/[id]/               # Grup detay + üyeler + add-expense + IBAN modalları (Pro kapıları eklendi)
-    join/                      # Kodla katılma + deep link
-  lib/
-    auth/                      # AuthProvider + useAuth (Profile user_pro içerir)
-    supabase/                  # client, types, queries
-    finance/                   # money, split, fx, balance, simplify, categories + tests (75/75)
-    i18n/
-    notifications/             # registerPushToken, sendPushToUser, remindDebtor
-    revenuecat/                # RevenueCat SDK wrapper (Faz 7)
-  hooks/                       # useGroups, useGroupDetail, useExpenses, useBalance, useFxRate, useSettlements, useRealtime, usePro
-  components/                  # ProGate (Faz 7)
-  constants/theme.ts           # Design token'ları
-  locales/ tr.json en.json     # i18n (paywall.*, pro.*, dashboard.* eklendi)
-  supabase/
-    migrations/                # 0001 - 0006 (Faz 7: yeni migration yok)
-    functions/
-      join-via-invite/         # Faz 3: davetle katılım
-      send-push/               # Faz 6: Expo Push API
-      revenuecat-webhook/      # Faz 7: RevenueCat → DB entitlement
-  docs/                        # groopay-scope.md, groopay-build-spec.md
-  FAZ0-PLAN.md ... FAZ7-PLAN.md
-  CLAUDE.md
-  SESSION-OZET.md
-  .env
-```
+## Faz 8 İçin Kalanlar
 
-## Faz 8 İçin Hazırlık
+- Google + Apple OAuth (şu an anonim auth)
+- EAS dev build (EAS Build ile iOS + Android)
+- RevenueCat webhook deploy + gerçek IAP testi (sandbox)
+- send-push + delete-account Edge Function deploy
+- Gizlilik/şartlar URL'leri (Vercel)
+- İkon, splash, ekran görüntüleri
+- TestFlight / Internal Testing
+- Erişilebilirlik son kontroller
 
-OAuth (Google + Apple), dev build (EAS), hesap silme, veri dışa aktarma, gizlilik/şartlar URL'leri, ikon/splash/ekran görüntüleri, RevenueCat webhook deploy, gerçek IAP testi (sandbox), EAS Build ile iOS + Android derleme, TestFlight.
+---
+
+*Son güncelleme: 2026-06-01 — Bugfix B1-B56 + proje yapısı güncellendi*
