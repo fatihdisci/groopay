@@ -38,7 +38,7 @@ export default function DashboardScreen() {
       const myMemberIds = new Set(memberRows.map((m) => m.id));
       const groupIds = [...new Set(memberRows.map((m) => m.group_id))];
 
-      if (groupIds.length === 0) return { balances: [], groupCount: 0, expenseCount: 0, topGroup: null, categories: [] };
+      if (groupIds.length === 0) return { balances: [], groupCount: 0, expenseCount: 0, topGroup: null, categories: [], catCurrency: 'TRY', hasOtherCurrencies: false };
 
       const { data: groups } = await supabase.from('groups').select('id, name').in('id', groupIds);
       const [{ data: expenses }, { data: allSplits }, { data: settlements }] = await Promise.all([
@@ -85,21 +85,44 @@ export default function DashboardScreen() {
         if (!myMemberIds.has(s.member_id)) continue;
         categorySplits.set(s.expense_id, (categorySplits.get(s.expense_id) ?? 0) + s.share_amount);
       }
-      const catMap = new Map<string, { total: number }>();
+
+      // Track per (category, currency) — NEVER mix currencies
+      const catCurrencyMap = new Map<string, { total: number; currency: string }>();
       for (const e of expRows) {
+        const cur = e.currency ?? 'TRY';
         const splitShare = categorySplits.get(e.id) ?? 0;
         const shareRatio = Number(e.amount) > 0 ? splitShare / Number(e.amount) : 0;
         const myShare = Number(e.amount) * shareRatio;
-        const existing = catMap.get(e.category);
+        if (myShare <= 0) continue;
+        const key = `${e.category}::${cur}`;
+        const existing = catCurrencyMap.get(key);
         if (existing) { existing.total += myShare; }
-        else { catMap.set(e.category, { total: myShare }); }
+        else { catCurrencyMap.set(key, { total: myShare, currency: cur }); }
       }
-      const categories = [...catMap.entries()]
-        .map(([cat, { total }]) => ({ category: cat, amount: total }))
+
+      // Determine dominant currency for categories
+      const catCurrencyCounts: Record<string, number> = {};
+      for (const [, item] of catCurrencyMap) {
+        catCurrencyCounts[item.currency] = (catCurrencyCounts[item.currency] || 0) + item.total;
+      }
+      let dominantCatCurrency = 'TRY';
+      let maxCatTotal = 0;
+      for (const [cur, tot] of Object.entries(catCurrencyCounts)) {
+        if (tot > maxCatTotal) { maxCatTotal = tot; dominantCatCurrency = cur; }
+      }
+
+      // Only show categories in the dominant currency
+      const categories = [...catCurrencyMap.entries()]
+        .filter(([, item]) => item.currency === dominantCatCurrency)
+        .map(([key, { total }]) => ({ category: key.split('::')[0]!, amount: total }))
         .sort((a, b) => b.amount - a.amount)
         .slice(0, 5);
 
-      return { balances: balanceResult, groupCount, expenseCount, topGroup, categories };
+      // Check if user has expenses in other currencies
+      const allCurrencies = new Set([...catCurrencyMap.values()].map((v) => v.currency));
+      const hasOtherCurrencies = allCurrencies.size > 1;
+
+      return { balances: balanceResult, groupCount, expenseCount, topGroup, categories, catCurrency: dominantCatCurrency, hasOtherCurrencies };
     },
     enabled: !!user?.id,
     staleTime: 30_000,
@@ -173,7 +196,10 @@ export default function DashboardScreen() {
 
       {/* ── FREE: Category Distribution ── */}
       <View style={styles.proSection}>
-        <Text style={styles.sectionTitle}>{t('dashboard.categoryBreakdown')}</Text>
+        <Text style={styles.sectionTitle}>
+          {t('dashboard.categoryBreakdown')}
+          {d?.hasOtherCurrencies ? ` (${d.catCurrency})` : ''}
+        </Text>
         {d && d.categories.length > 0 ? (
           <View style={styles.categoryList}>
             {d.categories.map((c) => {
@@ -185,7 +211,7 @@ export default function DashboardScreen() {
                     <Text style={styles.categoryName}>{t(`categories.${c.category}`, c.category)}</Text>
                   </View>
                   <Text style={styles.categoryAmount}>
-                    {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 }).format(c.amount)}
+                    {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: d.catCurrency ?? 'TRY', minimumFractionDigits: 2 }).format(c.amount)}
                   </Text>
                 </View>
               );
@@ -196,18 +222,28 @@ export default function DashboardScreen() {
             <Text style={styles.emptySmallText}>{t('dashboard.noBalance')}</Text>
           </View>
         )}
+        {d?.hasOtherCurrencies && (
+          <Text style={styles.otherCurrencyNote}>
+            {t('dashboard.otherCurrencyNote', { currency: d.catCurrency })}
+          </Text>
+        )}
       </View>
 
       {/* ── PRO: Spending Trend (BarChart) / FREE: blurred placeholder ── */}
       {isUserPro ? (
         <FadeInUp duration={600}>
           <View style={styles.proSection}>
-            <Text style={styles.sectionTitle}>{t('dashboard.trends')}</Text>
+            <Text style={styles.sectionTitle}>
+              {t('dashboard.trends')}
+              {analytics?.trendCurrency ? ` (${analytics.trendCurrency})` : ''}
+            </Text>
             {analyticsLoading ? (
               <ActivityIndicator color={Colors.primary} style={{ paddingVertical: 30 }} />
             ) : chartData.length > 0 ? (
               <View style={styles.chartCard}>
+                <Text style={styles.chartCurrencyLabel}>{t('dashboard.monthlySpending', { currency: analytics?.trendCurrency ?? 'TRY' })}</Text>
                 <SimpleBarChart data={chartData} />
+                <Text style={styles.chartCurrencyNote}>{t('dashboard.trendSingleCurrency', { currency: analytics?.trendCurrency ?? 'TRY' })}</Text>
               </View>
             ) : (
               <View style={styles.emptyCardSmall}><Text style={styles.emptySmallText}>{t('dashboard.noBalance')}</Text></View>
@@ -336,6 +372,11 @@ const styles = StyleSheet.create({
 
   // Chart
   chartCard: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.lg, paddingTop: 24, borderWidth: 1, borderColor: Colors.border },
+  chartCurrencyLabel: { fontFamily: Typography.fontBodyBold, fontSize: 13, color: Colors.primary, marginBottom: 4 },
+  chartCurrencyNote: { fontFamily: Typography.fontBody, fontSize: 10, color: Colors.textTertiary, marginTop: 8, textAlign: 'center' as const },
+
+  // Other currency note
+  otherCurrencyNote: { fontFamily: Typography.fontBody, fontSize: 11, color: Colors.textTertiary, marginTop: 6, fontStyle: 'italic' as const },
 
   // Insight cards
   gridRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.md },

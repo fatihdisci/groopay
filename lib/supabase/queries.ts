@@ -646,11 +646,11 @@ export interface DashboardAnalyticsData {
   monthlyTrend: { month: string; total: number }[];
   topCategory: { category: string; total: number } | null;
   mostActiveMonth: string | null;
+  trendCurrency: string; // the single currency used for trend/category calculations
 }
 
 export async function getProDashboardAnalytics(
   userId: string,
-  baseCurrency: string = 'TRY',
 ): Promise<DashboardAnalyticsData> {
   const { data: members, error: memError } = await supabase
     .from('group_members')
@@ -659,7 +659,7 @@ export async function getProDashboardAnalytics(
     .eq('is_active', true);
 
   if (memError || !members || members.length === 0) {
-    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null };
+    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null, trendCurrency: 'TRY' };
   }
 
   const groupIds = members.map((m) => m.group_id);
@@ -675,7 +675,18 @@ export async function getProDashboardAnalytics(
     .is('deleted_at', null);
 
   if (expError || !expenses) {
-    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null };
+    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null, trendCurrency: 'TRY' };
+  }
+
+  // Determine the user's dominant currency (most frequent in their expenses)
+  const currencyCounts: Record<string, number> = {};
+  for (const exp of expenses) {
+    currencyCounts[exp.currency] = (currencyCounts[exp.currency] || 0) + 1;
+  }
+  let dominantCurrency = 'TRY';
+  let maxCount = 0;
+  for (const [cur, count] of Object.entries(currencyCounts)) {
+    if (count > maxCount) { maxCount = count; dominantCurrency = cur; }
   }
 
   const monthlyTrendMap: Record<string, number> = {};
@@ -695,7 +706,8 @@ export async function getProDashboardAnalytics(
 
     monthCountMap[mName] = (monthCountMap[mName] || 0) + 1;
 
-    if (exp.currency === baseCurrency) {
+    // ONLY include expenses in the dominant currency — never mix currencies
+    if (exp.currency === dominantCurrency) {
       const numericAmount = Number(exp.amount);
       monthlyTrendMap[mName] = (monthlyTrendMap[mName] || 0) + numericAmount;
       categoryMap[exp.category] = (categoryMap[exp.category] || 0) + numericAmount;
@@ -725,5 +737,5 @@ export async function getProDashboardAnalytics(
     total: Math.round(total),
   }));
 
-  return { monthlyTrend, topCategory, mostActiveMonth };
+  return { monthlyTrend, topCategory, mostActiveMonth, trendCurrency: dominantCurrency };
 }

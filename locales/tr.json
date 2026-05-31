@@ -306,7 +306,12 @@
     "detailedAnalysis": "Detaylı Grup Analizi",
     "comingSoon": "Yakında",
     "emptyTitle": "Henüz veri yok",
-    "emptySub": "İlk grubunu oluştur ve masraf eklemeye başla!"
+    "emptySub": "İlk grubunu oluştur ve masraf eklemeye başla!",
+    "mostActiveMonth": "En Hareketli Ay",
+    "topCategory": "Popüler Kategori",
+    "otherCurrencyNote": "Not: Sadece {{currency}} masraflar gösteriliyor. Diğer para birimleri ayrı hesaplanır.",
+    "monthlySpending": "Aylık Harcama ({{currency}})",
+    "trendSingleCurrency": "Sadece {{currency}} masraflar gösteriliyor"
   },
   "account": {
     "title": "Hesap",

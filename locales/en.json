@@ -308,7 +308,12 @@
     "detailedAnalysis": "Detailed Group Analysis",
     "comingSoon": "Coming soon",
     "emptyTitle": "No data yet",
-    "emptySub": "Create your first group and start adding expenses!"
+    "emptySub": "Create your first group and start adding expenses!",
+    "mostActiveMonth": "Most Active Month",
+    "topCategory": "Top Category",
+    "otherCurrencyNote": "Note: Only {{currency}} expenses shown. Other currencies calculated separately.",
+    "monthlySpending": "Monthly Spending ({{currency}})",
+    "trendSingleCurrency": "Only {{currency}} expenses shown"
   },
   "account": {
     "title": "Account",

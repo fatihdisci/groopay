@@ -924,4 +924,51 @@ supabase functions deploy delete-account
 | Numpad toggle | ✅ Detay açınca gizlenir |
 | Detay butonu metni | ✅ "detayları girmek için tıkla" |
 
-*Son güncelleme: 2026-06-01 — B47-B53 eklendi (add-expense regresyon düzeltmeleri)*
+*Son güncelleme: 2026-06-01 — B54-B56 eklendi (dashboard para birimi karışması düzeltmeleri)*
+
+---
+
+## Dashboard Para Birimi Karışması Düzeltmeleri (12. Tur — B54-B56)
+
+> Tarih: 2026-06-01
+> Bağlam: Proje kuralı: para birimleri ASLA toplanmaz/çevrilmez. Dashboard'ta 3 yerde bu kural ihlal ediliyordu.
+
+### ✅ B54: Trend grafiği para birimi karıştırma düzeltildi
+
+**Sorun:** `getProDashboardAnalytics` `baseCurrency = 'TRY'` hardcode ile çağrılıyordu. Kullanıcının EUR ağırlıklı masrafları olsa bile TRY filtreleniyor, TRY masrafı azsa boş trend gösteriliyordu.
+
+**Yapılan:**
+- `getProDashboardAnalytics` artık dominant para birimini **otomatik belirler**: son 6 aydaki masrafları sayar, en sık kullanılan para birimini seçer
+- Sadece o para birimindeki masraflar trend/kategori hesabına katılır — asla karıştırılmaz
+- `DashboardAnalyticsData` interface'ine `trendCurrency: string` eklendi
+
+### ✅ B55: Trend grafiğinde para birimi etiketi eklendi
+
+**Sorun:** Kullanıcı hangi para biriminde trend gördüğünü bilmiyordu.
+
+**Yapılan:**
+- Chart başlığı: `"Aylık Harcama (TRY)"` formatında, aktif para birimi parantez içinde
+- Chart altında: `"Sadece TRY masraflar gösteriliyor"` küçük not
+
+### ✅ B56: Kategori tutarı para birimi düzeltildi
+
+**Sorun:** Kategori dağılımı tüm masrafları `share_amount` topluyor, `currency: 'TRY'` hardcode ile formatlanıyordu. EUR/USD masrafları yanlış TRY olarak gösteriliyordu.
+
+**Yapılan:**
+- `catCurrencyMap` — her kategori `"kategori::paraBirimi"` anahtarıyla saklanır
+- Dominant para birimi belirlenir, sadece o para biriminin kategorileri gösterilir
+- Formatlama gerçek para birimiyle yapılır (`d.catCurrency`)
+- Birden fazla para birimi varsa: başlıkta `"(TRY)"` ibaresi + altta `"Not: Sadece TRY masraflar gösteriliyor. Diğer para birimleri ayrı hesaplanır."` notu
+
+**Değişen dosyalar:** `lib/supabase/queries.ts`, `app/(tabs)/dashboard.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Trend para birimi otomatik | ✅ Dominant currency |
+| Chart para birimi etiketi | ✅ Aylık Harcama (X) |
+| Kategori formatlama | ✅ Gerçek para birimiyle |
+| Çoklu para birimi notu | ✅ Gösteriliyor |
+| Para birimleri toplanmıyor | ✅ Hepsi ayrı |
+
+*Son güncelleme: 2026-06-01 — B54-B56 eklendi (dashboard para birimi karışması düzeltmeleri)*
