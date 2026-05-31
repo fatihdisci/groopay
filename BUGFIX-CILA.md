@@ -775,4 +775,46 @@ supabase functions deploy delete-account
 
 **Dosyalar:** `app/groups/[id]/_layout.tsx` (silindi), `app/_layout.tsx`
 
-*Son güncelleme: 2026-06-01 — B45 eklendi*
+*Son güncelleme: 2026-06-01 — B46 eklendi*
+
+---
+
+## B46: Header mimarisi kararları + add-expense düzeltmeleri
+
+> Tarih: 2026-06-01
+
+### Header Mimarisi (KRİTİK — çok uğraştırdı)
+- **Tabs `headerShown: false`** (groups tab) — Tabs header tamamen kaldırıldı
+- **Stack yönetiyor**: `app/(tabs)/groups/_layout.tsx`
+  - `index` → "Gruplar" (geri yok)
+  - `[id]/index` → "Grup Detayı" + otomatik `< Geri`
+  - `[id]/edit` → "Grubu Düzenle" + otomatik `< Geri`
+- **ASLA** root Stack'e taşıma (alt bar kaybolur)
+- **ASLA** nested `app/groups/[id]/_layout.tsx` (route çakışması)
+- `groups.tsx` → `groups/index.tsx` (duplicate fix)
+- Gradient header'larda geri butonu YOK (Stack sağlıyor)
+
+### Add-Expense Düzeltmeleri (B44 devamı)
+- Açıklama: statik `Text` → `TextInput`
+- `splitEqual()` ile kuruş hatasız bölüşme (`toMinor`/`fromMinor`)
+- Split type seçici (equal/custom/subset) geri getirildi
+- CTA validasyon: `amount > 0 && description && paidById`
+
+### CLAUDE.md
+- Monetizasyon, header mimarisi, UI/UX kararları güncellendi
+- Tab bar, dashboard, paywall, add-expense kuralları eklendi
+- "DO NOT BREAK" uyarıları
+
+**Dosyalar:** `app/(tabs)/_layout.tsx`, `app/(tabs)/groups/_layout.tsx`, `app/(tabs)/groups/[id]/add-expense.tsx`, `CLAUDE.md`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Header: list | ✅ "Gruplar" |
+| Header: detail | ✅ "Grup Detayı" + `< Geri |
+| Header: edit | ✅ "Grubu Düzenle" + `< Geri |
+| Alt bar | ✅ Tüm sayfalarda |
+| Add-expense: splitEqual | ✅ Kuruş hatasız |
+| Add-expense: validasyon | ✅ 3 koşul |
+
+*Son güncelleme: 2026-06-01 — B46 eklendi*

@@ -54,11 +54,12 @@
 - IBAN is NEVER stored in the database (no exceptions).
 - "Request IBAN" flow: debtor requests → creditor receives notification → enters IBAN momentarily → shared → NOT saved.
 
-## Monetization (Phase 7+)
+## Monetization (Phase 7+) — Simplified June 2026
 - RevenueCat for IAP (receipt validation + entitlement).
-- Group Pro entitlement stored server-side on `group_id` (NOT client-side).
-- Group Pro → permanent unlock for that group; any real member can purchase.
-- User Pro → all groups + personal analytics.
+- **Only User Pro (monthly) is active.** Group Pro UI removed, code kept for future.
+- `hasProAccess()` checks ONLY `profile.user_pro`.
+- Paywall: 3 working features (Dashboard, unlimited groups, category analytics). No vaporware.
+- DEV-only Pro toggle button in account screen (`__DEV__` guard).
 
 ## Icons
 - Use `@expo/vector-icons` (Ionicons, SVG-based).
@@ -103,7 +104,67 @@ groopay/
 
 ## Acceptance Criteria (Phase 0)
 - `npx expo start` starts without errors.
-- App opens in Expo Go with 3 bottom tabs (Gruplar / Aktivite / Hesap).
+- App opens in Expo Go with 4 bottom tabs (Gruplar / Panel / Aktivite / Hesap).
 - Tab titles come from i18n (Turkish by default).
 - `lib/supabase/client.ts` imports without crash (env vars read).
 - Zero TypeScript errors (`npx tsc --noEmit`).
+
+## UI/UX Decisions (June 2026)
+
+### Tab Bar
+- 4 tabs: Gruplar · Panel · Aktivite · Hesap
+- Active: filled icon + primary color + pill indicator + scale animation (Reanimated)
+- Inactive: outline icon + textTertiary
+- Shadow: purple-tinted, upwards
+- Height: 88 (iOS), safe area padding included
+- `TabBarButton` component handles scale animation
+
+### Header Architecture (KRİTİK — DO NOT BREAK)
+- **Tabs header**: `headerShown: false` on `groups` tab
+- **Stack headers** handle ALL group page headers via `app/(tabs)/groups/_layout.tsx`
+- `index` (list): `title: 'Gruplar'`
+- `[id]/index` (detail): `title: 'Grup Detayı'` + auto back button
+- `[id]/edit`: `title: 'Grubu Düzenle'` + auto back button
+- **DO NOT** move group routes to root Stack — this hides the bottom tab bar
+- **DO NOT** create nested `app/groups/[id]/_layout.tsx` — causes duplicate route conflicts
+- Gradient headers on detail/edit have NO back button (Stack provides it)
+
+### Dashboard
+- 4th tab "Panel" (stats-chart icon)
+- Free: hero balance + stats + category breakdown (always visible)
+- Pro: SimpleBarChart (View-based, no SVG dep), insight cards
+- Free locked sections: blur placeholder + "Pro'ya Geç" CTA
+
+### Paywall
+- Modern fintech: open feature rows, soft shadow price card
+- Only User Pro, no Group Pro card
+- X close button top-right (no title bar)
+- Live price via RevenueCat offering
+
+### Add Expense
+- Wise-style numpad (View-based, 48px bold amount)
+- Currency pill selector, expandable details
+- `splitEqual()` from `lib/finance/split.ts` — NEVER float math
+- Split type selector (equal/custom/subset)
+- Validation: amount > 0 + description + paidBy required
+
+### Group Management
+- Group edit: name, description, avatar color (8), emoji (16)
+- Live header preview + "DÜZENLEME MODU" label
+- Delete group: RPC `delete_group()`, hard delete + cascade
+- Remove member / leave group: RPC `remove_member()`
+- Transfer ownership: RPC `transfer_ownership()`
+- Account deletion: Edge Function `delete-account` (Apple required)
+- Data export: JSON via Share API
+
+### Tips/Help Popups
+- `TipsButton` + `TipsModal`: contextual "?" help
+- Pages: group detail, add expense, members
+- i18n: `tips.*` namespace
+
+### Design System Consistency
+- Hero gradient: `#6366F1 → #8B5CF6` (all screens)
+- Header border: Stack `headerStyle.backgroundColor: Colors.background`
+- Font: Plus Jakarta Sans (display), Inter (body)
+- Shadows: purple-tinted (`#4F46E5`)
+- No opacity string concatenation — use `Colors.primaryGhost` etc.
