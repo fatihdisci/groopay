@@ -1,11 +1,11 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect } from 'react';
 import {
   StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity,
   Alert, ActivityIndicator, Switch, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { useAuth } from '@/lib/auth';
 import { useGroupDetail } from '@/hooks/useGroupDetail';
 import { useAddExpense, useUpdateExpense } from '@/hooks/useExpenses';
@@ -20,6 +20,7 @@ import type { Category } from '@/lib/finance/categories';
 import type { SplitEntry } from '@/lib/finance/split';
 import type { GroupMemberRow, SplitType, ExpenseRow } from '@/lib/supabase/types';
 import { palette, spacing, fontSizes, radii } from '@/constants/theme';
+import TipsButton from '@/components/TipsButton';
 
 // ── Helpers ──
 
@@ -37,7 +38,24 @@ export default function AddExpenseScreen() {
   const { id, expenseId } = useLocalSearchParams<{ id: string; expenseId?: string }>();
   const { t } = useTranslation();
   const router = useRouter();
+  const navigation = useNavigation();
   const { data: groupData } = useGroupDetail(id!);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TipsButton
+          title={t('tips.addExpense.title')}
+          tips={[
+            { icon: 'cash-outline' as const, text: t('tips.addExpense.tip1') },
+            { icon: 'options-outline' as const, text: t('tips.addExpense.tip2') },
+            { icon: 'person-outline' as const, text: t('tips.addExpense.tip3') },
+            { icon: 'create-outline' as const, text: t('tips.addExpense.tip4') },
+          ]}
+        />
+      ),
+    });
+  }, [navigation, t]);
   const addExpenseMutation = useAddExpense();
   const updateExpenseMutation = useUpdateExpense();
   const { user } = useAuth();

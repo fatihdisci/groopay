@@ -344,5 +344,34 @@
     "overallDebt": "you owe overall",
     "overallCredit": "you are owed overall",
     "overallMixed": "owed in some, owe in others"
+  },
+  "tips": {
+    "groupDetail": {
+      "title": "Group Detail",
+      "tip1": "Expenses tab shows all group spending — add new ones with the + button.",
+      "tip2": "Balances tab shows who owes whom and how much.",
+      "tip3": "Simplified view suggests the fewest transactions to settle all debts.",
+      "tip4": "Tap an expense to see details (who paid what, notes)."
+    },
+    "addExpense": {
+      "title": "Add Expense",
+      "tip1": "Enter amount and select currency — different currencies are tracked separately.",
+      "tip2": "Equal: split evenly. Custom: per-person amounts. Subset: only selected members.",
+      "tip3": "The payer is the one who covered the expense — they can be part of the split.",
+      "tip4": "Use the note field for optional details."
+    },
+    "balances": {
+      "title": "Balances",
+      "tip1": "Green = you're owed, Red = you owe.",
+      "tip2": "Currencies are shown separately, never converted.",
+      "tip3": "Tap 'I Paid' — once confirmed, balances update.",
+      "tip4": "Use 'Request IBAN' to get bank details instantly (never saved)."
+    },
+    "members": {
+      "title": "Member Management",
+      "tip1": "Ghost member: someone without the app. Founder adds them, later claimable via invite.",
+      "tip2": "Share the invite link to bring real users into the group.",
+      "tip3": "Only the founder can add ghost members; anyone can create an invite link."
+    }
   }
 }

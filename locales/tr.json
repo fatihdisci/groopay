@@ -346,5 +346,34 @@
     "overallDebt": "net borçlusun",
     "overallCredit": "net alacaklısın",
     "overallMixed": "bazılarında alacaklı, bazılarında borçlusun"
+  },
+  "tips": {
+    "groupDetail": {
+      "title": "Grup Detayı",
+      "tip1": "Masraflar sekmesinde grup harcamalarını görür ve ekleyebilirsin.",
+      "tip2": "Bakiyeler sekmesinde kimin kime ne kadar borçlu olduğunu görürsün.",
+      "tip3": "Sadeleştirilmiş görünüm, en az işlemle kimin kime ödeyeceğini önerir.",
+      "tip4": "Bir masrafa dokununca detayları (kim ne kadar, not) açılır."
+    },
+    "addExpense": {
+      "title": "Masraf Ekleme",
+      "tip1": "Tutarı gir, para birimini seç (farklı para birimleri ayrı takip edilir).",
+      "tip2": "Eşit: herkese eşit böler. Özel: kişi başı tutar girersin. Alt-Küme: sadece seçili kişilere böler.",
+      "tip3": "Ödeyen, masrafı yapan kişidir — bölüşmeye dahil olabilir.",
+      "tip4": "Not alanına isteğe bağlı açıklama ekleyebilirsin."
+    },
+    "balances": {
+      "title": "Bakiyeler",
+      "tip1": "Yeşil = alacaklısın, kırmızı = borçlusun.",
+      "tip2": "Para birimleri ayrı gösterilir, birbirine çevrilmez.",
+      "tip3": "'Ödedim' dediğinde karşı taraf onaylayınca bakiye güncellenir.",
+      "tip4": "IBAN İste ile karşı taraftan anlık IBAN alabilirsin (kaydedilmez)."
+    },
+    "members": {
+      "title": "Üye Yönetimi",
+      "tip1": "Hayalet üye: uygulaması olmayan kişi. Kurucu ekler, sonra davetle gerçek hesaba bağlanabilir.",
+      "tip2": "Davet linkiyle gerçek kullanıcıları gruba çağırabilirsin.",
+      "tip3": "Sadece kurucu hayalet üye ekleyebilir; herkes davet linki oluşturabilir."
+    }
   }
 }

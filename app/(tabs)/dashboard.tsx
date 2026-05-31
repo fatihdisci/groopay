@@ -175,10 +175,14 @@ export default function DashboardScreen() {
 
       {topGroup && (
         <View style={styles.statCardWide}>
-          <Ionicons name="trophy-outline" size={18} color={Colors.warning} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.statValueSmall}>{topGroup.name}</Text>
-            <Text style={styles.statLabel}>{t('dashboard.mostActiveGroup')} ({topGroup.count} {t('dashboard.expensesCount')})</Text>
+          <View style={styles.trophyIcon}>
+            <Ionicons name="trophy-outline" size={18} color={Colors.warning} />
+          </View>
+          <View style={styles.statCardWideText}>
+            <Text style={styles.statValueSmall} numberOfLines={1}>{topGroup.name}</Text>
+            <Text style={styles.statLabelLeft} numberOfLines={1}>
+              {t('dashboard.mostActiveGroup')} · {topGroup.count} {t('dashboard.expensesCount')}
+            </Text>
           </View>
         </View>
       )}
@@ -304,11 +308,19 @@ const styles = StyleSheet.create({
   statValue: { fontFamily: Typography.fontDisplayBold, fontSize: Typography.size.xl, color: Colors.textPrimary },
   statLabel: { fontFamily: Typography.fontBody, fontSize: Typography.size.xs, color: Colors.textSecondary, textAlign: 'center' },
   statCardWide: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    flexDirection: 'row', alignItems: 'center',
     backgroundColor: Colors.surface, borderRadius: Radius.lg,
     padding: Spacing.cardPadding, marginBottom: Spacing.md, ...Shadows.sm,
   },
+  trophyIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: Colors.warning + '15',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: Spacing.md,
+  },
+  statCardWideText: { flex: 1 },
   statValueSmall: { fontFamily: Typography.fontDisplayMedium, fontSize: Typography.size.md, color: Colors.textPrimary },
+  statLabelLeft: { fontFamily: Typography.fontBody, fontSize: Typography.size.xs, color: Colors.textSecondary, marginTop: 2 },
 
   // Sections
   proSection: { marginBottom: Spacing.md },

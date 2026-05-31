@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Share, TextInput, Modal, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { useGroupDetail } from '@/hooks/useGroupDetail';
@@ -23,6 +23,7 @@ import type { GroupMemberRow, ExpenseWithSplits, ExpenseRow, ExpenseSplitRow, Ac
 import { getGroupActivity, generateWhatsAppSummary, requestIban, getPendingIbanRequests, fulfillIbanRequest } from '@/lib/supabase/queries';
 import { supabase } from '@/lib/supabase/client';
 import Avatar from '@/components/Avatar';
+import TipsButton from '@/components/TipsButton';
 
 // ── Helpers ──
 
@@ -55,8 +56,26 @@ export default function GroupDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation();
   const router = useRouter();
+  const navigation = useNavigation();
   const { user } = useAuth();
   const { data, isLoading } = useGroupDetail(id!);
+
+  // Group detail tips button in header
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TipsButton
+          title={t('tips.groupDetail.title')}
+          tips={[
+            { icon: 'receipt-outline' as const, text: t('tips.groupDetail.tip1') },
+            { icon: 'swap-horizontal-outline' as const, text: t('tips.groupDetail.tip2') },
+            { icon: 'git-compare-outline' as const, text: t('tips.groupDetail.tip3') },
+            { icon: 'document-text-outline' as const, text: t('tips.groupDetail.tip4') },
+          ]}
+        />
+      ),
+    });
+  }, [navigation, t]);
 
   const [filterCategory, setFilterCategory] = useState<Category | null>(null);
   const [showFx, setShowFx] = useState(false);

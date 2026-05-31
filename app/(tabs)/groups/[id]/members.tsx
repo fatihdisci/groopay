@@ -1,15 +1,16 @@
-import { useState } from 'react';
+import { useState, useLayoutEffect } from 'react';
 import {
   StyleSheet, Text, View, FlatList, TouchableOpacity, TextInput,
   Alert, ActivityIndicator, Share, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useGroupDetail, useAddGhostMember, useDeactivateMember, useRemoveMember, useCreateInvite } from '@/hooks/useGroupDetail';
 import { useAuth } from '@/lib/auth';
 import { palette, spacing, fontSizes, radii, minTouchTarget } from '@/constants/theme';
 import Avatar from '@/components/Avatar';
+import TipsButton from '@/components/TipsButton';
 import type { GroupMemberRow, GroupInviteRow } from '@/lib/supabase/types';
 
 function getInitials(name: string): string {
@@ -22,7 +23,23 @@ export default function MembersScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation();
   const { user } = useAuth();
+  const navigation = useNavigation();
   const { data, isLoading } = useGroupDetail(id!);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TipsButton
+          title={t('tips.members.title')}
+          tips={[
+            { icon: 'person-outline' as const, text: t('tips.members.tip1') },
+            { icon: 'link-outline' as const, text: t('tips.members.tip2') },
+            { icon: 'shield-checkmark-outline' as const, text: t('tips.members.tip3') },
+          ]}
+        />
+      ),
+    });
+  }, [navigation, t]);
   const addGhost = useAddGhostMember(id!);
   const deactivate = useDeactivateMember(id!);
   const removeMember = useRemoveMember(id!);
