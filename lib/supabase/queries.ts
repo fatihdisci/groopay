@@ -639,3 +639,91 @@ export async function hasDemoGroup(userId: string): Promise<boolean> {
     .from('groups').select('id').eq('created_by', userId).eq('is_demo', true).limit(1);
   return (data ?? []).length > 0;
 }
+
+// ── Pro Dashboard Analytics ──
+
+export interface DashboardAnalyticsData {
+  monthlyTrend: { month: string; total: number }[];
+  topCategory: { category: string; total: number } | null;
+  mostActiveMonth: string | null;
+}
+
+export async function getProDashboardAnalytics(
+  userId: string,
+  baseCurrency: string = 'TRY',
+): Promise<DashboardAnalyticsData> {
+  const { data: members, error: memError } = await supabase
+    .from('group_members')
+    .select('group_id')
+    .eq('user_id', userId)
+    .eq('is_active', true);
+
+  if (memError || !members || members.length === 0) {
+    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null };
+  }
+
+  const groupIds = members.map((m) => m.group_id);
+
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const { data: expenses, error: expError } = await supabase
+    .from('expenses')
+    .select('amount, currency, category, created_at, paid_by')
+    .in('group_id', groupIds)
+    .gte('created_at', sixMonthsAgo.toISOString())
+    .is('deleted_at', null);
+
+  if (expError || !expenses) {
+    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null };
+  }
+
+  const monthlyTrendMap: Record<string, number> = {};
+  const categoryMap: Record<string, number> = {};
+  const monthCountMap: Record<string, number> = {};
+
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    const monthName = d.toLocaleDateString('tr-TR', { month: 'short' });
+    monthlyTrendMap[monthName] = 0;
+  }
+
+  for (const exp of expenses) {
+    const date = new Date(exp.created_at);
+    const mName = date.toLocaleDateString('tr-TR', { month: 'short' });
+
+    monthCountMap[mName] = (monthCountMap[mName] || 0) + 1;
+
+    if (exp.currency === baseCurrency) {
+      const numericAmount = Number(exp.amount);
+      monthlyTrendMap[mName] = (monthlyTrendMap[mName] || 0) + numericAmount;
+      categoryMap[exp.category] = (categoryMap[exp.category] || 0) + numericAmount;
+    }
+  }
+
+  let mostActiveMonth: string | null = null;
+  let maxMonthCount = 0;
+  for (const [m, count] of Object.entries(monthCountMap)) {
+    if (count > maxMonthCount) {
+      maxMonthCount = count;
+      mostActiveMonth = m;
+    }
+  }
+
+  let topCategory: { category: string; total: number } | null = null;
+  let maxCatAmount = 0;
+  for (const [cat, tot] of Object.entries(categoryMap)) {
+    if (tot > maxCatAmount) {
+      maxCatAmount = tot;
+      topCategory = { category: cat, total: tot };
+    }
+  }
+
+  const monthlyTrend = Object.entries(monthlyTrendMap).map(([month, total]) => ({
+    month,
+    total: Math.round(total),
+  }));
+
+  return { monthlyTrend, topCategory, mostActiveMonth };
+}

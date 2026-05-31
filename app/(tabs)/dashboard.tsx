@@ -1,20 +1,23 @@
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { BarChart } from 'react-native-gifted-charts';
 import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { LinearGradient } from 'expo-linear-gradient';
 
-import { useAuth } from '@/lib/auth';
 import { usePro } from '@/hooks/usePro';
+import { useAuth } from '@/lib/auth';
+import { getProDashboardAnalytics, type DashboardAnalyticsData } from '@/lib/supabase/queries';
 import { supabase } from '@/lib/supabase/client';
 import { computeBalances, groupByCurrency } from '@/lib/finance';
 import { fromMinor, getDecimals } from '@/lib/finance/money';
-import { CATEGORY_COLORS, CATEGORY_ICONS } from '@/lib/finance/categories';
+import { CATEGORIES, CATEGORY_COLORS } from '@/lib/finance/categories';
 import type { Category } from '@/lib/finance/categories';
+import { FadeInUp } from '@/components/Animations';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
-import { palette, spacing, fontSizes, radii } from '@/constants/theme';
+import { palette, spacing, radii } from '@/constants/theme';
 import type { ExpenseForBalance, SplitForBalance, SettlementForBalance } from '@/lib/finance';
 
 export default function DashboardScreen() {
@@ -23,16 +26,15 @@ export default function DashboardScreen() {
   const { user } = useAuth();
   const { isUserPro } = usePro();
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['dashboard-tab', user?.id],
+  // Hero + stats data (always loaded)
+  const { data: heroData, isLoading: heroLoading } = useQuery({
+    queryKey: ['dashboard-hero', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-
       const { data: members } = await supabase
         .from('group_members')
         .select('id, group_id')
-        .eq('user_id', user.id)
-        .eq('is_active', true);
+        .eq('user_id', user.id).eq('is_active', true);
       const memberRows = (members ?? []) as { id: string; group_id: string }[];
       const myMemberIds = new Set(memberRows.map((m) => m.id));
       const groupIds = [...new Set(memberRows.map((m) => m.group_id))];
@@ -40,19 +42,17 @@ export default function DashboardScreen() {
       if (groupIds.length === 0) return { balances: [], groupCount: 0, expenseCount: 0, topGroup: null, categories: [] };
 
       const { data: groups } = await supabase.from('groups').select('id, name').in('id', groupIds);
-
       const [{ data: expenses }, { data: allSplits }, { data: settlements }] = await Promise.all([
-        supabase.from('expenses').select('id, paid_by, amount, currency, category, group_id, deleted_at').in('group_id', groupIds).is('deleted_at', null),
+        supabase.from('expenses').select('*').in('group_id', groupIds).is('deleted_at', null),
         (async () => {
           const { data: expIds } = await supabase.from('expenses').select('id').in('group_id', groupIds).is('deleted_at', null);
           const ids = (expIds ?? []).map((e: any) => e.id);
           if (ids.length === 0) return { data: [] };
-          return supabase.from('expense_splits').select('expense_id, member_id, share_amount').in('expense_id', ids);
+          return supabase.from('expense_splits').select('*').in('expense_id', ids);
         })(),
-        supabase.from('settlements').select('from_member, to_member, amount, currency, status').in('group_id', groupIds).eq('status', 'confirmed'),
+        supabase.from('settlements').select('*').in('group_id', groupIds).eq('status', 'confirmed'),
       ]);
 
-      // Balance per currency
       const balances = computeBalances(
         (expenses ?? []) as unknown as ExpenseForBalance[],
         (allSplits ?? []) as unknown as SplitForBalance[],
@@ -60,14 +60,11 @@ export default function DashboardScreen() {
       );
       const myBalances = balances.filter((b) => myMemberIds.has(b.memberId));
       const grouped = groupByCurrency(myBalances);
-
       const balanceResult = [...grouped.entries()].map(([currency, cb]) => {
         const totalMinor = cb.reduce((s, b) => s + b.netMinor, 0);
         if (totalMinor === 0) return null;
         const amt = fromMinor(Math.abs(totalMinor), currency);
-        const formatted = new Intl.NumberFormat('tr-TR', {
-          style: 'currency', currency, minimumFractionDigits: 2,
-        }).format(amt);
+        const formatted = new Intl.NumberFormat('tr-TR', { style: 'currency', currency, minimumFractionDigits: 2 }).format(amt);
         return { currency, netMinor: totalMinor, formatted };
       }).filter(Boolean) as { currency: string; netMinor: number; formatted: string }[];
 
@@ -75,7 +72,6 @@ export default function DashboardScreen() {
       const groupCount = (groups ?? []).length;
       const expenseCount = expRows.length;
 
-      // Most active group
       const groupExpCounts = new Map<string, number>();
       for (const e of expRows) groupExpCounts.set(e.group_id, (groupExpCounts.get(e.group_id) ?? 0) + 1);
       let topGroup: { name: string; count: number } | null = null;
@@ -85,28 +81,22 @@ export default function DashboardScreen() {
         }
       }
 
-      // Category breakdown
       const categorySplits = new Map<string, number>();
       for (const s of (allSplits ?? []) as any[]) {
         if (!myMemberIds.has(s.member_id)) continue;
         categorySplits.set(s.expense_id, (categorySplits.get(s.expense_id) ?? 0) + s.share_amount);
       }
-      const catMap = new Map<string, { total: number; currency: string }>();
+      const catMap = new Map<string, { total: number }>();
       for (const e of expRows) {
         const splitShare = categorySplits.get(e.id) ?? 0;
         const shareRatio = Number(e.amount) > 0 ? splitShare / Number(e.amount) : 0;
         const myShare = Number(e.amount) * shareRatio;
         const existing = catMap.get(e.category);
         if (existing) { existing.total += myShare; }
-        else { catMap.set(e.category, { total: myShare, currency: e.currency }); }
+        else { catMap.set(e.category, { total: myShare }); }
       }
       const categories = [...catMap.entries()]
-        .map(([cat, { total, currency }]) => ({
-          category: cat,
-          amount: total,
-          currency,
-          formatted: new Intl.NumberFormat('tr-TR', { style: 'currency', currency, minimumFractionDigits: 2 }).format(total),
-        }))
+        .map(([cat, { total }]) => ({ category: cat, amount: total }))
         .sort((a, b) => b.amount - a.amount)
         .slice(0, 5);
 
@@ -116,83 +106,78 @@ export default function DashboardScreen() {
     staleTime: 30_000,
   });
 
-  if (isLoading || !data) {
+  // Pro analytics (only for Pro users)
+  const { data: analytics, isLoading: analyticsLoading } = useQuery({
+    queryKey: ['pro-analytics', user?.id],
+    queryFn: () => getProDashboardAnalytics(user!.id),
+    enabled: !!user?.id && isUserPro,
+    staleTime: 60_000,
+  });
+
+  if (heroLoading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={palette.primary} />
+      <View style={styles.center}>
+        <ActivityIndicator color={Colors.primary} size="large" />
       </View>
     );
   }
 
-  const { balances, groupCount, expenseCount, topGroup, categories } = data;
-  const hasData = balances.length > 0 || groupCount > 0;
-  const heroAmountSize = balances.length >= 3 ? 28 : balances.length >= 2 ? 34 : 40;
+  const d = heroData;
+  const hasData = d && (d.balances.length > 0 || d.groupCount > 0);
+  const heroAmountSize = (d?.balances.length ?? 0) >= 3 ? 28 : (d?.balances.length ?? 0) >= 2 ? 34 : 40;
+  const chartData = analytics?.monthlyTrend?.map((item) => ({
+    value: item.total,
+    label: item.month,
+    frontColor: Colors.primary,
+  })) || [];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* ── HERO: Overall Balance (FREE) ── */}
-      <LinearGradient
-        colors={[Colors.gradientStart, Colors.gradientEnd]}
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={styles.heroCard}
-      >
+      {/* ── HERO (FREE) ── */}
+      <LinearGradient colors={[Colors.gradientStart, Colors.gradientEnd]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.heroCard}>
         <Text style={styles.heroLabel}>{t('dashboard.overallBalance')}</Text>
-        {balances.length === 0 ? (
-          <Text style={styles.heroEmpty}>{t('dashboard.noBalance')}</Text>
-        ) : (
-          balances.map((b) => {
-            const isPositive = b.netMinor > 0;
-            return (
-              <View key={b.currency} style={styles.heroRow}>
-                <View style={styles.heroBadge}>
-                  <Text style={styles.heroBadgeText}>{b.currency}</Text>
-                </View>
-                <Text style={[styles.heroAmount, { fontSize: heroAmountSize }]} numberOfLines={1} adjustsFontSizeToFit>
-                  {b.formatted}
-                </Text>
-                <Text style={[styles.heroStatus, isPositive ? styles.heroCredit : styles.heroDebt]}>
-                  {isPositive ? t('dashboard.alacak') : t('dashboard.borc')}
-                </Text>
-              </View>
-            );
-          })
-        )}
+        {d && d.balances.length > 0 ? d.balances.map((b) => (
+          <View key={b.currency} style={styles.heroRow}>
+            <View style={styles.heroBadge}><Text style={styles.heroBadgeText}>{b.currency}</Text></View>
+            <Text style={[styles.heroAmount, { fontSize: heroAmountSize }]} numberOfLines={1} adjustsFontSizeToFit>{b.formatted}</Text>
+            <Text style={[styles.heroStatus, b.netMinor > 0 ? styles.heroCredit : styles.heroDebt]}>
+              {b.netMinor > 0 ? t('dashboard.alacak') : t('dashboard.borc')}
+            </Text>
+          </View>
+        )) : <Text style={styles.heroEmpty}>{t('dashboard.noBalance')}</Text>}
       </LinearGradient>
 
-      {/* ── Basic Stats (FREE) ── */}
+      {/* ── STATS (FREE) ── */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Ionicons name="people" size={20} color={Colors.primary} />
-          <Text style={styles.statValue}>{groupCount}</Text>
+          <Text style={styles.statValue}>{d?.groupCount ?? 0}</Text>
           <Text style={styles.statLabel}>{t('dashboard.totalGroups')}</Text>
         </View>
         <View style={styles.statCard}>
           <Ionicons name="receipt" size={20} color={Colors.primary} />
-          <Text style={styles.statValue}>{expenseCount}</Text>
+          <Text style={styles.statValue}>{d?.expenseCount ?? 0}</Text>
           <Text style={styles.statLabel}>{t('dashboard.totalExpenses')}</Text>
         </View>
       </View>
-
-      {topGroup && (
+      {d?.topGroup && (
         <View style={styles.statCardWide}>
           <View style={styles.trophyIcon}>
             <Ionicons name="trophy-outline" size={18} color={Colors.warning} />
           </View>
           <View style={styles.statCardWideText}>
-            <Text style={styles.statValueSmall} numberOfLines={1}>{topGroup.name}</Text>
-            <Text style={styles.statLabelLeft} numberOfLines={1}>
-              {t('dashboard.mostActiveGroup')} · {topGroup.count} {t('dashboard.expensesCount')}
-            </Text>
+            <Text style={styles.statValueSmall} numberOfLines={1}>{d.topGroup.name}</Text>
+            <Text style={styles.statLabelLeft} numberOfLines={1}>{t('dashboard.mostActiveGroup')} · {d.topGroup.count} {t('dashboard.expensesCount')}</Text>
           </View>
         </View>
       )}
 
-      {/* ── Category Breakdown (FREE — always visible) ── */}
+      {/* ── FREE: Category Distribution ── */}
       <View style={styles.proSection}>
         <Text style={styles.sectionTitle}>{t('dashboard.categoryBreakdown')}</Text>
-        {categories.length > 0 ? (
+        {d && d.categories.length > 0 ? (
           <View style={styles.categoryList}>
-            {categories.map((c) => {
+            {d.categories.map((c) => {
               const catColor = CATEGORY_COLORS[c.category as Category] ?? Colors.primary;
               return (
                 <View key={c.category} style={styles.categoryRow}>
@@ -200,7 +185,9 @@ export default function DashboardScreen() {
                     <View style={[styles.categoryDot, { backgroundColor: catColor }]} />
                     <Text style={styles.categoryName}>{t(`categories.${c.category}`, c.category)}</Text>
                   </View>
-                  <Text style={styles.categoryAmount}>{c.formatted}</Text>
+                  <Text style={styles.categoryAmount}>
+                    {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2 }).format(c.amount)}
+                  </Text>
                 </View>
               );
             })}
@@ -212,38 +199,62 @@ export default function DashboardScreen() {
         )}
       </View>
 
-      {/* ── Spending Trend (BLUR for free, HIDDEN for Pro) ── */}
-      {!isUserPro && (
-        <View style={styles.proSection}>
-          <Text style={styles.sectionTitle}>{t('dashboard.trends')}</Text>
-          <ProBlurGate onUnlock={() => router.push('/paywall?context=feature')} height={140}>
-            <View style={styles.trendPlaceholder}>
-              <View style={styles.fakeChart}>
-                {[60, 45, 70, 55, 80, 65, 90].map((h, i) => (
-                  <View key={i} style={[styles.fakeBar, { height: h, backgroundColor: Colors.primary + (i % 2 === 0 ? '60' : '40') }]} />
-                ))}
+      {/* ── PRO: Spending Trend (BarChart) / FREE: blurred placeholder ── */}
+      {isUserPro ? (
+        <FadeInUp duration={600}>
+          <View style={styles.proSection}>
+            <Text style={styles.sectionTitle}>{t('dashboard.trends')}</Text>
+            {analyticsLoading ? (
+              <ActivityIndicator color={Colors.primary} style={{ paddingVertical: 30 }} />
+            ) : chartData.length > 0 ? (
+              <View style={styles.chartCard}>
+                <BarChart
+                  barWidth={24}
+                  capRadius={4}
+                  data={chartData}
+                  noOfSections={4}
+                  xAxisLabelTextStyle={{ color: Colors.textSecondary, fontSize: 11, fontFamily: Typography.fontBody }}
+                  xAxisThickness={0}
+                  yAxisTextStyle={{ color: Colors.textSecondary, fontSize: 10, fontFamily: Typography.fontBody }}
+                  yAxisThickness={0}
+                  height={160}
+                  isAnimated
+                />
               </View>
+            ) : (
+              <View style={styles.emptyCardSmall}><Text style={styles.emptySmallText}>{t('dashboard.noBalance')}</Text></View>
+            )}
+          </View>
+
+          {/* ── PRO: Insight Cards ── */}
+          <View style={styles.gridRow}>
+            <View style={[styles.insightCard, { marginRight: 8 }]}>
+              <Ionicons color={Colors.primary} name="calendar-outline" size={20} />
+              <Text style={styles.metricLabel}>{t('dashboard.mostActiveMonth', 'En Hareketli Ay')}</Text>
+              <Text style={styles.metricValue}>{analytics?.mostActiveMonth || '—'}</Text>
             </View>
-          </ProBlurGate>
-        </View>
+            <View style={[styles.insightCard, { marginLeft: 8 }]}>
+              <Ionicons color={Colors.warning} name="pricetag-outline" size={20} />
+              <Text style={styles.metricLabel}>{t('dashboard.topCategory', 'Popüler Kategori')}</Text>
+              <Text style={styles.metricValue}>
+                {analytics?.topCategory ? t(`categories.${analytics.topCategory.category}`) : '—'}
+              </Text>
+            </View>
+          </View>
+        </FadeInUp>
+      ) : (
+        <>
+          <View style={styles.proSection}>
+            <Text style={styles.sectionTitle}>{t('dashboard.trends')}</Text>
+            <ProLockPlaceholder height={160} onUnlock={() => router.push('/paywall?context=feature')} />
+          </View>
+          <View style={styles.proSection}>
+            <Text style={styles.sectionTitle}>{t('dashboard.detailedAnalysis')}</Text>
+            <ProLockPlaceholder height={100} onUnlock={() => router.push('/paywall?context=feature')} />
+          </View>
+        </>
       )}
 
-      {/* ── Detailed Group Analysis (BLUR for free, HIDDEN for Pro) ── */}
-      {!isUserPro && (
-        <View style={styles.proSection}>
-          <Text style={styles.sectionTitle}>{t('dashboard.detailedAnalysis')}</Text>
-          <ProBlurGate onUnlock={() => router.push('/paywall?context=feature')} height={120}>
-            <View style={styles.analysisPlaceholder}>
-              <View style={styles.fakeRow} />
-              <View style={[styles.fakeRow, { width: '75%' }]} />
-              <View style={[styles.fakeRow, { width: '60%' }]} />
-              <View style={[styles.fakeRow, { width: '85%' }]} />
-            </View>
-          </ProBlurGate>
-        </View>
-      )}
-
-      {/* ── Empty state ── */}
       {!hasData && (
         <View style={styles.emptyCard}>
           <Ionicons name="stats-chart-outline" size={48} color={Colors.textTertiary} />
@@ -257,18 +268,13 @@ export default function DashboardScreen() {
   );
 }
 
-/** Blur overlay with lock + CTA for non-Pro users */
-function ProBlurGate({ children, onUnlock, height }: { children: React.ReactNode; onUnlock: () => void; height: number }) {
+function ProLockPlaceholder({ height, onUnlock }: { height: number; onUnlock: () => void }) {
   return (
-    <View style={{ height, overflow: 'hidden', borderRadius: Radius.lg }}>
-      <View style={{ opacity: 0.4 }}>
-        {children}
-      </View>
-      <BlurView intensity={12} tint="light" style={StyleSheet.absoluteFill} />
-      <View style={styles.lockOverlay}>
+    <View style={[styles.lockContainer, { height }]}>
+      <View style={styles.lockInner}>
         <Ionicons name="lock-closed" size={20} color={Colors.primary} />
         <TouchableOpacity style={styles.lockCta} onPress={onUnlock} activeOpacity={0.7}>
-          <Text style={styles.lockCtaText}>{'Pro\'ya Geç'}</Text>
+          <Text style={styles.lockCtaText}>Pro'ya Geç</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -276,107 +282,64 @@ function ProBlurGate({ children, onUnlock, height }: { children: React.ReactNode
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: palette.background },
+  container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: spacing.md, paddingBottom: spacing.md },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
 
   // Hero
   heroCard: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.md, ...Shadows.md },
-  heroLabel: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.xs, color: 'rgba(255,255,255,0.55)', letterSpacing: 1, marginBottom: 12 },
-  heroRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  heroBadge: {
-    backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: Radius.sm,
-    paddingHorizontal: 8, paddingVertical: 2, marginRight: Spacing.sm,
-  },
+  heroLabel: { fontFamily: Typography.fontBodyBold, fontSize: 11, color: 'rgba(255,255,255,0.55)', letterSpacing: 1, marginBottom: 12 },
+  heroRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.1)' },
+  heroBadge: { backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: Radius.sm, paddingHorizontal: 8, paddingVertical: 2, marginRight: Spacing.sm },
   heroBadgeText: { fontFamily: Typography.fontBodyBold, fontSize: 12, color: 'rgba(255,255,255,0.7)' },
   heroAmount: { flex: 1, fontFamily: Typography.fontDisplayBold, color: '#FFFFFF' },
-  heroStatus: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, marginLeft: Spacing.sm },
+  heroStatus: { fontFamily: Typography.fontBodyBold, fontSize: 13, marginLeft: Spacing.sm },
   heroCredit: { color: '#A7F3D0' },
   heroDebt: { color: 'rgba(255,255,255,0.5)' },
-  heroEmpty: { fontFamily: Typography.fontBody, fontSize: Typography.size.md, color: 'rgba(255,255,255,0.5)' },
+  heroEmpty: { fontFamily: Typography.fontBody, fontSize: 15, color: 'rgba(255,255,255,0.5)' },
 
   // Stats
   statsRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.sm },
-  statCard: {
-    flex: 1, backgroundColor: Colors.surface, borderRadius: Radius.lg,
-    padding: Spacing.cardPadding, alignItems: 'center', gap: 4, ...Shadows.sm,
-  },
-  statValue: { fontFamily: Typography.fontDisplayBold, fontSize: Typography.size.xl, color: Colors.textPrimary },
-  statLabel: { fontFamily: Typography.fontBody, fontSize: Typography.size.xs, color: Colors.textSecondary, textAlign: 'center' },
-  statCardWide: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: Colors.surface, borderRadius: Radius.lg,
-    padding: Spacing.cardPadding, marginBottom: Spacing.md, ...Shadows.sm,
-  },
-  trophyIcon: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: Colors.warning + '15',
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: Spacing.md,
-  },
+  statCard: { flex: 1, backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.cardPadding, alignItems: 'center', gap: 4, ...Shadows.sm },
+  statValue: { fontFamily: Typography.fontDisplayBold, fontSize: 22, color: Colors.textPrimary },
+  statLabel: { fontFamily: Typography.fontBody, fontSize: 11, color: Colors.textSecondary, textAlign: 'center' },
+  statCardWide: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.cardPadding, marginBottom: Spacing.md, ...Shadows.sm },
   statCardWideText: { flex: 1 },
-  statValueSmall: { fontFamily: Typography.fontDisplayMedium, fontSize: Typography.size.md, color: Colors.textPrimary },
-  statLabelLeft: { fontFamily: Typography.fontBody, fontSize: Typography.size.xs, color: Colors.textSecondary, marginTop: 2 },
+  statValueSmall: { fontFamily: Typography.fontDisplayMedium, fontSize: 16, color: Colors.textPrimary },
+  statLabelLeft: { fontFamily: Typography.fontBody, fontSize: 11, color: Colors.textSecondary, marginTop: 2 },
+  trophyIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.warning + '15', alignItems: 'center', justifyContent: 'center', marginRight: Spacing.md },
 
   // Sections
   proSection: { marginBottom: Spacing.md },
-  sectionTitle: { fontFamily: Typography.fontDisplayMedium, fontSize: Typography.size.md, color: Colors.textPrimary, marginBottom: Spacing.sm },
+  sectionTitle: { fontFamily: Typography.fontDisplayMedium, fontSize: 16, color: Colors.textPrimary, marginBottom: Spacing.sm },
 
-  // Category list
-  categoryList: {
-    backgroundColor: Colors.surface, borderRadius: Radius.lg,
-    borderWidth: 1, borderColor: Colors.border, overflow: 'hidden',
-  },
-  categoryRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 12, paddingHorizontal: Spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border,
-  },
+  // Category
+  categoryList: { backgroundColor: Colors.surface, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  categoryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
   categoryLeft: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
   categoryDot: { width: 10, height: 10, borderRadius: 5 },
-  categoryName: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textPrimary },
-  categoryAmount: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, color: Colors.textPrimary },
+  categoryName: { fontFamily: Typography.fontBody, fontSize: 14, color: Colors.textPrimary },
+  categoryAmount: { fontFamily: Typography.fontBodyBold, fontSize: 14, color: Colors.textPrimary },
 
-  // Empty (small)
-  emptyCardSmall: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.lg, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
-  emptySmallText: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textTertiary },
+  // Chart
+  chartCard: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.lg, paddingTop: 24, borderWidth: 1, borderColor: Colors.border },
 
-  // Blur gate
-  lockOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center', justifyContent: 'center',
-    gap: Spacing.xs, zIndex: 10,
-  },
-  lockCta: {
-    marginTop: 4, backgroundColor: Colors.primary,
-    paddingHorizontal: Spacing.lg, paddingVertical: 6,
-    borderRadius: Radius.full,
-  },
-  lockCtaText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.xs, color: '#FFFFFF' },
+  // Insight cards
+  gridRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.md },
+  insightCard: { flex: 1, backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.cardPadding, ...Shadows.sm },
+  metricLabel: { fontFamily: Typography.fontBody, fontSize: 12, color: Colors.textTertiary, marginTop: 8 },
+  metricValue: { fontFamily: Typography.fontDisplayBold, fontSize: 18, color: Colors.textPrimary, marginTop: 2 },
 
-  // Trend placeholder (blurred)
-  trendPlaceholder: {
-    backgroundColor: Colors.surface, borderRadius: Radius.lg,
-    padding: Spacing.lg, height: 140,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  fakeChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', flex: 1, gap: 8 },
-  fakeBar: { width: 28, borderRadius: 4 },
-
-  // Analysis placeholder (blurred)
-  analysisPlaceholder: {
-    backgroundColor: Colors.surface, borderRadius: Radius.lg,
-    padding: Spacing.lg, height: 120, gap: Spacing.sm,
-    borderWidth: 1, borderColor: Colors.border, justifyContent: 'center',
-  },
-  fakeRow: { height: 12, backgroundColor: Colors.primary + '30', borderRadius: 6, width: '100%' },
+  // Lock placeholder
+  lockContainer: { backgroundColor: Colors.surface, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, opacity: 0.6 },
+  lockInner: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center', gap: 8, zIndex: 10 },
+  lockCta: { backgroundColor: Colors.primary, paddingHorizontal: Spacing.lg, paddingVertical: 6, borderRadius: Radius.full },
+  lockCtaText: { fontFamily: Typography.fontBodyBold, fontSize: 12, color: '#FFFFFF' },
 
   // Empty
   emptyCard: { alignItems: 'center', paddingVertical: 40, gap: Spacing.sm },
-  emptyTitle: { fontFamily: Typography.fontDisplayMedium, fontSize: Typography.size.lg, color: Colors.textPrimary },
-  emptySub: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textSecondary, textAlign: 'center' },
+  emptyTitle: { fontFamily: Typography.fontDisplayMedium, fontSize: 18, color: Colors.textPrimary },
+  emptySub: { fontFamily: Typography.fontBody, fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
+  emptyCardSmall: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.lg, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  emptySmallText: { fontFamily: Typography.fontBody, fontSize: 14, color: Colors.textTertiary },
 });
