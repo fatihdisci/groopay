@@ -1,6 +1,4 @@
-import { Stack, router } from 'expo-router';
-import { TouchableOpacity, Text } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Stack } from 'expo-router';
 import { Colors, Typography } from '@/constants/theme';
 
 export default function GroupsStackLayout() {
@@ -15,10 +13,10 @@ export default function GroupsStackLayout() {
     >
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="new" options={{ title: 'Yeni Grup' }} />
-      <Stack.Screen name="[id]/index" options={{ title: 'Grup Detayı' }} />
+      <Stack.Screen name="[id]/index" options={{ headerShown: false }} />
       <Stack.Screen name="[id]/add-expense" options={{ title: 'Masraf Ekle', presentation: 'modal' }} />
       <Stack.Screen name="[id]/members" options={{ title: 'Üyeler', presentation: 'modal' }} />
-      <Stack.Screen name="[id]/edit" options={{ title: 'Grubu Düzenle' }} />
+      <Stack.Screen name="[id]/edit" options={{ headerShown: false }} />
     </Stack>
   );
 }
