@@ -108,6 +108,9 @@ export default function PaywallScreen() {
   if (isUserPro) {
     return (
       <View style={styles.alreadyContainer}>
+        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="close" size={24} color={Colors.textSecondary} />
+        </TouchableOpacity>
         <Ionicons name="checkmark-circle" size={72} color={Colors.credit} />
         <Text style={styles.alreadyTitle}>{t('paywall.alreadyPro')}</Text>
         <Text style={styles.alreadySub}>{t('paywall.alreadyProSub')}</Text>
@@ -121,6 +124,11 @@ export default function PaywallScreen() {
   // ── Paywall ──
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Close button */}
+      <TouchableOpacity style={styles.closeButton} onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Ionicons name="close" size={24} color={Colors.textSecondary} />
+      </TouchableOpacity>
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.diamondIcon}>
@@ -214,10 +222,11 @@ export default function PaywallScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  content: { paddingHorizontal: 24, paddingTop: 48, paddingBottom: 48 },
+  content: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 48 },
+  closeButton: { position: 'absolute', top: 4, right: 4, padding: 8, zIndex: 10 },
 
   // Header
-  header: { alignItems: 'center', marginBottom: 40 },
+  header: { alignItems: 'center', marginBottom: 36 },
   diamondIcon: {
     width: 72, height: 72, borderRadius: 36,
     backgroundColor: Colors.primaryGhost,
@@ -308,7 +317,7 @@ const styles = StyleSheet.create({
   alreadyContainer: {
     flex: 1, backgroundColor: Colors.background,
     alignItems: 'center', justifyContent: 'center',
-    padding: 40,
+    padding: 24,
   },
   alreadyTitle: { fontFamily: Typography.fontDisplayBold, fontSize: 24, color: Colors.textPrimary, marginTop: 16 },
   alreadySub: { fontFamily: Typography.fontBody, fontSize: 15, color: Colors.textSecondary, marginTop: 8, textAlign: 'center' },
