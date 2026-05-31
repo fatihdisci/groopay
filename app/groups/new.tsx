@@ -48,23 +48,9 @@ export default function NewGroupScreen() {
           maxLength={40}
           autoFocus
         />
-
-        <TouchableOpacity
-          style={styles.createBtn}
-          onPress={handleCreate}
-          disabled={!groupName.trim() || creating}
-          activeOpacity={0.9}
-        >
-          <LinearGradient
-            colors={[Colors.gradientStart, Colors.gradientEnd]}
-            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-            style={styles.createBtnGradient}
-          >
-            {creating ? (
-              <ActivityIndicator size="small" color="white" />
-            ) : (
-              <Text style={styles.createBtnText}>{t('groups.createBtn')}</Text>
-            )}
+        <TouchableOpacity style={styles.createBtn} onPress={handleCreate} disabled={!groupName.trim() || creating} activeOpacity={0.9}>
+          <LinearGradient colors={[Colors.gradientStart, Colors.gradientEnd]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.createBtnGradient}>
+            {creating ? <ActivityIndicator size="small" color="white" /> : <Text style={styles.createBtnText}>{t('groups.createBtn')}</Text>}
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -76,13 +62,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background, padding: spacing.lg },
   form: { flex: 1, paddingTop: spacing.lg },
   label: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.xs, color: Colors.textSecondary, letterSpacing: 0.5, marginBottom: spacing.sm },
-  input: {
-    borderWidth: 1, borderColor: Colors.border, borderRadius: radii.md,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2,
-    fontSize: fontSizes.md, color: palette.text,
-    backgroundColor: Colors.surface, minHeight: minTouchTarget,
-    marginBottom: spacing.xl,
-  },
+  input: { borderWidth: 1, borderColor: Colors.border, borderRadius: radii.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, fontSize: fontSizes.md, color: palette.text, backgroundColor: Colors.surface, minHeight: minTouchTarget, marginBottom: spacing.xl },
   createBtn: { borderRadius: Radius.md, overflow: 'hidden' },
   createBtnGradient: { paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: 52 },
   createBtnText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.base, color: '#FFFFFF' },
