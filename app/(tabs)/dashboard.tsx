@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { BarChart } from 'react-native-gifted-charts';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -208,18 +207,7 @@ export default function DashboardScreen() {
               <ActivityIndicator color={Colors.primary} style={{ paddingVertical: 30 }} />
             ) : chartData.length > 0 ? (
               <View style={styles.chartCard}>
-                <BarChart
-                  barWidth={24}
-                  capRadius={4}
-                  data={chartData}
-                  noOfSections={4}
-                  xAxisLabelTextStyle={{ color: Colors.textSecondary, fontSize: 11, fontFamily: Typography.fontBody }}
-                  xAxisThickness={0}
-                  yAxisTextStyle={{ color: Colors.textSecondary, fontSize: 10, fontFamily: Typography.fontBody }}
-                  yAxisThickness={0}
-                  height={160}
-                  isAnimated
-                />
+                <SimpleBarChart data={chartData} />
               </View>
             ) : (
               <View style={styles.emptyCardSmall}><Text style={styles.emptySmallText}>{t('dashboard.noBalance')}</Text></View>
@@ -280,6 +268,31 @@ function ProLockPlaceholder({ height, onUnlock }: { height: number; onUnlock: ()
     </View>
   );
 }
+
+/** Simple View-based bar chart — no native SVG dependency */
+function SimpleBarChart({ data }: { data: { value: number; label: string; frontColor: string }[] }) {
+  const maxVal = Math.max(...data.map((d) => d.value), 1);
+  return (
+    <View style={simpleChartStyles.container}>
+      <View style={simpleChartStyles.bars}>
+        {data.map((d, i) => (
+          <View key={i} style={simpleChartStyles.barCol}>
+            <View style={[simpleChartStyles.bar, { height: `${Math.max((d.value / maxVal) * 100, 4)}%` as any, backgroundColor: d.frontColor }]} />
+            <Text style={simpleChartStyles.label}>{d.label}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const simpleChartStyles = StyleSheet.create({
+  container: { height: 160, justifyContent: 'flex-end' },
+  bars: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-around', flex: 1, paddingTop: 8 },
+  barCol: { alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end', gap: 6 },
+  bar: { width: 24, borderRadius: 4, minHeight: 4 },
+  label: { fontFamily: Typography.fontBody, fontSize: 10, color: Colors.textSecondary, marginTop: 4 },
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
