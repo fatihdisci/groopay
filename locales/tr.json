@@ -93,7 +93,20 @@
     "addExpenseFab": "Masraf Ekle",
     "note": "Not",
     "expandHint": "Küçültmek için tekrar dokun",
-    "closeDetail": "Kapat"
+    "closeDetail": "Kapat",
+    "otherCurrency": "Diğer",
+    "selectCurrency": "Para Birimi Seç",
+    "dateSelect": "Tarih Seç",
+    "today": "Bugün",
+    "loadingError": "Masraf yüklenemedi",
+    "customAmountFor": "{{name}} için tutar",
+    "selectedMembers": "Seçili üyeler",
+    "deselectAll": "Tümünü Kaldır",
+    "selectAll": "Tümünü Seç",
+    "close": "Kapat",
+    "days": "Pt_Sa_Ça_Pe_Cu_Ct_Pz",
+    "tapToEdit": "tutarı düzenlemek için dokun",
+    "tapToDetails": "detayları girmek için tıkla"
   },
   "categories": {
     "market": "Yemek & Market",

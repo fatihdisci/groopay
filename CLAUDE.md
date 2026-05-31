@@ -4,6 +4,17 @@
 > Teknik build planı için: [`docs/groopay-build-spec.md`](docs/groopay-build-spec.md)
 > Oturum özeti + son durum: [`SESSION-OZET.md`](SESSION-OZET.md)
 > Son faz planı: [`FAZ6-PLAN.md`](FAZ6-PLAN.md)
+> Bugfix & cila kaydı: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
+
+---
+
+## Bugfix & Geliştirme Kaydı (ZORUNLU)
+
+- **Her hata düzeltmesi, regresyon giderme, tasarım değişikliği veya yeni özellik `BUGFIX-CILA.md` dosyasına kaydedilir.**
+- Format: `### ✅ BXX: Başlık` — sorun, yapılan, değişen dosyalar, nasıl test edileceği, kontrol tablosu.
+- Numaralandırma sıralıdır (B1, B2, …). Son numaradan devam et.
+- Her madde sonrası `*Son güncelleme: TARİH — BXX eklendi*` satırı güncellenir.
+- Commit mesajlarında B numarası referans verilir: `fix: B47-B53 add-expense regresyon düzeltmeleri`.
 
 ---
 

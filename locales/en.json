@@ -143,7 +143,20 @@
     "addExpenseFab": "Add Expense",
     "note": "Note",
     "expandHint": "Tap again to collapse",
-    "closeDetail": "Close"
+    "closeDetail": "Close",
+    "otherCurrency": "Other",
+    "selectCurrency": "Select Currency",
+    "dateSelect": "Select Date",
+    "today": "Today",
+    "loadingError": "Failed to load expense",
+    "customAmountFor": "Amount for {{name}}",
+    "selectedMembers": "Selected members",
+    "deselectAll": "Deselect All",
+    "selectAll": "Select All",
+    "close": "Close",
+    "days": "Mo_Tu_We_Th_Fr_Sa_Su",
+    "tapToEdit": "tap to edit amount",
+    "tapToDetails": "tap to enter details"
   },
   "categories": {
     "market": "Food & Groceries",

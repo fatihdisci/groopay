@@ -817,4 +817,111 @@ supabase functions deploy delete-account
 | Add-expense: splitEqual | ✅ Kuruş hatasız |
 | Add-expense: validasyon | ✅ 3 koşul |
 
-*Son güncelleme: 2026-06-01 — B46 eklendi*
+*Son güncelleme: 2026-06-01 — B47-B51 eklendi (add-expense regresyon düzeltmeleri)*
+
+---
+
+## Add-Expense Regresyon Düzeltmeleri (11. Tur — B47-B51)
+
+> Tarih: 2026-06-01
+> Bağlam: Faz 4'te tam çalışan add-expense ekranı, B44 (Wise numpad) tasarımı sırasında işlevsel regresyonlar yaşadı. Aşağıdaki düzeltmeler kaybolan özellikleri geri getirir.
+
+### ✅ B47: Bölüşme tipi çalışmıyordu — düzeltildi
+
+**Sorun:** `splitType` state'i seçiliyordu ama `handleSave` HER ZAMAN `splitEqual` çağırıyordu. "Özel" ve "Alt-küme" seçilse bile eşit bölüyordu.
+
+**Yapılan:**
+- `handleSave` artık `splitType`'a göre doğru fonksiyonu çağırıyor:
+  - `'equal'` → `splitEqual()`
+  - `'custom'` → `splitCustomAmounts()` — her üye için tutar giriş input'u
+  - `'subset'` → `splitSubset()` — üye checkbox seçimi
+- Custom modda: her aktif üye için `TextInput`, anlık kalan/toplam kontrolü
+- "Kalanı X'e tamamla" butonu (kalanı ödeyene otomatik ekler)
+- Toplam tutmayınca `splitCustomAmounts` exception fırlatır → kaydet engellenir
+- Subset modda: checkbox listesi, "Tümünü Seç/Kaldır", sadece seçili üyelere eşit bölüşme
+- `lib/finance/split.ts`'teki tüm fonksiyonlar zaten vardı ve testliydi (75/75 test geçiyor)
+
+### ✅ B48: "Diğer" para birimi seçeneği geri getirildi
+
+**Sorun:** Sadece TRY/USD/EUR vardı. Eski versiyonda 20 para birimi seçilebiliyordu.
+
+**Yapılan:**
+- `PRIMARY_CURRENCIES` (TRY/USD/EUR) yanında "Diğer" pill'i eklendi
+- "Diğer"e basınca `SUPPORTED_CURRENCIES` listesinden seçim modal'ı açılır (flag + kod + isim)
+- Aktif para birimi PRIMARY değilse "Diğer" pill'i aktif gösterilir ve kod yazar
+- `lib/finance/money.ts`'teki 20 para birimi kullanıldı
+
+### ✅ B49: Canlı bölüşme önizlemesi eklendi
+
+**Sorun:** Bölüşme tipine göre "kim ne kadar ödeyecek" önizlemesi yoktu. Kullanıcı kaydedene kadar göremiyordu.
+
+**Yapılan:**
+- `splitPreview` useMemo: `amountStr`, `currency`, `splitType`, `customAmounts`, `selectedSubsetMembers` değiştikçe anlık hesaplanır
+- Eşit: her üyenin payı otomatik gösterilir
+- Özel: girilen tutarlar + kalan/taşma göstergesi
+- Alt-küme: sadece seçili üyelerin payı
+- Önizleme kartı: üye isimleri + tutarlar + toplam satırı
+- Özel modda "Kalan: X" / "Toplamı aştınız" / "Tam eşleşme" durum göstergeleri
+
+### ✅ B50: Düzenleme modu geri getirildi
+
+**Sorun:** Eski versiyon `expenseId` paramıyla düzenleme yapabiliyordu. Bu versiyonda tamamen kayıptı.
+
+**Yapılan:**
+- `useLocalSearchParams`'tan `expenseId` alınır
+- `expenseId` varsa: Supabase'den masraf + split'ler yüklenir, tüm alanlar doldurulur
+- Kaydette `useUpdateExpense` mutation'ı çağrılır
+- `expenseId` yoksa: boş form, `useAddExpense` ile yeni ekleme
+- Başlık dinamik: `navigation.setOptions({ title: ... })` ile "Masraf Ekle" / "Masrafı Düzenle"
+- Custom/subset split tipi için state'ler geri yüklenir
+- Yükleme sırasında spinner gösterilir
+
+### ✅ B51: Tarih seçici eklendi
+
+**Sorun:** Tarih hep bugündü, değiştirilemiyordu.
+
+**Yapılan:**
+- Varsayılan bugün, değiştirilebilir
+- Takvim ikonlu buton → basit takvim modal'ı (View-tabanlı, sıfır native bağımlılık)
+- Ay gezintisi (← → oklar), gün grid'i (6×7)
+- Bugün butonu, seçili gün primary renkle vurgulu
+- Ay/gün isimleri locale'e göre TR/EN
+- `formatDateDisplay`: "1 Haziran 2026" formatında gösterim
+
+### ✅ B52: Numpad sadece tutar girerken görünür
+
+**Sorun:** Numpad her zaman ekranın altında duruyordu, detayları doldururken ekranı daraltıyordu.
+
+**Yapılan:**
+- `showNumpad` state'i eklendi (varsayılan: `true`)
+- Detaylar açılınca numpad gizlenir, kapanınca geri gelir
+- Tutar alanına dokununca numpad toggle
+- Numpad gizliyken tutar alanında "tutarı düzenlemek için dokun" ipucu
+- Kaydet butonu her zaman görünür
+
+### ✅ B53: Detay butonu metni değişti
+
+**Sorun:** Açıklama girilmemişken "örn. Market alışverişi" yazıyordu, butonun ne işe yaradığı belli değildi.
+
+**Yapılan:**
+- Placeholder metni: "detayları girmek için tıkla"
+- Açıklama girilince girilen metin gösterilir
+- i18n: `expense.tapToDetails`
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/add-expense.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Split testleri (vitest 75) | ✅ 75/75 geçti |
+| Bölüşme: eşit | ✅ splitEqual |
+| Bölüşme: özel | ✅ splitCustomAmounts + kalan kontrolü |
+| Bölüşme: alt-küme | ✅ splitSubset + üye seçimi |
+| Diğer para birimi | ✅ 20 birimli modal |
+| Canlı önizleme | ✅ Anlık güncelleniyor |
+| Düzenleme modu | ✅ expenseId ile yükleme |
+| Tarih seçici | ✅ Takvim modal'ı |
+| Numpad toggle | ✅ Detay açınca gizlenir |
+| Detay butonu metni | ✅ "detayları girmek için tıkla" |
+
+*Son güncelleme: 2026-06-01 — B47-B53 eklendi (add-expense regresyon düzeltmeleri)*
