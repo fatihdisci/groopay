@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/lib/auth';
 import { useGroupDetail } from '@/hooks/useGroupDetail';
 import { useAddExpense } from '@/hooks/useExpenses';
+import { toMinor, fromMinor, getDecimals } from '@/lib/finance/money';
+import { splitEqual } from '@/lib/finance/split';
 import { CATEGORIES, CATEGORY_ICONS, CATEGORY_COLORS } from '@/lib/finance/categories';
 import type { Category } from '@/lib/finance/categories';
 import type { GroupMemberRow, SplitType } from '@/lib/supabase/types';
@@ -22,14 +24,13 @@ export default function AddExpenseScreen() {
   const { data: groupData } = useGroupDetail(id!);
   const addExpenseMutation = useAddExpense();
 
-  // ── Amount (numpad-driven) ──
+  // ── State ──
   const [amountStr, setAmountStr] = useState('0');
   const [currency, setCurrency] = useState('TRY');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState<Category>('other');
   const [paidById, setPaidById] = useState<string>('');
   const [splitType, setSplitType] = useState<SplitType>('equal');
-  const [splits, setSplits] = useState<{ memberId: string; shareAmount: number }[]>([]);
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -37,7 +38,6 @@ export default function AddExpenseScreen() {
   const members = (groupData?.members ?? []) as GroupMemberRow[];
   const activeMembers = members.filter((m) => m.is_active);
 
-  // Auto-select payer as current user
   useEffect(() => {
     if (activeMembers.length > 0 && !paidById) {
       const me = activeMembers.find((m) => m.user_id === user?.id);
@@ -45,7 +45,7 @@ export default function AddExpenseScreen() {
     }
   }, [activeMembers, user?.id, paidById]);
 
-  // ── Numpad handlers ──
+  // ── Numpad ──
   const handleKeyPress = (val: string) => {
     if (val === 'back') {
       setAmountStr((prev) => (prev.length > 1 ? prev.slice(0, -1) : '0'));
@@ -61,9 +61,7 @@ export default function AddExpenseScreen() {
     return num.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  const getAmountNumber = (): number => {
-    return parseFloat(amountStr) || 0;
-  };
+  const getAmountNumber = (): number => parseFloat(amountStr) || 0;
 
   // ── Save ──
   const handleSave = async () => {
@@ -74,10 +72,13 @@ export default function AddExpenseScreen() {
       const actorMember = activeMembers.find((m) => m.user_id === user?.id);
       if (!actorMember) throw new Error('Üyelik bulunamadı');
 
-      const splitEntries = activeMembers.map((m) => ({
-        memberId: m.id,
-        shareAmount: Math.round((amt / activeMembers.length) * 100) / 100,
-      }));
+      // Use integer minor units for precise split (NO float math)
+      const totalMinor = toMinor(amt, currency);
+      const memberIds = activeMembers.map((m) => m.id);
+      const payerIdx = memberIds.indexOf(paidById);
+      const payerId = payerIdx >= 0 ? paidById : memberIds[0]!;
+
+      const splitEntries = splitEqual(totalMinor, memberIds, payerId);
 
       await addExpenseMutation.mutateAsync({
         groupId: id!,
@@ -90,7 +91,7 @@ export default function AddExpenseScreen() {
         paidBy: paidById,
         createdBy: actorMember.id,
         expenseDate: new Date().toISOString().split('T')[0]!,
-        splits: splitEntries,
+        splits: splitEntries.map((s) => ({ memberId: s.memberId, shareAmount: fromMinor(s.shareMinor, currency) })),
       });
       router.back();
     } catch (e: any) {
@@ -107,6 +108,8 @@ export default function AddExpenseScreen() {
     ['.', '0', 'back'],
   ];
 
+  const canSave = getAmountNumber() > 0 && description.trim().length > 0 && !!paidById;
+
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
@@ -115,18 +118,14 @@ export default function AddExpenseScreen() {
           <Text style={styles.amountText}>{formatDisplayAmount()}</Text>
           <View style={styles.currencyRow}>
             {PRIMARY_CURRENCIES.map((cur) => (
-              <TouchableOpacity
-                key={cur}
-                onPress={() => setCurrency(cur)}
-                style={[styles.currencyPill, currency === cur && styles.currencyPillActive]}
-              >
+              <TouchableOpacity key={cur} onPress={() => setCurrency(cur)} style={[styles.currencyPill, currency === cur && styles.currencyPillActive]}>
                 <Text style={[styles.currencyPillText, currency === cur && styles.currencyPillTextActive]}>{cur}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* ── Quick fields ── */}
+        {/* ── Quick description ── */}
         <View style={styles.quickFields}>
           <TouchableOpacity style={styles.quickField} onPress={() => setShowDetails(!showDetails)}>
             <Ionicons name="create-outline" size={18} color={Colors.primary} />
@@ -136,14 +135,37 @@ export default function AddExpenseScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ── Expanded details ── */}
+        {/* ── Details ── */}
         {showDetails && (
           <View style={styles.detailsSection}>
-            {/* Description */}
+            {/* Description — real TextInput */}
             <View style={styles.field}>
               <Text style={styles.fieldLabel}>{t('expense.description')}</Text>
-              <View style={styles.fieldInput}>
-                <Text style={styles.fieldInputText}>{description || '—'}</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={description}
+                onChangeText={setDescription}
+                placeholder={t('expense.descriptionPlaceholder')}
+                placeholderTextColor={Colors.textTertiary}
+                maxLength={60}
+              />
+            </View>
+
+            {/* Split Type */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>{t('expense.splitType')}</Text>
+              <View style={styles.splitTypeRow}>
+                {(['equal', 'custom', 'subset'] as SplitType[]).map((st) => (
+                  <TouchableOpacity
+                    key={st}
+                    onPress={() => setSplitType(st)}
+                    style={[styles.splitTypeBtn, splitType === st && styles.splitTypeBtnActive]}
+                  >
+                    <Text style={[styles.splitTypeBtnText, splitType === st && styles.splitTypeBtnTextActive]}>
+                      {st === 'equal' ? t('expense.splitEqual') : st === 'custom' ? t('expense.splitCustom') : t('expense.splitSubset')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
 
@@ -179,6 +201,19 @@ export default function AddExpenseScreen() {
                 ))}
               </ScrollView>
             </View>
+
+            {/* Note */}
+            <View style={styles.field}>
+              <Text style={styles.fieldLabel}>{t('expense.note')}</Text>
+              <TextInput
+                style={styles.fieldInput}
+                value={note}
+                onChangeText={setNote}
+                placeholder={t('expense.notePlaceholder')}
+                placeholderTextColor={Colors.textTertiary}
+                maxLength={120}
+              />
+            </View>
           </View>
         )}
       </ScrollView>
@@ -188,12 +223,7 @@ export default function AddExpenseScreen() {
         {numpadKeys.map((row, rIndex) => (
           <View key={rIndex} style={styles.numpadRow}>
             {row.map((key) => (
-              <TouchableOpacity
-                key={key}
-                onPress={() => handleKeyPress(key)}
-                style={styles.numpadKeyButton}
-                activeOpacity={0.6}
-              >
+              <TouchableOpacity key={key} onPress={() => handleKeyPress(key)} style={styles.numpadKeyButton} activeOpacity={0.6}>
                 {key === 'back' ? (
                   <Ionicons name="backspace-outline" size={24} color={Colors.textSecondary} />
                 ) : (
@@ -208,8 +238,8 @@ export default function AddExpenseScreen() {
       {/* ── CTA ── */}
       <TouchableOpacity
         onPress={handleSave}
-        style={[styles.ctaButton, saving && { opacity: 0.6 }]}
-        disabled={saving || getAmountNumber() <= 0}
+        style={[styles.ctaButton, !canSave && { opacity: 0.6 }]}
+        disabled={saving || !canSave}
         activeOpacity={0.85}
       >
         {saving ? (
@@ -238,8 +268,12 @@ const styles = StyleSheet.create({
   detailsSection: { paddingTop: 16, gap: 16 },
   field: { marginBottom: 4 },
   fieldLabel: { fontFamily: Typography.fontBodyBold, fontSize: 12, color: Colors.textSecondary, marginBottom: 8, letterSpacing: 0.5 },
-  fieldInput: { paddingVertical: 12, paddingHorizontal: 16, backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border },
-  fieldInputText: { fontFamily: Typography.fontBody, fontSize: 15, color: Colors.textPrimary },
+  fieldInput: { paddingVertical: 12, paddingHorizontal: 16, backgroundColor: Colors.surface, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, fontFamily: Typography.fontBody, fontSize: 15, color: Colors.textPrimary },
+  splitTypeRow: { flexDirection: 'row', gap: 8 },
+  splitTypeBtn: { flex: 1, paddingVertical: 10, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, alignItems: 'center' },
+  splitTypeBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  splitTypeBtnText: { fontFamily: Typography.fontBodyMedium, fontSize: 12, color: Colors.textSecondary },
+  splitTypeBtnTextActive: { color: 'white', fontFamily: Typography.fontBodyBold },
   chipScroll: { flexDirection: 'row' },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: Radius.full, borderWidth: 1, borderColor: Colors.border, marginRight: 8, backgroundColor: Colors.surface },
   chipText: { fontFamily: Typography.fontBodyMedium, fontSize: 13, color: Colors.textSecondary },
