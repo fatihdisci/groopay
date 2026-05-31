@@ -1,13 +1,13 @@
 # Groopay — Oturum Özeti
 
 > Son oturum: 2026-06-01
-> Durum: Faz 0-7 tamam ✅, Faz 8'e hazır ✅, Bugfix turu B1-B56 tamam ✅
+> Durum: Faz 0-7 tamam ✅, Faz 8'e hazır ✅, Bugfix turu B1-B57 tamam ✅
 
 ---
 
 ## Şu an neredeyiz?
 
-Faz 0-7 tamam. 12 tur bugfix (B1-B56) tamamlandı. Uygulama Expo Go'da çalışır durumda. Tüm kritik işlevler (masraf ekleme/düzenleme, bölüşme equal/custom/subset, çoklu para birimi, bakiye, netleşme, IBAN, aktivite, grup yönetimi, hesap silme, veri dışa aktarma, dashboard, paywall) yerinde. Para birimi karışması giderildi. Header mimarisi oturdu. Alt bar 4 sekmeli.
+Faz 0-7 tamam. 13 tur bugfix (B1-B57) tamamlandı. Uygulama Expo Go'da çalışır durumda. Tüm kritik işlevler (masraf ekleme/düzenleme, bölüşme equal/custom/subset, çoklu para birimi, bakiye, netleşme, IBAN, aktivite, grup yönetimi, hesap silme, veri dışa aktarma, dashboard, paywall) yerinde. Dashboard'da para birimi seçici + profil varsayılan para birimi ayarı eklendi (B57). Header mimarisi oturdu. Alt bar 4 sekmeli.
 
 ---
 
@@ -29,6 +29,7 @@ Detaylar için: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
 | 10 | Tips/yardım popupları, Wise numpad, Pro dashboard analitiği | B40-B44 |
 | 11 | Header mimarisi (B45-B46), add-expense regresyon (B47-B53) | B45-B53 |
 | 12 | Dashboard para birimi karışması (B54-B56) | B54-B56 |
+| 13 | Dashboard para birimi seçici + profil varsayılanı | B57 |
 
 ---
 
@@ -129,6 +130,7 @@ C:\Users\fatih\groopay\
 5. `0005_realtime_publication.sql` — Realtime publication
 6. `0006_settlements_currency_iban.sql` — Settlement para birimi + IBAN requests + 3 RPC
 7. `0007_group_management.sql` — groups.description, avatar_emoji, avatar_color + delete_group, remove_member, transfer_ownership RPC
+8. `0008_preferred_currency.sql` — profiles.preferred_currency (NULL = otomatik dominant)
 
 ---
 
@@ -171,8 +173,8 @@ npx expo start --tunnel --clear
 | Add-expense: düzenleme modu | ✅ expenseId ile |
 | Add-expense: tarih seçici | ✅ View-tabanlı takvim |
 | Add-expense: numpad toggle | ✅ Detay açınca gizlenir |
-| Dashboard: para birimi karışması | ✅ Giderildi |
-| Dashboard: trend dominant currency | ✅ Otomatik |
+| Dashboard: para birimi seçici | ✅ B57 |
+| Profil: varsayılan para birimi | ✅ B57 |
 | Dashboard: kategori formatlama | ✅ Gerçek para birimi |
 | Pro model: sadece User Pro | ✅ Group Pro UI'da gizli |
 | DEV Pro toggle | ✅ `__DEV__` guard |
@@ -196,4 +198,4 @@ npx expo start --tunnel --clear
 
 ---
 
-*Son güncelleme: 2026-06-01 — Bugfix B1-B56 + proje yapısı güncellendi*
+*Son güncelleme: 2026-06-01 — B57: dashboard para birimi seçici + profil varsayılanı*

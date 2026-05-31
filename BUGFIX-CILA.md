@@ -971,4 +971,48 @@ supabase functions deploy delete-account
 | Çoklu para birimi notu | ✅ Gösteriliyor |
 | Para birimleri toplanmıyor | ✅ Hepsi ayrı |
 
-*Son güncelleme: 2026-06-01 — B54-B56 eklendi (dashboard para birimi karışması düzeltmeleri)*
+*Son güncelleme: 2026-06-01 — B57 eklendi (dashboard para birimi seçici + profil varsayılan)*
+
+---
+
+## Dashboard Para Birimi Seçici + Profil Varsayılanı (13. Tur — B57)
+
+> Tarih: 2026-06-01
+> Bağlam: Dashboard sadece dominant para birimini gösteriyordu (B54-B56). EUR/USD masraflar için kullanıcı para birimini değiştiremiyordu.
+
+### ✅ B57: Dashboard para birimi seçici + profil varsayılan para birimi
+
+**Sorun:** Kullanıcı dashboard'da farklı para birimindeki masraflarını göremiyordu. Para birimleri arasında geçiş yapacak mekanizma yoktu.
+
+**Yapılan:**
+
+1. **Migration (0008):** `profiles.preferred_currency text` — NULL = otomatik dominant.
+2. **Profil ayarı (`account.tsx`):** "Varsayılan Para Birimi" bölümü. Otomatik + TRY/USD/EUR + kullanıcının kullandığı para birimleri.
+3. **Dashboard seçici (`dashboard.tsx`):** Hero altına yatay chip satırı. Kullanılan para birimleri. Tek para biriminde gizli.
+4. **Seçili para birimine göre:** Kategori + trend `selectedCurrency` ile filtrelenir. Analytics queryKey'e `activeCurrency` eklendi.
+5. **`getProDashboardAnalytics`:** Opsiyonel `currency` parametresi — geriye uyumlu.
+6. **`getUserCurrencies()`:** Yeni query — kullanıcının benzersiz para birimleri.
+
+**Değişen dosyalar:**
+- `supabase/migrations/0008_preferred_currency.sql` (yeni)
+- `lib/supabase/types.ts`, `lib/auth/types.ts` — `preferred_currency` alanı
+- `lib/auth/AuthContext.tsx` — interface + implementation + profileRowToProfile
+- `lib/supabase/queries.ts` — `updateProfileRow`, `getUserCurrencies`, `getProDashboardAnalytics(currency?)`
+- `app/(tabs)/dashboard.tsx` — currency selector + filtreleme
+- `app/(tabs)/account.tsx` — varsayılan para birimi bölümü
+- `locales/tr.json`, `locales/en.json`
+
+**Korunan:** B54-B56 dominant fallback, SimpleBarChart, hero kart, para birimleri toplanmaz kuralı.
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Migration | ✅ 0008 çalıştı |
+| Dashboard: çoklu para biriminde seçici | ✅ Gösteriliyor |
+| Dashboard: tek para biriminde seçici | ✅ Gizli |
+| Para birimi değişince trend+kategori | ✅ Yenileniyor |
+| Profil varsayılanı dashboard'ı etkiliyor | ✅ `preferred_currency` öncelikli |
+| Otomatik (null) | ✅ Dominant otomatik |
+| Para birimleri toplanmaz | ✅ Ayrı ayrı |
+
+*Son güncelleme: 2026-06-01 — B57 eklendi (dashboard para birimi seçici + profil varsayılan)*

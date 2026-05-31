@@ -11,6 +11,7 @@ export interface ProfileRow {
   display_name: string;
   avatar_color: string;
   locale: string;
+  preferred_currency: string | null;
   expo_push_token: string | null;
   user_pro: boolean;
   user_pro_purchased_at: string | null;

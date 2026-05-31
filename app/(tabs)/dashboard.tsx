@@ -25,6 +25,9 @@ export default function DashboardScreen() {
   const { user } = useAuth();
   const { isUserPro } = usePro();
 
+  // Currency selection
+  const [selectedCurrency, setSelectedCurrency] = useState<string | null>(null);
+
   // Hero + stats data (always loaded)
   const { data: heroData, isLoading: heroLoading } = useQuery({
     queryKey: ['dashboard-hero', user?.id],
@@ -38,7 +41,7 @@ export default function DashboardScreen() {
       const myMemberIds = new Set(memberRows.map((m) => m.id));
       const groupIds = [...new Set(memberRows.map((m) => m.group_id))];
 
-      if (groupIds.length === 0) return { balances: [], groupCount: 0, expenseCount: 0, topGroup: null, categories: [], catCurrency: 'TRY', hasOtherCurrencies: false };
+      if (groupIds.length === 0) return { balances: [], groupCount: 0, expenseCount: 0, topGroup: null, categories: [], dominantCurrency: 'TRY', usedCurrencies: [] };
 
       const { data: groups } = await supabase.from('groups').select('id, name').in('id', groupIds);
       const [{ data: expenses }, { data: allSplits }, { data: settlements }] = await Promise.all([
@@ -100,7 +103,7 @@ export default function DashboardScreen() {
         else { catCurrencyMap.set(key, { total: myShare, currency: cur }); }
       }
 
-      // Determine dominant currency for categories
+      // Determine dominant currency
       const catCurrencyCounts: Record<string, number> = {};
       for (const [, item] of catCurrencyMap) {
         catCurrencyCounts[item.currency] = (catCurrencyCounts[item.currency] || 0) + item.total;
@@ -111,27 +114,36 @@ export default function DashboardScreen() {
         if (tot > maxCatTotal) { maxCatTotal = tot; dominantCatCurrency = cur; }
       }
 
-      // Only show categories in the dominant currency
-      const categories = [...catCurrencyMap.entries()]
-        .filter(([, item]) => item.currency === dominantCatCurrency)
-        .map(([key, { total }]) => ({ category: key.split('::')[0]!, amount: total }))
-        .sort((a, b) => b.amount - a.amount)
-        .slice(0, 5);
+      // Return ALL categories with currency info (client filters by selectedCurrency)
+      const allCategories = [...catCurrencyMap.entries()]
+        .map(([key, { total, currency }]) => ({ category: key.split('::')[0]!, amount: total, currency }))
+        .sort((a, b) => b.amount - a.amount);
 
-      // Check if user has expenses in other currencies
-      const allCurrencies = new Set([...catCurrencyMap.values()].map((v) => v.currency));
-      const hasOtherCurrencies = allCurrencies.size > 1;
+      const usedCurrencies = [...new Set([...catCurrencyMap.values()].map((v) => v.currency))];
 
-      return { balances: balanceResult, groupCount, expenseCount, topGroup, categories, catCurrency: dominantCatCurrency, hasOtherCurrencies };
+      return { balances: balanceResult, groupCount, expenseCount, topGroup, categories: allCategories, dominantCurrency: dominantCatCurrency, usedCurrencies };
     },
     enabled: !!user?.id,
     staleTime: 30_000,
   });
 
+  // Sync selectedCurrency: preferred_currency wins, else auto-dominant on first load
+  useEffect(() => {
+    if (!heroData) return;
+    const preferred = user?.preferred_currency;
+    if (preferred) {
+      setSelectedCurrency(preferred);
+    } else if (selectedCurrency === null) {
+      setSelectedCurrency(heroData.dominantCurrency);
+    }
+  }, [heroData, user?.preferred_currency]);
+
+  const activeCurrency = selectedCurrency ?? 'TRY';
+
   // Pro analytics (only for Pro users)
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
-    queryKey: ['pro-analytics', user?.id],
-    queryFn: () => getProDashboardAnalytics(user!.id),
+    queryKey: ['pro-analytics', user?.id, activeCurrency],
+    queryFn: () => getProDashboardAnalytics(user!.id, activeCurrency),
     enabled: !!user?.id && isUserPro,
     staleTime: 60_000,
   });
@@ -169,6 +181,25 @@ export default function DashboardScreen() {
         )) : <Text style={styles.heroEmpty}>{t('dashboard.noBalance')}</Text>}
       </LinearGradient>
 
+      {/* ── Currency Selector ── */}
+      {heroData && (heroData.usedCurrencies ?? []).length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.currencySelector} contentContainerStyle={styles.currencySelectorContent}>
+          {heroData.usedCurrencies!.map((cur) => {
+            const isActive = cur === activeCurrency;
+            return (
+              <TouchableOpacity
+                key={cur}
+                style={[styles.currencyChip, isActive && styles.currencyChipActive]}
+                onPress={() => setSelectedCurrency(cur)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.currencyChipText, isActive && styles.currencyChipTextActive]}>{cur}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
       {/* ── STATS (FREE) ── */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
@@ -197,34 +228,40 @@ export default function DashboardScreen() {
       {/* ── FREE: Category Distribution ── */}
       <View style={styles.proSection}>
         <Text style={styles.sectionTitle}>
-          {t('dashboard.categoryBreakdown')}
-          {d?.hasOtherCurrencies ? ` (${d.catCurrency})` : ''}
+          {t('dashboard.categoryBreakdown')}{' '}
+          <Text style={styles.currencyLabel}>({activeCurrency})</Text>
         </Text>
-        {d && d.categories.length > 0 ? (
-          <View style={styles.categoryList}>
-            {d.categories.map((c) => {
-              const catColor = CATEGORY_COLORS[c.category as Category] ?? Colors.primary;
-              return (
-                <View key={c.category} style={styles.categoryRow}>
-                  <View style={styles.categoryLeft}>
-                    <View style={[styles.categoryDot, { backgroundColor: catColor }]} />
-                    <Text style={styles.categoryName}>{t(`categories.${c.category}`, c.category)}</Text>
-                  </View>
-                  <Text style={styles.categoryAmount}>
-                    {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: d.catCurrency ?? 'TRY', minimumFractionDigits: 2 }).format(c.amount)}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
-        ) : (
-          <View style={styles.emptyCardSmall}>
-            <Text style={styles.emptySmallText}>{t('dashboard.noBalance')}</Text>
-          </View>
-        )}
-        {d?.hasOtherCurrencies && (
+        {d && (() => {
+          const filteredCats = d.categories.filter((c) => c.currency === activeCurrency).slice(0, 5);
+          if (filteredCats.length > 0) {
+            return (
+              <View style={styles.categoryList}>
+                {filteredCats.map((c) => {
+                  const catColor = CATEGORY_COLORS[c.category as Category] ?? Colors.primary;
+                  return (
+                    <View key={c.category} style={styles.categoryRow}>
+                      <View style={styles.categoryLeft}>
+                        <View style={[styles.categoryDot, { backgroundColor: catColor }]} />
+                        <Text style={styles.categoryName}>{t(`categories.${c.category}`, c.category)}</Text>
+                      </View>
+                      <Text style={styles.categoryAmount}>
+                        {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: activeCurrency, minimumFractionDigits: 2 }).format(c.amount)}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            );
+          }
+          return (
+            <View style={styles.emptyCardSmall}>
+              <Text style={styles.emptySmallText}>{t('dashboard.noBalance')}</Text>
+            </View>
+          );
+        })()}
+        {(heroData?.usedCurrencies.length ?? 0) > 1 && (
           <Text style={styles.otherCurrencyNote}>
-            {t('dashboard.otherCurrencyNote', { currency: d.catCurrency })}
+            {t('dashboard.otherCurrencyNote', { currency: activeCurrency })}
           </Text>
         )}
       </View>
@@ -234,16 +271,16 @@ export default function DashboardScreen() {
         <FadeInUp duration={600}>
           <View style={styles.proSection}>
             <Text style={styles.sectionTitle}>
-              {t('dashboard.trends')}
-              {analytics?.trendCurrency ? ` (${analytics.trendCurrency})` : ''}
+              {t('dashboard.trends')}{' '}
+              <Text style={styles.currencyLabel}>({activeCurrency})</Text>
             </Text>
             {analyticsLoading ? (
               <ActivityIndicator color={Colors.primary} style={{ paddingVertical: 30 }} />
             ) : chartData.length > 0 ? (
               <View style={styles.chartCard}>
-                <Text style={styles.chartCurrencyLabel}>{t('dashboard.monthlySpending', { currency: analytics?.trendCurrency ?? 'TRY' })}</Text>
+                <Text style={styles.chartCurrencyLabel}>{t('dashboard.monthlySpending', { currency: activeCurrency })}</Text>
                 <SimpleBarChart data={chartData} />
-                <Text style={styles.chartCurrencyNote}>{t('dashboard.trendSingleCurrency', { currency: analytics?.trendCurrency ?? 'TRY' })}</Text>
+                <Text style={styles.chartCurrencyNote}>{t('dashboard.trendSingleCurrency', { currency: activeCurrency })}</Text>
               </View>
             ) : (
               <View style={styles.emptyCardSmall}><Text style={styles.emptySmallText}>{t('dashboard.noBalance')}</Text></View>
@@ -334,6 +371,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: spacing.md, paddingBottom: spacing.md },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+
+  // Currency selector
+  currencySelector: { marginBottom: Spacing.sm },
+  currencySelectorContent: { gap: 8, paddingVertical: 4 },
+  currencyChip: { paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.full, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  currencyChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  currencyChipText: { fontFamily: Typography.fontBodyBold, fontSize: 13, color: Colors.textSecondary },
+  currencyChipTextActive: { color: '#FFFFFF' },
+  currencyLabel: { fontFamily: Typography.fontBody, fontSize: 13, color: Colors.textTertiary },
 
   // Hero
   heroCard: { borderRadius: Radius.lg, padding: 20, marginBottom: Spacing.md, ...Shadows.md },

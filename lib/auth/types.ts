@@ -3,6 +3,7 @@ export interface Profile {
   display_name: string;
   avatar_color: string;
   locale: string;
+  preferred_currency: string | null;
   user_pro: boolean;
   user_pro_purchased_at: string | null;
 }

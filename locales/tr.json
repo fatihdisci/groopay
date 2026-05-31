@@ -319,6 +319,8 @@
     "displayNamePlaceholder": "Adınızı girin",
     "avatarColor": "Avatar rengi",
     "language": "Dil",
+    "defaultCurrency": "Varsayılan Para Birimi",
+    "currencyAuto": "Otomatik",
     "signOut": "Çıkış yap",
     "signOutConfirm": "Çıkış yapmak istediğinize emin misiniz?",
     "cancel": "Vazgeç",

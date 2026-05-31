@@ -20,7 +20,7 @@ interface AuthContextValue {
   isOnboarded: boolean;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
-  updateProfile: (updates: Partial<Pick<Profile, 'display_name' | 'avatar_color' | 'locale'>>) => Promise<void>;
+  updateProfile: (updates: Partial<Pick<Profile, 'display_name' | 'avatar_color' | 'locale' | 'preferred_currency'>>) => Promise<void>;
   setOnboarded: () => Promise<void>;
 }
 
@@ -32,6 +32,7 @@ function profileRowToProfile(row: ProfileRow): Profile {
     display_name: row.display_name,
     avatar_color: row.avatar_color,
     locale: row.locale,
+    preferred_currency: row.preferred_currency,
     user_pro: row.user_pro,
     user_pro_purchased_at: row.user_pro_purchased_at,
   };
@@ -161,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateProfile = useCallback(
-    async (updates: Partial<Pick<Profile, 'display_name' | 'avatar_color' | 'locale'>>) => {
+    async (updates: Partial<Pick<Profile, 'display_name' | 'avatar_color' | 'locale' | 'preferred_currency'>>) => {
       if (!user) return;
 
       const { error } = await supabase
@@ -170,6 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           display_name: updates.display_name,
           avatar_color: updates.avatar_color,
           locale: updates.locale,
+          preferred_currency: updates.preferred_currency,
         })
         .eq('id', user.id);
 

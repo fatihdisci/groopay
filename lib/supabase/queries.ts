@@ -29,7 +29,7 @@ export async function getProfile(userId: string): Promise<ProfileRow | null> {
 
 export async function updateProfileRow(
   userId: string,
-  updates: Partial<Pick<ProfileRow, 'display_name' | 'avatar_color' | 'locale'>>,
+  updates: Partial<Pick<ProfileRow, 'display_name' | 'avatar_color' | 'locale' | 'preferred_currency'>>,
 ): Promise<ProfileRow> {
   const { data, error } = await supabase
     .from('profiles')
@@ -640,6 +640,28 @@ export async function hasDemoGroup(userId: string): Promise<boolean> {
   return (data ?? []).length > 0;
 }
 
+// ── User Currencies ──
+
+export async function getUserCurrencies(userId: string): Promise<string[]> {
+  const { data: members } = await supabase
+    .from('group_members')
+    .select('group_id')
+    .eq('user_id', userId)
+    .eq('is_active', true);
+
+  if (!members || members.length === 0) return ['TRY'];
+
+  const groupIds = members.map((m) => m.group_id);
+  const { data: expenses } = await supabase
+    .from('expenses')
+    .select('currency')
+    .in('group_id', groupIds)
+    .is('deleted_at', null);
+
+  const currencies = [...new Set((expenses ?? []).map((e) => e.currency))];
+  return currencies.length > 0 ? currencies : ['TRY'];
+}
+
 // ── Pro Dashboard Analytics ──
 
 export interface DashboardAnalyticsData {
@@ -651,6 +673,7 @@ export interface DashboardAnalyticsData {
 
 export async function getProDashboardAnalytics(
   userId: string,
+  currency?: string,
 ): Promise<DashboardAnalyticsData> {
   const { data: members, error: memError } = await supabase
     .from('group_members')
@@ -659,7 +682,7 @@ export async function getProDashboardAnalytics(
     .eq('is_active', true);
 
   if (memError || !members || members.length === 0) {
-    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null, trendCurrency: 'TRY' };
+    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null, trendCurrency: currency ?? 'TRY' };
   }
 
   const groupIds = members.map((m) => m.group_id);
@@ -675,19 +698,22 @@ export async function getProDashboardAnalytics(
     .is('deleted_at', null);
 
   if (expError || !expenses) {
-    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null, trendCurrency: 'TRY' };
+    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null, trendCurrency: currency ?? 'TRY' };
   }
 
-  // Determine the user's dominant currency (most frequent in their expenses)
-  const currencyCounts: Record<string, number> = {};
-  for (const exp of expenses) {
-    currencyCounts[exp.currency] = (currencyCounts[exp.currency] || 0) + 1;
-  }
-  let dominantCurrency = 'TRY';
-  let maxCount = 0;
-  for (const [cur, count] of Object.entries(currencyCounts)) {
-    if (count > maxCount) { maxCount = count; dominantCurrency = cur; }
-  }
+  // Use provided currency, or auto-detect dominant (backward compatible)
+  const activeCurrency = currency ?? (() => {
+    const counts: Record<string, number> = {};
+    for (const exp of expenses) {
+      counts[exp.currency] = (counts[exp.currency] || 0) + 1;
+    }
+    let dominant = 'TRY';
+    let maxCount = 0;
+    for (const [cur, count] of Object.entries(counts)) {
+      if (count > maxCount) { maxCount = count; dominant = cur; }
+    }
+    return dominant;
+  })();
 
   const monthlyTrendMap: Record<string, number> = {};
   const categoryMap: Record<string, number> = {};
@@ -706,8 +732,8 @@ export async function getProDashboardAnalytics(
 
     monthCountMap[mName] = (monthCountMap[mName] || 0) + 1;
 
-    // ONLY include expenses in the dominant currency — never mix currencies
-    if (exp.currency === dominantCurrency) {
+    // ONLY include expenses in the active currency — never mix currencies
+    if (exp.currency === activeCurrency) {
       const numericAmount = Number(exp.amount);
       monthlyTrendMap[mName] = (monthlyTrendMap[mName] || 0) + numericAmount;
       categoryMap[exp.category] = (categoryMap[exp.category] || 0) + numericAmount;
@@ -737,5 +763,5 @@ export async function getProDashboardAnalytics(
     total: Math.round(total),
   }));
 
-  return { monthlyTrend, topCategory, mostActiveMonth, trendCurrency: dominantCurrency };
+  return { monthlyTrend, topCategory, mostActiveMonth, trendCurrency: activeCurrency };
 }

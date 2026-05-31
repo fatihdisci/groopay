@@ -321,6 +321,8 @@
     "displayNamePlaceholder": "Enter your name",
     "avatarColor": "Avatar color",
     "language": "Language",
+    "defaultCurrency": "Default Currency",
+    "currencyAuto": "Auto",
     "signOut": "Sign out",
     "signOutConfirm": "Are you sure you want to sign out?",
     "cancel": "Cancel",

@@ -12,13 +12,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 import { useAuth, AVATAR_COLORS } from '@/lib/auth';
 import { getAvatarHeaderGradient } from '@/constants/avatarColors';
 import { usePro } from '@/hooks/usePro';
 import { isRevenueCatAvailable, restorePurchases } from '@/lib/revenuecat';
 import { supabase } from '@/lib/supabase/client';
+import { getUserCurrencies } from '@/lib/supabase/queries';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
 import { palette, spacing, fontSizes, radii, minTouchTarget } from '@/constants/theme';
@@ -44,6 +45,7 @@ export default function AccountScreen() {
   const [displayName, setDisplayName] = useState(user?.display_name ?? '');
   const [selectedColor, setSelectedColor] = useState(user?.avatar_color ?? AVATAR_COLORS[0]!);
   const [language, setLanguage] = useState(user?.locale ?? 'tr');
+  const [preferredCurrency, setPreferredCurrency] = useState<string | null>(user?.preferred_currency ?? null);
   const [restoring, setRestoring] = useState(false);
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: ToastType }>({ visible: false, message: '', type: 'success' });
 
@@ -55,6 +57,14 @@ export default function AccountScreen() {
     setToast((prev) => ({ ...prev, visible: false }));
   }, []);
 
+  // Fetch user's used currencies for the selector
+  const { data: userCurrencies } = useQuery({
+    queryKey: ['user-currencies', user?.id],
+    queryFn: () => getUserCurrencies(user!.id),
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+
   const handleSaveProfile = async () => {
     if (!user) return;
     try {
@@ -62,6 +72,7 @@ export default function AccountScreen() {
         display_name: displayName.trim() || user.display_name,
         avatar_color: selectedColor,
         locale: language,
+        preferred_currency: preferredCurrency,
       });
       await i18n.changeLanguage(language);
       // Invalidate group queries so member avatars reflect new color
@@ -368,6 +379,47 @@ export default function AccountScreen() {
         </View>
       </View>
 
+      {/* Default Currency */}
+      <View style={styles.section}>
+        <Text style={styles.label}>{t('account.defaultCurrency').toLocaleUpperCase('tr-TR')}</Text>
+        <View style={styles.currencyRow}>
+          {(() => {
+            const baseOptions = ['TRY', 'USD', 'EUR'];
+            const allOptions = [...new Set([...(userCurrencies ?? []), ...baseOptions])];
+            const isAuto = preferredCurrency === null;
+            return (
+              <>
+                {/* Auto option */}
+                <TouchableOpacity
+                  key="auto"
+                  style={[styles.currencyChip, isAuto && styles.currencyChipSelected]}
+                  onPress={() => setPreferredCurrency(null)}
+                >
+                  <Text style={[styles.currencyChipText, isAuto && styles.currencyChipTextSelected]}>
+                    {t('account.currencyAuto')}
+                  </Text>
+                </TouchableOpacity>
+                {/* Currency options */}
+                {allOptions.map((cur) => {
+                  const isSelected = cur === preferredCurrency;
+                  return (
+                    <TouchableOpacity
+                      key={cur}
+                      style={[styles.currencyChip, isSelected && styles.currencyChipSelected]}
+                      onPress={() => setPreferredCurrency(cur)}
+                    >
+                      <Text style={[styles.currencyChipText, isSelected && styles.currencyChipTextSelected]}>
+                        {cur}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            );
+          })()}
+        </View>
+      </View>
+
       {/* Save button */}
       <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} activeOpacity={0.9}>
         <LinearGradient
@@ -555,6 +607,15 @@ const styles = StyleSheet.create({
   languageSelected: { backgroundColor: palette.primary, borderColor: palette.primary },
   languageText: { fontSize: fontSizes.md, color: palette.text },
   languageTextSelected: { color: palette.background, fontWeight: '600' },
+  currencyRow: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+  currencyChip: {
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    borderRadius: radii.md, borderWidth: 1, borderColor: palette.border,
+    minHeight: minTouchTarget, justifyContent: 'center',
+  },
+  currencyChipSelected: { backgroundColor: palette.primary, borderColor: palette.primary },
+  currencyChipText: { fontSize: fontSizes.md, color: palette.text },
+  currencyChipTextSelected: { color: palette.background, fontWeight: '600' },
   saveButton: {
     alignSelf: 'stretch', borderRadius: Radius.md, marginBottom: Spacing.lg,
     overflow: 'hidden',
