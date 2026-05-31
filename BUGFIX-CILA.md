@@ -763,4 +763,16 @@ supabase functions deploy delete-account
 | BarChart | ✅ View-tabanlı |
 | Numpad | ✅ Wise tarzı |
 
-*Son güncelleme: 2026-06-01 — B44 eklendi*
+*Son güncelleme: 2026-06-01 — B45 eklendi*
+
+---
+
+## B45: Grup detay/edit geri butonu — nested Stack kaldırıldı
+
+**Sorun:** Nested Stack `index` root olduğu için otomatik geri butonu göstermiyordu.
+
+**Çözüm:** `app/groups/[id]/_layout.tsx` silindi. 4 route doğrudan root Stack'te `headerShown: true` ile. Hepsi aynı iOS geri butonu.
+
+**Dosyalar:** `app/groups/[id]/_layout.tsx` (silindi), `app/_layout.tsx`
+
+*Son güncelleme: 2026-06-01 — B45 eklendi*
