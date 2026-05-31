@@ -1,11 +1,6 @@
 import { Stack } from 'expo-router';
 import { Colors, Typography } from '@/constants/theme';
 
-/**
- * Stack layout for the Groups tab.
- * Groups list → Group detail → modals (add-expense, members, edit).
- * Header style matches Tabs header exactly — same font, color, size, border.
- */
 export default function GroupsStackLayout() {
   return (
     <Stack
@@ -16,7 +11,7 @@ export default function GroupsStackLayout() {
         headerBackTitle: 'Geri',
       }}
     >
-      <Stack.Screen name="index" options={{ headerShown: false }} />
+      <Stack.Screen name="index" options={{ title: 'Gruplar' }} />
       <Stack.Screen name="new" options={{ title: 'Yeni Grup' }} />
       <Stack.Screen name="[id]/index" options={{ title: 'Grup Detayı' }} />
       <Stack.Screen name="[id]/add-expense" options={{ title: 'Masraf Ekle', presentation: 'modal' }} />

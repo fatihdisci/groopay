@@ -709,4 +709,18 @@ supabase functions deploy delete-account
 |---|---|
 | `npx tsc --noEmit` | ✅ Temiz |
 
-*Son güncelleme: 2026-05-31 — B41 eklendi*
+*Son güncelleme: 2026-05-31 — B42 eklendi*
+
+---
+
+## B42: Grup sayfalarında çift header kaldırıldı
+- Sorun: Grup detay/edit/new sayfalarında Tabs header "Gruplar" + Stack header iç içe görünüyordu
+- Tabs header: `headerShown: false` → sadece Stack header'lar gösteriliyor
+- Groups list: Stack header "Gruplar" (title)
+- Grup detay: "Grup Detayı" + geri, Edit: "Grubu Düzenle" + geri, New: "Yeni Grup" + geri
+- Alt bar label düzeltildi (title eksikti)
+- Tüm header'lar aynı font/renk/çizgi
+
+**Dosyalar:** `app/(tabs)/_layout.tsx`, `app/(tabs)/groups/_layout.tsx`
+
+*Son güncelleme: 2026-05-31 — B42 eklendi*
