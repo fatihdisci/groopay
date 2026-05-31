@@ -1,6 +1,7 @@
 {
   "tabs": {
     "groups": "Groups",
+    "dashboard": "Panel",
     "activity": "Activity",
     "account": "Account"
   },
@@ -280,15 +281,21 @@
     "userProBadge": "Pro Member"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "overallBalance": "Your Overall Balance",
-    "balanceByCurrency": "Balance by Currency",
-    "alacak": "Receivable",
-    "borc": "Payable",
-    "totalAcrossGroups": "Your status across all groups",
-    "lockedTitle": "Dashboard is Pro Only",
-    "lockedMessage": "Upgrade to Pro to see your overall balance across all groups and personal analytics.",
-    "categoryBreakdown": "Category Breakdown"
+    "title": "Panel",
+    "overallBalance": "Your Overall Status",
+    "alacak": "receivable",
+    "borc": "payable",
+    "noBalance": "No balance yet",
+    "totalGroups": "Total Groups",
+    "totalExpenses": "Total Expenses",
+    "mostActiveGroup": "Most Active Group",
+    "expensesCount": "expenses",
+    "categoryBreakdown": "Category Breakdown",
+    "trends": "Spending Trend",
+    "detailedAnalysis": "Detailed Group Analysis",
+    "comingSoon": "Coming soon",
+    "emptyTitle": "No data yet",
+    "emptySub": "Create your first group and start adding expenses!"
   },
   "account": {
     "title": "Account",
@@ -308,8 +315,6 @@
     "restorePurchases": "Restore purchases",
     "restorePurchasesDesc": "Restore if you purchased before.",
     "goPro": "Go Pro",
-    "dashboard": "Dashboard",
-    "dashboardDesc": "Overall balance summary and analytics across all your groups.",
     "profileSaved": "Profile updated ✓",
     "profileSaveError": "Update failed",
     "exportData": "Export My Data",

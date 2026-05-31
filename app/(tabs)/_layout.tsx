@@ -10,6 +10,7 @@ type Ionicon = keyof typeof Ionicons.glyphMap;
 
 const ICONS: Record<string, { outline: Ionicon; filled: Ionicon }> = {
   groups: { outline: 'people-outline', filled: 'people' },
+  dashboard: { outline: 'stats-chart-outline', filled: 'stats-chart' },
   activity: { outline: 'time-outline', filled: 'time' },
   account: { outline: 'person-outline', filled: 'person' },
 };
@@ -53,48 +54,36 @@ export default function TabLayout() {
         name="groups"
         options={{
           title: t('tabs.groups'),
-          tabBarIcon: ({ focused, color, size }) => {
-            const icons = ICONS.groups!;
-            return (
-              <Ionicons
-                name={focused ? icons.filled : icons.outline}
-                size={size}
-                color={color}
-              />
-            );
-          },
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons name={focused ? ICONS.groups!.filled : ICONS.groups!.outline} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: t('tabs.dashboard'),
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons name={focused ? ICONS.dashboard!.filled : ICONS.dashboard!.outline} size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="activity"
         options={{
           title: t('tabs.activity'),
-          tabBarIcon: ({ focused, color, size }) => {
-            const icons = ICONS.activity!;
-            return (
-              <Ionicons
-                name={focused ? icons.filled : icons.outline}
-                size={size}
-                color={color}
-              />
-            );
-          },
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons name={focused ? ICONS.activity!.filled : ICONS.activity!.outline} size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="account"
         options={{
           title: t('tabs.account'),
-          tabBarIcon: ({ focused, color, size }) => {
-            const icons = ICONS.account!;
-            return (
-              <Ionicons
-                name={focused ? icons.filled : icons.outline}
-                size={size}
-                color={color}
-              />
-            );
-          },
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons name={focused ? ICONS.account!.filled : ICONS.account!.outline} size={size} color={color} />
+          ),
         }}
       />
     </Tabs>

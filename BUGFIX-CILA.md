@@ -618,4 +618,39 @@ supabase functions deploy delete-account
 | Veri dışa aktarma | ✅ JSON Share |
 | i18n (tr + en) | ✅ 10 anahtar |
 
-*Son güncelleme: 2026-05-31 — B37 eklendi (hesap silme + veri dışa aktarma)*
+*Son güncelleme: 2026-05-31 — B38 eklendi (dashboard 4. sekme + ücretsiz/Pro ayrımı)*
+
+---
+
+## B38: Dashboard 4. sekme + ücretsiz/Pro ayrımı (9. Tur)
+
+> Tarih: 2026-05-31
+
+### Alt Bar — 4. Sekme
+- "Panel" sekmesi: Gruplar · Panel · Aktivite · Hesap (stats-chart ikonu)
+- `app/(tabs)/_layout.tsx`
+
+### Panel Ekranı (`app/(tabs)/dashboard.tsx`)
+- **ÜCRETSİZ:** Gradient hero kart (para birimi bazında bakiye), temel istatistikler (grup/masraf sayısı, en aktif grup)
+- **PRO KİLİTLİ:** `expo-blur` + `ProBlurGate` — kategori dağılımı, harcama trendi, detaylı analiz blur'lu + kilit + "Pro'ya Geç" CTA
+- **PRO AÇIK:** Kategori dağılımı gerçek veri, trend/analiz "Yakında" placeholder
+
+### Temizlik
+- Account'tan eski Dashboard linki kaldırıldı
+- Root layout'tan eski `Stack.Screen name="dashboard"` kaldırıldı
+- `app/dashboard.tsx` silindi
+
+**Yeni:** `app/(tabs)/dashboard.tsx` | **Silinen:** `app/dashboard.tsx`
+
+**Değişen:** `app/(tabs)/_layout.tsx`, `app/(tabs)/account.tsx`, `app/_layout.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| 4. sekme | ✅ Panel |
+| Hero + stats (free) | ✅ |
+| Blur önizleme | ✅ expo-blur + CTA |
+| Kategori (Pro) | ✅ Gerçek veri |
+| Eski dashboard | ✅ Silindi |
+
+*Son güncelleme: 2026-05-31 — B38 eklendi (dashboard 4. sekme + ücretsiz/Pro ayrımı)*

@@ -1,6 +1,7 @@
 {
   "tabs": {
     "groups": "Gruplar",
+    "dashboard": "Panel",
     "activity": "Aktivite",
     "account": "Hesap"
   },
@@ -278,15 +279,21 @@
     "userProBadge": "Pro Üye"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "overallBalance": "Genel Bakiyen",
-    "balanceByCurrency": "Para Birimi Bazında Bakiye",
-    "alacak": "Alacak",
-    "borc": "Borç",
-    "totalAcrossGroups": "Tüm gruplardaki durumun",
-    "lockedTitle": "Dashboard Pro'ya Özel",
-    "lockedMessage": "Tüm gruplarındaki genel bakiyeni ve kişisel analizlerini görmek için Pro'ya geç.",
-    "categoryBreakdown": "Kategori Dağılımı"
+    "title": "Panel",
+    "overallBalance": "Genel Durumun",
+    "alacak": "alacaklısın",
+    "borc": "borçlusun",
+    "noBalance": "Henüz bakiye yok",
+    "totalGroups": "Toplam Grup",
+    "totalExpenses": "Toplam Masraf",
+    "mostActiveGroup": "En Aktif Grup",
+    "expensesCount": "masraf",
+    "categoryBreakdown": "Kategori Dağılımı",
+    "trends": "Harcama Trendi",
+    "detailedAnalysis": "Detaylı Grup Analizi",
+    "comingSoon": "Yakında",
+    "emptyTitle": "Henüz veri yok",
+    "emptySub": "İlk grubunu oluştur ve masraf eklemeye başla!"
   },
   "account": {
     "title": "Hesap",
@@ -306,8 +313,6 @@
     "restorePurchases": "Satın alımları geri yükle",
     "restorePurchasesDesc": "Daha önce satın aldıysanız geri yükleyin.",
     "goPro": "Pro'ya Geç",
-    "dashboard": "Dashboard",
-    "dashboardDesc": "Tüm gruplarının genel bakiye özeti ve analizler.",
     "profileSaved": "Profil güncellendi ✓",
     "profileSaveError": "Güncelleme başarısız",
     "signOut": "Çıkış yap",

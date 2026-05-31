@@ -293,23 +293,6 @@ export default function AccountScreen() {
         )}
       </View>
 
-      {/* Dashboard link */}
-      <TouchableOpacity
-        style={styles.menuItem}
-        onPress={() => router.push('/dashboard')}
-        activeOpacity={0.7}
-      >
-        <View style={styles.menuItemLeft}>
-          <Ionicons name="stats-chart-outline" size={20} color={palette.primary} />
-          <View style={styles.menuItemInfo}>
-            <Text style={styles.menuItemTitle}>{t('account.dashboard')}</Text>
-            <Text style={styles.menuItemDesc}>{t('account.dashboardDesc')}</Text>
-          </View>
-        </View>
-        {!isUserPro && <Ionicons name="lock-closed" size={16} color={palette.muted} />}
-        <Ionicons name="chevron-forward" size={18} color={palette.muted} />
-      </TouchableOpacity>
-
       {/* Restore purchases */}
       <TouchableOpacity
         style={styles.menuItem}
