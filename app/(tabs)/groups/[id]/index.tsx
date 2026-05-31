@@ -289,21 +289,12 @@ export default function GroupDetailScreen() {
   return (
     <View style={styles.flex}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {/* Group header — gradient with back/edit buttons at top corners */}
+        {/* Group header — gradient, back button in Stack header */}
         <LinearGradient
           colors={['#6366F1', '#8B5CF6']}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
-          {/* Back button — top-left corner */}
-          <TouchableOpacity
-            style={styles.headerBackButton}
-            onPress={() => router.back()}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="chevron-back" size={22} color="white" />
-          </TouchableOpacity>
-
           {/* Edit button — top-right corner, founder only */}
           {isFounder && (
             <TouchableOpacity
@@ -933,8 +924,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.md, paddingBottom: spacing.xxl * 2 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.background },
   emptyText: { color: palette.textSecondary, fontSize: fontSizes.md },
-  headerGradient: { alignItems: 'center', paddingTop: 52, paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
-  headerBackButton: { position: 'absolute', top: 8, left: 8, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', zIndex: 10 },
+  headerGradient: { alignItems: 'center', paddingTop: Spacing.lg, paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
   headerEditButton: { position: 'absolute', top: 8, right: 8, padding: 8, zIndex: 10 },
   groupName: { fontFamily: Typography.fontDisplayBold, fontSize: Typography.size.xl, color: '#FFFFFF', marginTop: Spacing.sm },
   groupDescription: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: 'rgba(255,255,255,0.6)', marginTop: 4, textAlign: 'center', paddingHorizontal: Spacing.md },

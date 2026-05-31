@@ -14,6 +14,7 @@ import { fromMinor, getDecimals } from '@/lib/finance/money';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
 import { palette, spacing, fontSizes, radii, minTouchTarget } from '@/constants/theme';
 import Avatar from '@/components/Avatar';
+import { FadeInUp } from '@/components/Animations';
 import type { GroupWithMembers, ExpenseRow, ExpenseSplitRow, SettlementRow } from '@/lib/supabase/types';
 import type { ExpenseForBalance, SplitForBalance, SettlementForBalance } from '@/lib/finance';
 
@@ -201,13 +202,14 @@ export default function GroupsScreen() {
             <Text style={styles.emptySubtitle}>{t('groups.emptySubtitle')}</Text>
           </View>
         }
-        renderItem={({ item }: { item: GroupWithMembers }) => {
+        renderItem={({ item, index }: { item: GroupWithMembers; index: number }) => {
           const activeMemberCount = item.members.filter((m) => m.is_active).length;
           return (
-            <TouchableOpacity
-              style={styles.groupCard}
-              onPress={() => router.push(`/groups/${item.group.id}`)}
-              activeOpacity={0.95}
+            <FadeInUp key={item.group.id} delay={index * 40} distance={8}>
+              <TouchableOpacity
+                style={styles.groupCard}
+                onPress={() => router.push(`/groups/${item.group.id}`)}
+                activeOpacity={0.95}
             >
               <View style={styles.cardLeft}>
                 <Avatar initials={getInitials(item.group.name)} color={item.group.avatar_color} emoji={item.group.avatar_emoji} size={48} />
@@ -232,6 +234,7 @@ export default function GroupsScreen() {
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.textTertiary} style={{ marginLeft: 4 }} />
             </TouchableOpacity>
+            </FadeInUp>
           );
         }}
       />

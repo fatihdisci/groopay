@@ -523,4 +523,48 @@
 | Düzenleme modu etiketi | ✅ Avatar üstünde |
 | Stack header sıçraması | ✅ `animation: 'none'` ile yok |
 
-*Son güncelleme: 2026-05-31 — B33-B35 eklendi (header/geri butonu)*
+*Son güncelleme: 2026-05-31 — B36 eklendi (tab bar + animasyonlar)*
+
+---
+
+## B36: Alt bar tasarımı + hafif animasyonlar (7. Tur)
+
+> Tarih: 2026-05-31
+
+### Alt Bar (Tab Bar)
+- Aktif sekme: DOLU ikon (`people`/`time`/`person`), primary renk, altında 4px mor nokta (pill indicator)
+- Pasif: OUTLINE ikon, textTertiary
+- `react-native-reanimated` ile ikon scale animasyonu (1 → 1.08 → 1, spring)
+- Arka plan: beyaz, üst kenarda mor tonlu hafif gölge (shadowOpacity 0.04)
+- `height: 88` (iOS safe area padding dahil), `paddingBottom: 28` (iPhone home indicator)
+- `TabBarButton` bileşeni: Pressable + active pill + scale animasyonu
+
+### Animasyonlar
+- **`FadeInUp`**: fade-in + slide-up, kart girişlerinde kullanılır. `prefers-reduced-motion` saygılı. Sadece mount'ta çalışır. Her kart 40ms stagger.
+- **`ScaleOnPress`**: buton basışı 0.97 scale-down, spring bounce geri dönüş
+- **Toast**: zaten animasyonlu (slide-up + fade), dokunmadım
+- Gruplar listesi: her kart `FadeInUp` ile 40ms stagger giriş
+
+**Yeni dosyalar:** `components/TabBarButton.tsx`, `components/Animations.tsx`
+
+**Değişen dosyalar:** `app/(tabs)/_layout.tsx`, `app/(tabs)/groups/index.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Tab bar: filled ikon | ✅ Aktif sekmede |
+| Tab bar: pill indicator | ✅ 4px mor nokta |
+| Tab bar: scale animasyonu | ✅ Reanimated spring |
+| Tab bar: gölge | ✅ Mor tonlu, yukarı doğru |
+| Tab bar: safe area | ✅ iOS 28px alt padding |
+| Kart giriş animasyonu | ✅ FadeInUp + stagger |
+| reduced-motion saygısı | ✅ Kontrol ediliyor |
+
+### Header Alt Çizgisi (B36 ek)
+- **Sorun:** Gruplar sayfasında header alt çizgisi yoktu. Aktivite/Hesap'ta Tabs header'ı, Gruplar'da nested Stack header'ı render ediliyordu — border davranışları farklıydı.
+- **Kök neden:** `Tabs.Screen name="groups"` → `headerShown: false`. Tabs header'ı gizlenip Stack header'ı gösteriliyordu.
+- **Çözüm:** `headerShown: false` kaldırıldı. Tüm sekmeler Tabs header'ı kullanıyor (aynı font, renk, alt çizgi). Stack `index` screen `headerShown: false`.
+- **Değişen dosyalar:** `app/(tabs)/_layout.tsx`, `app/(tabs)/groups/_layout.tsx`
+- Ayrıca: `StackHeaderBorder.tsx` (kullanılmayan) silindi.
+
+*Son güncelleme: 2026-05-31 — B36 eklendi (tab bar + animasyonlar + header düzeltmeleri)*

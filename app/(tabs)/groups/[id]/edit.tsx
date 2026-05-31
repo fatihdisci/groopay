@@ -155,14 +155,6 @@ export default function EditGroupScreen() {
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
-          <TouchableOpacity
-            style={styles.headerBackButton}
-            onPress={() => router.back()}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons name="chevron-back" size={22} color="white" />
-          </TouchableOpacity>
-
           <Text style={styles.editModeLabel}>{t('group.editMode')}</Text>
 
           <Avatar
@@ -303,9 +295,8 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.background },
 
   // Header — exact copy from group detail (+ edit mode label)
-  headerGradient: { alignItems: 'center', paddingTop: 52, paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
+  headerGradient: { alignItems: 'center', paddingTop: Spacing.lg, paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
   editModeLabel: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.xs, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, marginBottom: Spacing.sm },
-  headerBackButton: { position: 'absolute', top: 8, left: 8, width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', zIndex: 10 },
   groupName: { fontFamily: Typography.fontDisplayBold, fontSize: Typography.size.xl, color: '#FFFFFF', marginTop: Spacing.sm },
   groupDescription: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: 'rgba(255,255,255,0.6)', marginTop: 4, textAlign: 'center', paddingHorizontal: Spacing.md },
   groupMeta: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
