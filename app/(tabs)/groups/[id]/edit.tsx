@@ -165,7 +165,7 @@ export default function EditGroupScreen() {
           style={styles.headerGradient}
         >
           {/* Top bar: back button (left), safe area aware */}
-          <View style={[styles.headerTopBar, { paddingTop: 2 }]}>
+          <View style={[styles.headerTopBar, { paddingTop: 4 }]}>
             <TouchableOpacity
               onPress={() => router.back()}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -312,7 +312,7 @@ export default function EditGroupScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, backgroundColor: palette.background },
-  content: { paddingTop: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl * 2 },
+  content: { paddingTop: 12, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl * 2 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.background },
 
   // Header — gradient with embedded back button

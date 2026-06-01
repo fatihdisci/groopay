@@ -305,7 +305,7 @@ export default function GroupDetailScreen() {
           style={styles.headerGradient}
         >
           {/* Top bar: back (left) · edit + tips (right), safe area aware */}
-          <View style={[styles.headerTopBar, { paddingTop: 2 }]}>
+          <View style={[styles.headerTopBar, { paddingTop: 4 }]}>
             <TouchableOpacity
               onPress={() => router.back()}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -955,7 +955,7 @@ function formatActivity(a: ActivityLogRow, members: GroupMemberRow[], t: (k: str
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: palette.surface },
   container: { flex: 1 },
-  content: { paddingTop: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl * 2 },
+  content: { paddingTop: 12, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl * 2 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.background },
   emptyText: { color: palette.textSecondary, fontSize: fontSizes.md },
   headerGradient: { alignItems: 'center', paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
