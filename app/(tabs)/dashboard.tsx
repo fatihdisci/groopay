@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { getProDashboardAnalytics, type DashboardAnalyticsData } from '@/lib/supabase/queries';
 import { supabase } from '@/lib/supabase/client';
 import { computeBalances, groupByCurrency } from '@/lib/finance';
-import { fromMinor, getDecimals } from '@/lib/finance/money';
+import { fromMinor } from '@/lib/finance/money';
 import { CATEGORIES, CATEGORY_COLORS } from '@/lib/finance/categories';
 import type { Category } from '@/lib/finance/categories';
 import { FadeInUp } from '@/components/Animations';
@@ -287,20 +287,72 @@ export default function DashboardScreen() {
             )}
           </View>
 
-          {/* ── PRO: Insight Cards ── */}
-          <View style={styles.gridRow}>
-            <View style={[styles.insightCard, { marginRight: 8 }]}>
-              <Ionicons color={Colors.primary} name="calendar-outline" size={20} />
-              <Text style={styles.metricLabel}>{t('dashboard.mostActiveMonth', 'En Hareketli Ay')}</Text>
-              <Text style={styles.metricValue}>{analytics?.mostActiveMonth || '—'}</Text>
+          {/* ── PRO: Detailed Analysis ── */}
+          <View style={styles.proSection}>
+            <Text style={styles.sectionTitle}>
+              {t('dashboard.detailedAnalysis')}{' '}
+              <Text style={styles.currencyLabel}>({activeCurrency})</Text>
+            </Text>
+
+            {/* Row 1: Most Active Month + Top Category */}
+            <View style={styles.gridRow}>
+              <View style={[styles.insightCard, { marginRight: 8 }]}>
+                <Ionicons color={Colors.primary} name="calendar-outline" size={20} />
+                <Text style={styles.metricLabel}>{t('dashboard.mostActiveMonth', 'En Hareketli Ay')}</Text>
+                <Text style={styles.metricValue}>{analytics?.mostActiveMonth || '—'}</Text>
+              </View>
+              <View style={[styles.insightCard, { marginLeft: 8 }]}>
+                <Ionicons color={Colors.warning} name="pricetag-outline" size={20} />
+                <Text style={styles.metricLabel}>{t('dashboard.topCategory', 'Popüler Kategori')}</Text>
+                <Text style={styles.metricValue}>
+                  {analytics?.topCategory ? t(`categories.${analytics.topCategory.category}`) : '—'}
+                </Text>
+              </View>
             </View>
-            <View style={[styles.insightCard, { marginLeft: 8 }]}>
-              <Ionicons color={Colors.warning} name="pricetag-outline" size={20} />
-              <Text style={styles.metricLabel}>{t('dashboard.topCategory', 'Popüler Kategori')}</Text>
-              <Text style={styles.metricValue}>
-                {analytics?.topCategory ? t(`categories.${analytics.topCategory.category}`) : '—'}
-              </Text>
-            </View>
+
+            {/* Row 2: Top Payer (full width) */}
+            {analytics?.topPayer ? (
+              <View style={styles.insightCardWide}>
+                <View style={styles.insightCardWideIcon}>
+                  <Ionicons color={Colors.primary} name="person-outline" size={20} />
+                </View>
+                <View style={styles.insightCardWideContent}>
+                  <Text style={styles.metricLabel}>{t('dashboard.topPayer')}</Text>
+                  <Text style={styles.metricValue}>
+                    {formatAmount(analytics.topPayer.total, activeCurrency)}
+                    <Text style={styles.metricSub}> · {analytics.topPayer.count} {t('dashboard.expensesCount')}</Text>
+                  </Text>
+                  <Text style={styles.metricName}>{analytics.topPayer.displayName}</Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Row 3: Settlement Summary (2 cards) */}
+            {analytics?.settlementSummary ? (
+              <View style={styles.gridRow}>
+                <View style={[styles.insightCard, { marginRight: 8 }]}>
+                  <Ionicons color={Colors.debt} name="arrow-up-outline" size={20} />
+                  <Text style={styles.metricLabel}>{t('dashboard.settlementPaid')}</Text>
+                  <Text style={styles.metricValue}>
+                    {formatAmount(analytics.settlementSummary.paid, activeCurrency)}
+                  </Text>
+                </View>
+                <View style={[styles.insightCard, { marginLeft: 8 }]}>
+                  <Ionicons color={Colors.credit} name="arrow-down-outline" size={20} />
+                  <Text style={styles.metricLabel}>{t('dashboard.settlementReceived')}</Text>
+                  <Text style={styles.metricValue}>
+                    {formatAmount(analytics.settlementSummary.received, activeCurrency)}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
+
+            {/* Empty state: no analytics data */}
+            {!analytics?.topPayer && !analytics?.settlementSummary && (
+              <View style={styles.emptyCardSmall}>
+                <Text style={styles.emptySmallText}>{t('dashboard.noBalance')}</Text>
+              </View>
+            )}
           </View>
         </FadeInUp>
       ) : (
@@ -327,6 +379,14 @@ export default function DashboardScreen() {
       <View style={{ height: 40 }} />
     </ScrollView>
   );
+}
+
+function formatAmount(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency, minimumFractionDigits: 2 }).format(amount);
+  } catch {
+    return `${amount.toFixed(2)} ${currency}`;
+  }
 }
 
 function ProLockPlaceholder({ height, onUnlock }: { height: number; onUnlock: () => void }) {
@@ -425,10 +485,15 @@ const styles = StyleSheet.create({
   otherCurrencyNote: { fontFamily: Typography.fontBody, fontSize: 11, color: Colors.textTertiary, marginTop: 6, fontStyle: 'italic' as const },
 
   // Insight cards
-  gridRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.md },
+  gridRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.sm },
   insightCard: { flex: 1, backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.cardPadding, ...Shadows.sm },
+  insightCardWide: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.cardPadding, marginBottom: Spacing.sm, ...Shadows.sm },
+  insightCardWideIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.primary + '15', alignItems: 'center', justifyContent: 'center', marginRight: Spacing.md },
+  insightCardWideContent: { flex: 1 },
   metricLabel: { fontFamily: Typography.fontBody, fontSize: 12, color: Colors.textTertiary, marginTop: 8 },
   metricValue: { fontFamily: Typography.fontDisplayBold, fontSize: 18, color: Colors.textPrimary, marginTop: 2 },
+  metricSub: { fontFamily: Typography.fontBody, fontSize: 13, color: Colors.textSecondary },
+  metricName: { fontFamily: Typography.fontBodyBold, fontSize: 14, color: Colors.textPrimary, marginTop: 2 },
 
   // Lock placeholder
   lockContainer: { backgroundColor: Colors.surface, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, opacity: 0.6 },

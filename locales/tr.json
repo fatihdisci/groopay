@@ -309,6 +309,10 @@
     "emptySub": "İlk grubunu oluştur ve masraf eklemeye başla!",
     "mostActiveMonth": "En Hareketli Ay",
     "topCategory": "Popüler Kategori",
+    "topPayer": "En Çok Ödeyen",
+    "topPayerDesc": "{{name}} ({{count}} masraf · {{total}})",
+    "settlementPaid": "Ödediğin",
+    "settlementReceived": "Sana Ödenen",
     "otherCurrencyNote": "Not: Sadece {{currency}} masraflar gösteriliyor. Diğer para birimleri ayrı hesaplanır.",
     "monthlySpending": "Aylık Harcama ({{currency}})",
     "trendSingleCurrency": "Sadece {{currency}} masraflar gösteriliyor"

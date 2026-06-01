@@ -669,6 +669,8 @@ export interface DashboardAnalyticsData {
   topCategory: { category: string; total: number } | null;
   mostActiveMonth: string | null;
   trendCurrency: string; // the single currency used for trend/category calculations
+  topPayer: { displayName: string; count: number; total: number } | null; // most frequent payer in selected currency
+  settlementSummary: { paid: number; received: number } | null; // confirmed settlements in selected currency
 }
 
 export async function getProDashboardAnalytics(
@@ -677,14 +679,15 @@ export async function getProDashboardAnalytics(
 ): Promise<DashboardAnalyticsData> {
   const { data: members, error: memError } = await supabase
     .from('group_members')
-    .select('group_id')
+    .select('id, group_id')
     .eq('user_id', userId)
     .eq('is_active', true);
 
   if (memError || !members || members.length === 0) {
-    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null, trendCurrency: currency ?? 'TRY' };
+    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null, trendCurrency: currency ?? 'TRY', topPayer: null, settlementSummary: null };
   }
 
+  const myMemberIds = new Set(members.map((m) => m.id));
   const groupIds = members.map((m) => m.group_id);
 
   const sixMonthsAgo = new Date();
@@ -698,7 +701,7 @@ export async function getProDashboardAnalytics(
     .is('deleted_at', null);
 
   if (expError || !expenses) {
-    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null, trendCurrency: currency ?? 'TRY' };
+    return { monthlyTrend: [], topCategory: null, mostActiveMonth: null, trendCurrency: currency ?? 'TRY', topPayer: null, settlementSummary: null };
   }
 
   // Use provided currency, or auto-detect dominant (backward compatible)
@@ -763,5 +766,79 @@ export async function getProDashboardAnalytics(
     total: Math.round(total),
   }));
 
-  return { monthlyTrend, topCategory, mostActiveMonth, trendCurrency: activeCurrency };
+  // ── Top Payer: most frequent payer in selected currency ──
+  let topPayer: { displayName: string; count: number; total: number } | null = null;
+
+  const payerMap = new Map<string, { count: number; total: number }>();
+  for (const exp of expenses) {
+    if (exp.currency !== activeCurrency) continue;
+    const existing = payerMap.get(exp.paid_by);
+    const amount = Number(exp.amount);
+    if (existing) {
+      existing.count += 1;
+      existing.total += amount;
+    } else {
+      payerMap.set(exp.paid_by, { count: 1, total: amount });
+    }
+  }
+
+  if (payerMap.size > 0) {
+    // Find the payer with the most expenses (tie-break: highest total)
+    let bestPayerId = '';
+    let bestCount = 0;
+    let bestTotal = 0;
+    for (const [pid, info] of payerMap) {
+      if (info.count > bestCount || (info.count === bestCount && info.total > bestTotal)) {
+        bestPayerId = pid;
+        bestCount = info.count;
+        bestTotal = info.total;
+      }
+    }
+
+    // Fetch all group members for display-name lookup
+    const { data: allMembers } = await supabase
+      .from('group_members')
+      .select('id, display_name')
+      .in('group_id', groupIds);
+
+    const memberNameMap = new Map<string, string>();
+    for (const m of (allMembers ?? [])) {
+      memberNameMap.set(m.id, m.display_name);
+    }
+
+    topPayer = {
+      displayName: memberNameMap.get(bestPayerId) ?? '?',
+      count: bestCount,
+      total: Math.round(bestTotal),
+    };
+  }
+
+  // ── Settlement Summary: paid vs received in selected currency (confirmed only) ──
+  let settlementSummary: { paid: number; received: number } | null = null;
+
+  const { data: settlements } = await supabase
+    .from('settlements')
+    .select('from_member, to_member, amount, currency')
+    .in('group_id', groupIds)
+    .eq('status', 'confirmed')
+    .eq('currency', activeCurrency);
+
+  if (settlements && settlements.length > 0) {
+    let paid = 0;
+    let received = 0;
+    for (const s of settlements) {
+      const amt = Number(s.amount);
+      if (myMemberIds.has(s.from_member)) {
+        paid += amt;
+      }
+      if (myMemberIds.has(s.to_member)) {
+        received += amt;
+      }
+    }
+    if (paid > 0 || received > 0) {
+      settlementSummary = { paid, received };
+    }
+  }
+
+  return { monthlyTrend, topCategory, mostActiveMonth, trendCurrency: activeCurrency, topPayer, settlementSummary };
 }

@@ -1016,3 +1016,37 @@ supabase functions deploy delete-account
 | Para birimleri toplanmaz | ✅ Ayrı ayrı |
 
 *Son güncelleme: 2026-06-01 — B57 eklendi (dashboard para birimi seçici + profil varsayılan)*
+
+---
+
+### ✅ B58: Dashboard "Detaylı Analiz" bölümü gerçek içerikle dolduruldu
+
+**Sorun:** Pro'da "Detaylı Analiz" bölümü sadece `mostActiveMonth` + `topCategory` gösteriyordu. Yetersizdi.
+
+**Yapılan:**
+- `getProDashboardAnalytics` genişletildi — 2 yeni alan: `topPayer` (en çok ödeyen) ve `settlementSummary` (borç/alacak özeti)
+- **topPayer:** Seçili para biriminde en çok masraf giren kişi (isim, masraf sayısı, toplam tutar). `paid_by` + `group_members.display_name` lookup.
+- **settlementSummary:** Seçili para biriminde confirmed settlements → `paid` (ödediğin) + `received` (sana ödenen).
+- **Dashboard UI:** "Detaylı Analiz" başlığı + para birimi etiketi altında:
+  - Satır 1: En Hareketli Ay + Popüler Kategori (mevcut, korundu)
+  - Satır 2: En Çok Ödeyen (tam genişlik kart: ikon + isim + tutar + masraf sayısı)
+  - Satır 3: Ödediğin + Sana Ödenen (2'li kart: kırmızı ok + yeşil ok)
+  - Boş veri: kartlar gizlenir, "Henüz bakiye yok" fallback gösterilir.
+- **i18n:** `dashboard.topPayer`, `dashboard.topPayerDesc`, `dashboard.settlementPaid`, `dashboard.settlementReceived` (tr + en)
+- **Yardımcı:** `formatAmount()` fonksiyonu eklendi (Intl.NumberFormat + fallback)
+- Tüm metrikler seçili `activeCurrency` bazında. Para birimleri toplanmaz kuralı korundu.
+
+**Değişen dosyalar:**
+- `lib/supabase/queries.ts` — `DashboardAnalyticsData` interface + `getProDashboardAnalytics` genişletildi
+- `app/(tabs)/dashboard.tsx` — yeni kartlar, `formatAmount`, stiller
+- `locales/tr.json`, `locales/en.json` — yeni dashboard anahtarları
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Para birimleri toplanmaz | ✅ Korundu |
+| Seçili para birimi değişince yenileme | ✅ queryKey'de `activeCurrency` var |
+| Boş veride kart gizleme | ✅ `topPayer`/`settlementSummary` null ise gizli |
+| DEV Pro butonuyla test | ✅ `__DEV__` toggle ile Pro aktif edilir |
+
+*Son güncelleme: 2026-06-01 — B58 eklendi (dashboard detaylı analiz)*
