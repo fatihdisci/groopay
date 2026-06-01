@@ -210,7 +210,7 @@
 <td>
   <img src="https://img.shields.io/badge/RevenueCat-IAP-000?style=flat-square&color=7C3AED" />
 </td>
-<td>Grup Pro + User Pro. Apple/Google IAP. Webhook → sunucu tarafı entitlement. Expo Go'da zarif fallback.</td>
+<td>User Pro (aylık). RevenueCat IAP. Webhook → sunucu tarafı entitlement. Expo Go'da zarif fallback.</td>
 </tr>
 
 <tr>
@@ -534,7 +534,7 @@ cp .env.example .env
 # 4. Supabase migration'ları çalıştır
 # supabase CLI ile: supabase migration up
 # VEYA SQL dosyalarını supabase dashboard → SQL Editor'da sırayla çalıştır
-# (supabase/migrations/0001..0006)
+# (supabase/migrations/0001..0008)
 
 # 5. Başlat! 🚀
 npx expo start --tunnel --clear
@@ -599,10 +599,12 @@ Supabase Dashboard'da şunları aç:
 <td>
 
 - 4. sekme, herkese açık
-- Gradient hero: para birimi bazında genel bakiye
-- Temel istatistikler (grup/masraf sayısı, en aktif grup)
-- Free: blur'lu Pro önizleme + "Pro'ya Geç" CTA
-- Pro: kategori dağılımı gerçek veriyle
+- Gradient hero: para birimi bazında genel bakiye (alacak/borç)
+- Para birimi seçici: TRY, EUR, USD — her biri ayrı gösterilir
+- Temel istatistikler: grup/masraf sayısı, en aktif grup
+- Kategori dağılımı (herkese açık, seçili para biriminde)
+- Free: blur'lu Pro önizleme (trend + detaylı analiz)
+- Pro: SimpleBarChart trend grafiği (View-based, SVG yok) + insight kartları (en hareketli ay, popüler kategori, en çok ödeyen, borç/alacak özeti)
 
 </td>
 </tr>
@@ -640,11 +642,13 @@ Supabase Dashboard'da şunları aç:
 <td><code>/groups/[id]</code></td>
 <td>
 
-- Full-bleed gradient header + geri butonu
-- Emoji/renk avatar + açıklama
+- Custom gradient header (#6366F1 → #8B5CF6) + geri/düzenle/tips butonları
+- Emoji/renk avatar + açıklama + üye sayısı
+- Hızlı üye chips + üye ekleme
 - Masraflar/Bakiyeler tab seçici
-- Genişleyebilir masraf kartları
-- Kurucu: düzenleme butonu (headerRight)
+- Masraf kartı: 3 satırlı layout, kategori filtreleme, TRY karşılığı toggle
+- Genişleyebilir kartlar (not + split detay)
+- Bakiyeler: self-summary, sadeleştirilmiş/ham mod, ödeme onaylama, IBAN iste/paylaş
 - ? yardım butonu (TipsModal)
 
 </td>
@@ -668,11 +672,13 @@ Supabase Dashboard'da şunları aç:
 <td><code>/groups/[id]/add-expense</code></td>
 <td>
 
-- ÇOK BÜYÜK tutar input (4xl, alt çizgili)
-- Para birimi pill seçici
-- Kategori chips (renk kodlu)
-- Bölüşme tipi: Eşit / Özel / Alt-Küme
-- ? yardım butonu
+- Wise-style numpad (View-based, 48px bold, sadece tutar girerken)
+- Para birimi pill seçici (TRY, EUR, USD + 20 diğer)
+- Kategori chips (6 kategori, renk kodlu)
+- Bölüşme tipi: Eşit / Özel / Alt-Küme — canlı önizleme
+- Genişletilebilir detaylar (not, tarih)
+- Düzenleme modu: mevcut masrafı düzenleme
+- ? yardım butonu (TipsModal)
 
 </td>
 </tr>
@@ -863,30 +869,27 @@ groopay/
 │   ├── _layout.tsx                   # Root: QueryClient + Auth + RevenueCat + Font
 │   ├── index.tsx                     # Auth gate (yönlendirme)
 │   ├── paywall.tsx                   # Pro satın alma ekranı
-│   ├── dashboard.tsx                 # User Pro dashboard
 │   ├── (auth)/                       # Giriş ekranı
 │   │   └── sign-in.tsx
 │   ├── (onboarding)/                 # Onboarding turu (3 slide)
 │   │   └── intro.tsx
 │   ├── (tabs)/                       # Ana sekmeler
-│   │   ├── _layout.tsx               # Tab navigator
-│   │   ├── groups.tsx                # Gruplar ana ekranı
-│   │   ├── activity.tsx              # Aktivite akışı
-│   │   └── account.tsx               # Hesap / Profil
-│   ├── (tabs)/groups.tsx             # Gruplar ana ekranı
-│   ├── (tabs)/dashboard.tsx          # Panel (4. sekme)
-│   ├── (tabs)/activity.tsx           # Aktivite akışı
-│   ├── (tabs)/account.tsx            # Hesap / Profil
-│   ├── groups/                       # Grup detay (root stack)
-│   │   ├── [id]/_layout.tsx          # Stack navigator
-│   │   ├── [id]/index.tsx            # Detay (masraf + bakiye)
-│   │   ├── [id]/add-expense.tsx      # Masraf ekleme
-│   │   ├── [id]/members.tsx          # Üye yönetimi
-│   │   └── [id]/edit.tsx             # Grubu düzenle
-│   ├── groups/new.tsx                # Yeni grup oluştur
-│   └── join/                         # Kodla katılma
-│       ├── index.tsx                 # Kod giriş
-│       └── [token].tsx               # Deep link handler
+│   │   ├── _layout.tsx               # Tab navigator (Panel · Gruplar · Aktivite · Hesap)
+│   │   ├── dashboard.tsx             # Panel (hero + stats + kategori + Pro trend/analiz)
+│   │   ├── activity.tsx              # Tüm gruplar aktivite akışı
+│   │   ├── account.tsx               # Hesap / Profil / Pro / Silme
+│   │   └── groups/
+│   │       ├── _layout.tsx           # Stack: index → [id] → add-expense → members → edit → new
+│   │       ├── index.tsx             # Grup listesi + genel bakiye + join/new
+│   │       ├── new.tsx               # Yeni grup oluştur
+│   │       └── [id]/
+│   │           ├── index.tsx          # Grup detay (masraf/bakiye sekmeleri, FAB)
+│   │           ├── add-expense.tsx    # Masraf ekle/düzenle (Wise numpad, split, tarih)
+│   │           ├── members.tsx        # Üye yönetimi (hayalet, davet, claim)
+│   │           └── edit.tsx           # Grubu düzenle (ad, renk, emoji, sil, ayrıl, devret)
+│   └── join/                         # Kodla katılma + deep link
+│       ├── index.tsx
+│       └── [token].tsx
 │
 ├── components/                       # Paylaşılan bileşenler
 │   ├── Avatar.tsx                    # Gradient/emoji avatar (LinearGradient)
@@ -914,7 +917,7 @@ groopay/
 │   ├── auth/                         # AuthContext + useAuth
 │   ├── supabase/                     # client, types, queries
 │   ├── finance/                      # 🧮 SAF FONKSİYONLAR (hepsi testli)
-│   │   ├── money.ts                  #   toMinor, toMajor, parseNumericInput
+│   │   ├── money.ts                  #   toMinor, fromMinor, formatAmount, getDecimals
 │   │   ├── split.ts                  #   splitEqual, splitCustom, splitSubset
 │   │   ├── fx.ts                     #   fetchFxRate (Frankfurter API)
 │   │   ├── balance.ts               #   computeBalances (türetilmiş)
@@ -930,14 +933,15 @@ groopay/
 │   └── en.json                       # İngilizce (fallback)
 │
 ├── supabase/
-│   ├── migrations/                   # 7 migration dosyası
+│   ├── migrations/                   # 8 migration dosyası
 │   │   ├── 0001_initial_schema.sql   #   8 tablo + RLS + trigger
 │   │   ├── 0002_invite_preview_rpc.sql
 │   │   ├── 0003_ghost_preview_rpc.sql
 │   │   ├── 0004_drop_fx_columns_add_expense_rpc.sql
 │   │   ├── 0005_realtime_publication.sql
 │   │   ├── 0006_settlements_currency_iban.sql
-│   │   └── 0007_group_management.sql #   Grup yönetimi RPC'leri
+│   │   ├── 0007_group_management.sql #   Grup yönetimi RPC'leri
+│   │   └── 0008_preferred_currency.sql #  Varsayılan para birimi
 │   └── functions/                    # Edge Functions (Deno)
 │       ├── join-via-invite/          #   Davetle katılım
 │       ├── send-push/                #   Push bildirimi
@@ -948,7 +952,7 @@ groopay/
 ├── docs/                             # Scope + Build Spec
 ├── FAZ0-PLAN.md ... FAZ7-PLAN.md     # Faz planları
 ├── SESSION-OZET.md                   # Oturum özeti
-├── BUGFIX-CILA.md                    # Bugfix günlüğü (B1-B18)
+├── BUGFIX-CILA.md                    # Bugfix günlüğü (B1-B64)
 ├── TASARIM-REVIZYON.md              # Tasarım revizyonu (Tur 1-5)
 ├── CLAUDE.md                         # Proje kuralları
 ├── package.json
@@ -977,7 +981,7 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 ## 🐛 Bugfix Günlüğü
 
 <details open>
-<summary><b>43 bugfix, 8 tur — hepsi kapandı ✅</b></summary>
+<summary><b>64 bugfix, 15 tur — hepsi kapandı ✅</b></summary>
 
 | Tur | ID'ler | Konular |
 |:---:|:-------|:--------|
@@ -989,6 +993,13 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 | 6 | B32-B35 | Route yapısı, header/geri butonu, avatar emoji |
 | 7 | B36 | Alt bar tasarımı + animasyonlar + header çizgisi |
 | 8 | B37-B43 | Hesap silme, dashboard 4. sekme, tips popup'ları, butonlar, paywall |
+| 9 | B44-B46 | Pro dashboard analitiği, header mimarisi (gradient, butonlar) |
+| 10 | B47-B53 | Add-expense regresyon: split, para birimi, önizleme, düzenleme, tarih, numpad |
+| 11 | B54-B56 | Dashboard para birimi karışması (trend, kategori, çapraz çevrim) |
+| 12 | B57 | Dashboard para birimi seçici + profil varsayılan para birimi |
+| 13 | B58-B62 | Detaylı analiz (topPayer, settlementSummary), header butonları, tab bar |
+| 14 | B63 | Para formatı tutarsızlığı — `formatAmount()` ile tr-TR formatı her yerde |
+| 15 | B64 | Masraf kartı layout: 3 satır, tutar sağda sabit, uzun metin taşmaz |
 
 </details>
 
@@ -997,7 +1008,7 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 ## 🎨 Tasarım Revizyonu
 
 <details open>
-<summary><b>8 tur, modern fintech estetiği ✅</b></summary>
+<summary><b>9 tur, modern fintech estetiği ✅</b></summary>
 
 | Tur | Kapsam | Durum |
 |:---:|:-------|:-----:|
@@ -1009,6 +1020,7 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 | 6 | Pro sadeleştirme + dashboard 4. sekme + blur önizleme | ✅ |
 | 7 | Tab bar animasyonu + header tutarlılığı | ✅ |
 | 8 | Paywall modern fintech + X kapatma + fiyat gösterme | ✅ |
+| 9 | Masraf kartı 3-satır layout + para formatı tr-TR standardı | ✅ |
 
 </details>
 
@@ -1022,11 +1034,11 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 <tr>
 <td align="center"><b>80+</b><br><sub>dosya</sub></td>
 <td align="center"><b>12.000+</b><br><sub>satır kod</sub></td>
-<td align="center"><b>50+</b><br><sub>commit</sub></td>
+<td align="center"><b>90+</b><br><sub>commit</sub></td>
 <td align="center"><b>75</b><br><sub>test (✅)</sub></td>
 <td align="center"><b>250+</b><br><sub>i18n anahtarı</sub></td>
 <td align="center"><b>8</b><br><sub>veritabanı tablosu</sub></td>
-<td align="center"><b>7</b><br><sub>migration</sub></td>
+<td align="center"><b>8</b><br><sub>migration</sub></td>
 <td align="center"><b>4</b><br><sub>Edge Function</sub></td>
 </tr>
 </table>

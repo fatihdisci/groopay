@@ -3,7 +3,7 @@
 > Kapsam kararları için: [`docs/groopay-scope.md`](docs/groopay-scope.md)
 > Teknik build planı için: [`docs/groopay-build-spec.md`](docs/groopay-build-spec.md)
 > Oturum özeti + son durum: [`SESSION-OZET.md`](SESSION-OZET.md)
-> Son faz planı: [`FAZ6-PLAN.md`](FAZ6-PLAN.md)
+> Son faz planı: [`FAZ8-PLAN.md`](FAZ8-PLAN.md)
 > Bugfix & cila kaydı: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
 
 ---
@@ -32,6 +32,7 @@
 - Always compute in integer minor units (kuruş).
 - Store as `numeric` in PostgreSQL.
 - Rounding: remaining kuruş goes to payer.
+- **Display:** Use `formatAmount(amount, currency)` from `lib/finance/money.ts` for all amount rendering. NEVER use `toFixed()` + raw currency code. Returns tr-TR formatted string with symbol (₺591,63, €50,00, $100,00).
 
 ## FX (Kur)
 - Expenses are stored in their ORIGINAL currency (amount + currency). NEVER convert and store in base.
@@ -100,7 +101,7 @@ groopay/
   app/                      # Expo Router screens
   lib/
     supabase/               # client, queries, types
-    finance/                # split, fx, balance, simplify (PURE + tested)
+    finance/                # money, split, fx, balance, simplify (PURE + tested)
     i18n/
     revenuecat/             # Phase 7
   components/               # shared UI
