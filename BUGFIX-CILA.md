@@ -1207,4 +1207,7 @@ supabase functions deploy delete-account
 | headerGradient borderRadius korundu | ✅ |
 | Alt bar tüm ekranlarda | ✅ |
 
-*Son güncelleme: 2026-06-01 — B62 eklendi (header butonları + çift başlık + tab sıralaması)*
+**Son düzeltme (padding + stil):**
+- Gruplar bottom bar: `paddingBottom: 36 → 12`, `backgroundColor: Colors.surface → Colors.background`, `borderTopWidth` + `borderTopColor` kaldırıldı. Butonlar alt bara ve sayfa arka planına yakınlaştı, aradaki çizgi yok.
+
+*Son güncelleme: 2026-06-01 — B62 eklendi (header butonları + çift başlık + tab sıralaması + groups bottom bar)*

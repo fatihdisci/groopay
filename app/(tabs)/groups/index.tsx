@@ -185,12 +185,10 @@ const styles = StyleSheet.create({
 
   // Bottom bar
   bottomBar: {
-    backgroundColor: Colors.surface,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border,
+    backgroundColor: Colors.background,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 36,
+    paddingBottom: 12,
   },
   bottomRow: { flexDirection: 'row', gap: 10 },
   limitBadge: {
