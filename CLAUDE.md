@@ -31,8 +31,18 @@
 - NEVER use float for calculation.
 - Always compute in integer minor units (kuruş).
 - Store as `numeric` in PostgreSQL.
+- **User input parsing:** Use `parseMoneyInputToMinor(input: string, currency: string): number` from `lib/finance/money.ts` for all amount entry. NO `parseFloat()` — avoids IEEE 754 precision issues. Returns integer minor units directly from string.
 - Rounding: remaining kuruş goes to payer.
 - **Display:** Use `formatAmount(amount, currency)` from `lib/finance/money.ts` for all amount rendering. NEVER use `toFixed()` + raw currency code. Returns tr-TR formatted string with symbol (₺591,63, €50,00, $100,00).
+- ⚠️ **numeric(14,2) constraint:** Currently only 2-decimal currencies supported (TRY, USD, EUR, GBP, etc. — 18 total). 0-decimal (JPY, KRW, VND) and 3-decimal (BHD, KWD, OMR, TND) are hidden from UI but `getDecimals` still works internally. Will be re-enabled after integer minor unit migration (Faz 9).
+
+## Security — Server-Side Authorization (KALICI KARAR, Haziran 2026)
+
+- **All sensitive writes** (expense add/edit/delete, settlement mark/confirm/reject, member add/remove, group create/delete, invite create) MUST go through **SECURITY DEFINER RPCs** with `auth.uid()` authorization checks.
+- Direct table writes from the client are restricted by RLS (narrow policies: owner or founder). RPCs bypass RLS — so the auth check MUST be inside the RPC.
+- New features: follow the same pattern. Create a SECURITY DEFINER RPC with `set search_path = public` + `auth.uid()` ownership verification. Do NOT rely on client-side checks alone (they are trivially bypassed via anon key).
+- RLS: SELECT stays broad (`is_member_of`), INSERT/UPDATE/DELETE is narrow (self or founder) or blocked entirely (RPC-only).
+- RevenueCat webhook: handles GRANT (purchase/renewal/uncancel) and REVOKE (expiration/cancel/refund) events. `user_pro` lives in DB, not client.
 
 ## FX (Kur)
 - Expenses are stored in their ORIGINAL currency (amount + currency). NEVER convert and store in base.

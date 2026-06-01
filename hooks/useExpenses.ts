@@ -37,22 +37,32 @@ export function useUpdateExpense() {
   return useMutation({
     mutationFn: ({
       expenseId,
-      updates,
-      splits,
+      description,
+      note,
+      amount,
+      currency,
+      category,
+      splitType,
+      paidBy,
       actorMemberId,
+      expenseDate,
+      splits,
     }: {
       expenseId: string;
-      updates: {
-        description?: string;
-        note?: string | null;
-        amount?: number;
-        currency?: string;
-        category?: string;
-        expense_date?: string;
-      };
-      splits: { memberId: string; shareAmount: number }[];
+      description: string;
+      note: string | null;
+      amount: number;
+      currency: string;
+      category: string;
+      splitType: string;
+      paidBy: string;
       actorMemberId: string;
-    }) => updateExpenseWithSplits(expenseId, updates, splits, actorMemberId),
+      expenseDate: string;
+      splits: { memberId: string; shareAmount: number }[];
+    }) => updateExpenseWithSplits({
+      expenseId, description, note, amount, currency, category,
+      splitType, paidBy, actorMemberId, expenseDate, splits,
+    }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses'] });
       qc.invalidateQueries({ queryKey: ['groups'] });

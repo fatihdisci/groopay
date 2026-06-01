@@ -1247,4 +1247,309 @@ supabase functions deploy delete-account
 
 ---
 
-*Son güncelleme: 2026-06-01 — B64 eklendi (para formatı + masraf kartı layout)*
+---
+### 🔒 P0-1 / B65: SECURITY DEFINER RPC'lere auth.uid() yetki kontrolü eklendi
+
+**Sorun:** `add_expense_with_splits`, `add_settlement`, `confirm_settlement`, `reject_settlement` fonksiyonları `SECURITY DEFINER` ile RLS'i bypass ediyor ama içlerinde hiçbir `auth.uid()` yetki kontrolü yoktu. Anon key'e sahip herhangi biri:
+- Başkasının grubuna masraf ekleyebilir (`add_expense_with_splits`)
+- Sahte settlement oluşturabilir (`add_settlement`)
+- Başkasının settlement'ını onaylayabilir/reddedebilir (`confirm_settlement`/`reject_settlement`)
+
+**Yapılan (Migration 0009):**
+- **`add_expense_with_splits`:** 5 yeni kontrol eklendi
+  1. `p_amount > 0` kontrolü
+  2. `p_created_by` → `auth.uid()` ile eşleşen, aynı grupta aktif üye mi?
+  3. `p_paid_by` → aynı grupta aktif üye mi?
+  4. `sum(p_splits.share_amount) == p_amount` (1 kuruş tolerans)
+  5. Her split üyesi aynı grupta aktif üye mi?
+- **`add_settlement`:** 4 yeni kontrol
+  1. `p_marked_by` → `auth.uid()` ile eşleşen aktif üye mi?
+  2. `p_from_member` aynı grupta aktif mi?
+  3. `p_to_member` aynı grupta aktif mi?
+  4. `p_marked_by`, `p_from_member` veya `p_to_member`'dan biri olmalı
+- **`confirm_settlement`:** 4 yeni kontrol
+  1. Settlement mevcut mu?
+  2. Status hâlâ 'pending' mi?
+  3. `p_confirmed_by` → `auth.uid()` ile eşleşen aktif üye mi?
+  4. `p_confirmed_by` → settlement'ın `to_member`'ı (alacaklı) olmalı
+- **`reject_settlement`:** Aynı 4 kontrol (alacaklı reddedebilir)
+- Tüm fonksiyon imzaları **KORUNDU** — client kodu değişmedi.
+- Tüm hata mesajları Türkçe.
+- Migration idempotent (`CREATE OR REPLACE`).
+
+**Değişen dosyalar:** `supabase/migrations/0009_rpc_auth_checks.sql` (yeni)
+
+**Nasıl test edilir:**
+1. Normal kullanıcı akışı: masraf ekleme, settlement işaretleme, onaylama, reddetme → çalışmaya devam etmeli
+2. Yetkisiz çağrı testi (manuel veya pgTAP):
+   - Başka kullanıcının JWT'si ile `p_created_by` olarak başkasının member_id'sini gönder → `'Bu işlemi yapmaya yetkiniz yok'`
+   - Split toplamı != amount gönder → `'Bölüşüm toplamı masraf tutarıyla eşleşmiyor'`
+   - Borçlu olmayan kullanıcı `add_settlement` çağırır → `'Sadece borçlu veya alacaklı ödeme işaretleyebilir'`
+   - Alacaklı olmayan kullanıcı `confirm_settlement` çağırır → `'Sadece alacaklı onaylayabilir'`
+
+**Kontrol tablosu:**
+- [x] `add_expense_with_splits`: auth.uid() + üyelik + sum + member kontrolü
+- [x] `add_settlement`: auth.uid() + üyelik + borçlu/alacaklı kontrolü
+- [x] `confirm_settlement`: auth.uid() + sadece alacaklı + pending kontrolü
+- [x] `reject_settlement`: auth.uid() + sadece alacaklı + pending kontrolü
+- [x] Tüm fonksiyon imzaları korundu (client kırılmaz)
+- [x] `set search_path = public` korundu
+- [x] tsc temiz
+- [x] SQL Editor'de çalıştırıldı
+- [x] Normal kullanıcı akışı test edildi (masraf ekle/sil/düzenle, üye çıkar, grup düzenle — sorun yok)
+
+---
+
+### 🔒 P0-2 / B66: RLS policy'leri daraltıldı
+
+**Sorun:** `expenses`, `settlements`, `group_members` tablolarında `for all using is_member_of(group_id)` politikası vardı. Bu, grubun HERHANGİ bir üyesinin doğrudan API çağrısıyla başkasının masrafını silmesine/değiştirmesine, settlement manipüle etmesine, üye bilgilerini değiştirmesine izin veriyordu. `canModifyExpense` kontrolü sadece UI'daydı — anon key ile atlanabilirdi.
+
+**Yapılan (Migration 0010):**
+
+**Yardımcı fonksiyon:** `is_founder_of(gid)` — `is_member_of` benzeri SECURITY DEFINER helper.
+
+**Tablo tablo değişiklikler:**
+
+| Tablo | Önce | Sonra |
+|-------|------|-------|
+| **expenses** | `for all` → herkes yazabilir | SELECT: geniş. INSERT: üyeler. **UPDATE/DELETE: sadece masraf sahibi veya founder** |
+| **expense_splits** | `for all` | SELECT/INSERT/DELETE: expense'in grubuna üyelik (P0-4'te RPC'ye geçecek) |
+| **settlements** | `for all` → herkes yazabilir | SELECT: geniş. **INSERT/UPDATE/DELETE: POLİTİKA YOK → ENGELLENDİ** (sadece RPC) |
+| **group_members** | `for all` → herkes yazabilir | SELECT: geniş. INSERT: kurucu veya üye. **UPDATE: kendi veya founder. DELETE: ENGELLENDİ** |
+| **groups** | UPDATE: `is_member_of` | **UPDATE: sadece `created_by = auth.uid()` (founder)** |
+| **activity_log** | SELECT only | SELECT: geniş. INSERT: üyeler. **UPDATE/DELETE: ENGELLENDİ** |
+
+**Kırılma analizi:** Tüm 16 doğrudan yazma işlemi kontrol edildi:
+- `createGroup`: groups INSERT ✅ → founder membership INSERT (groups.created_by = auth.uid() ile) ✅ → activity_log INSERT ✅
+- `addGhostMember`: membership INSERT (is_member_of) ✅
+- `deactivateMember`: self user_id = auth.uid() ✅, founder is_founder_of ✅
+- `updateExpenseWithSplits`: expense sahibi kontrolü ✅, founder ✅ (P0-4'te RPC olacak)
+- `deleteExpense`: aynı ✅
+- `updateGroup`: founder-only ✅ (zaten UI'da sadece founder)
+- Settlements: tümü RPC üzerinden ✅ (SECURITY DEFINER → RLS bypass)
+- `requestIban`/`fulfillIbanRequest`: is_member_of ✅ (policy korundu)
+
+**Değişen dosyalar:** `supabase/migrations/0010_rls_tighten.sql` (yeni)
+
+**Nasıl test edilir:**
+1. Normal akış: masraf ekle/sil/düzenle, settlement işaretle/onayla/reddet, ghost ekle, üye çıkar, grup düzenle → TÜMÜ çalışmalı
+2. Yetkisiz test (Supabase Dashboard SQL Editor):
+   - Başka üyenin masrafını doğrudan UPDATE/DELETE → RLS hatası
+   - Doğrudan settlements INSERT → RLS hatası
+   - Doğrudan group_members DELETE → RLS hatası
+   - Founder olmayanın groups UPDATE → RLS hatası
+
+**Kontrol tablosu:**
+- [x] `expenses`: SELECT geniş, UPDATE/DELETE owner+founder
+- [x] `settlements`: SELECT geniş, INSERT/UPDATE/DELETE engellendi (RPC only)
+- [x] `group_members`: SELECT geniş, INSERT creator+member, UPDATE self+founder, DELETE engellendi
+- [x] `groups`: UPDATE founder-only
+- [x] `activity_log`: INSERT üyeler, UPDATE/DELETE engellendi
+- [x] `is_founder_of` helper eklendi
+- [x] Tüm client doğrudan yazma akışları kontrol edildi — kırılma yok
+- [x] RPC'ler SECURITY DEFINER → etkilenmez
+- [x] tsc temiz
+- [x] SQL Editor'de çalıştırıldı
+- [x] Normal kullanıcı akışı test edildi (masraf ekle/sil/düzenle, üye çıkar, grup düzenle — sorun yok)
+- [x] Yetkisiz erişim test edildi
+
+---
+
+---
+### 🔒 P0-3 / B67: revenuecat-webhook — iptal/expiry/refund işleme
+
+**Sorun:** Webhook sadece `INITIAL_PURCHASE`, `RENEWAL`, `NON_RENEWING_PURCHASE` event'lerini işliyordu. `CANCELLATION`, `EXPIRATION`, `REFUND`, `SUBSCRIPTION_PAUSED` event'leri **skip** ediliyordu. Sonuç: kullanıcı aboneliğini iptal etse / süresi dolsa / iade alsa bile `profiles.user_pro = true` kalıyor → süresiz bedava Pro.
+
+**Yapılan:**
+- Event tipleri 4 gruba ayrıldı:
+  - **GRANT** → `user_pro = true`: `INITIAL_PURCHASE`, `RENEWAL`, `NON_RENEWING_PURCHASE`, `UNCANCELLATION`, `PRODUCT_CHANGE`
+  - **REVOKE** → `user_pro = false`: `EXPIRATION`, `CANCELLATION`, `REFUND`, `SUBSCRIPTION_PAUSED`
+  - **LOG_ONLY** → `user_pro` değişmez: `BILLING_ISSUE` (grace period mantığı sonra)
+  - **SKIP** → diğer bilinmeyen event'ler (TRANSFER vb.)
+- **Expiration safety net:** `expiration_at_ms` varsa ve geçmişteyse → event tipi GRANT olsa bile REVOKE olarak işlenir (defensive).
+- `supabase` service-role client'ı event branching'den ÖNCE oluşturuluyor (hem grant hem revoke kullanıyor).
+- `group_pro` için de aynı grant/revoke/log_only mantığı eklendi (ileriye dönük).
+- Tüm aksiyonlar detaylı loglanıyor: `[rc-webhook] Event: ... | Action: ... | expired: ...`
+
+**Değişen dosyalar:** `supabase/functions/revenuecat-webhook/index.ts`
+
+**Deploy talimatı:**
+```bash
+# Supabase CLI ile (önerilen):
+cd C:\Users\fatih\groopay
+npx supabase functions deploy revenuecat-webhook
+
+# VEYA Supabase Dashboard → Edge Functions → revenuecat-webhook → Deploy
+```
+⚠️ Deploy öncesi Supabase Dashboard'da `REVENUECAT_WEBHOOK_SECRET` env var tanımlı olmalı.
+
+**Nasıl test edilir:**
+1. RevenueCat Dashboard → Webhooks → Test Send (her event tipi için)
+2. Supabase Dashboard → Edge Function Logs → event'lerin doğru işlendiğini kontrol et
+3. `profiles.user_pro` değerinin doğru değiştiğini kontrol et (DB'den SELECT)
+4. Expiration safety net: expiration geçmiş bir INITIAL_PURCHASE gönder → REVOKE olarak işlenmeli
+
+**Kontrol tablosu:**
+- [x] GRANT event'leri: user_pro = true
+- [x] REVOKE event'leri: user_pro = false
+- [x] BILLING_ISSUE: sadece log, user_pro değişmez
+- [x] Bilinmeyen event: skip + log
+- [x] Expiration safety net: expiration geçmişse → revoke (GRANT bile olsa)
+- [x] `group_pro` için grant/revoke/log_only simetrik
+- [x] Service-role client branching'den önce oluşturuluyor
+- [x] Auth check (REVENUECAT_WEBHOOK_SECRET) korundu
+- [x] tsc temiz
+- [ ] Deploy edildi
+- [ ] RevenueCat test event'i ile doğrulandı
+
+---
+
+---
+### 🔒 P0-4 / B68: updateExpenseWithSplits + deleteExpense atomik RPC
+
+**Sorun:** `updateExpenseWithSplits` 4 ayrı Supabase çağrısıydı (update expense → delete splits → insert splits → activity log). Adım 2 başarılı, adım 3 başarısız olursa masraf split'siz kalıyor, bakiye hesabı bozuluyordu. `deleteExpense` de 2 ayrı çağrıydı. Ayrıca doğrudan tablo yazımı RLS'e bağımlıydı.
+
+**Yapılan (Migration 0011 + client):**
+
+**RPC'ler (SECURITY DEFINER, set search_path = public):**
+
+1. **`update_expense_with_splits`** — 8 adımda atomik güncelleme:
+   - Masraf mevcut mu? (deleted_at IS NULL)
+   - p_amount > 0
+   - p_actor_member_id → auth.uid() eşleşmesi (aktif üye)
+   - YETKİ: masraf sahibi VEYA founder
+   - p_paid_by grupta aktif mi?
+   - sum(splits) == amount (±1 kuruş)
+   - Her split üyesi grupta aktif mi?
+   - TEK transaction: update expense → delete old splits → insert new splits → activity_log
+
+2. **`delete_expense`** — 4 adımda atomik soft-delete:
+   - Masraf mevcut mu?
+   - p_actor_member_id → auth.uid() eşleşmesi
+   - YETKİ: masraf sahibi VEYA founder
+   - Soft-delete (deleted_at = now()) + activity_log
+
+**Client güncellemesi:**
+- `updateExpenseWithSplits`: 4 çağrı → tek `supabase.rpc('update_expense_with_splits', {...})`
+- `deleteExpense`: 2 çağrı → tek `supabase.rpc('delete_expense', {...})`
+- `useUpdateExpense` hook imzası: `updates` objesi yerine düz alanlar (`description`, `amount`, `currency`, `splitType`, `paidBy`, `expenseDate`, vb.)
+- `add-expense.tsx` düzenleme modu: yeni imzaya güncellendi
+
+**RLS daraltma (bonus):**
+- expense_splits INSERT/DELETE politikaları kaldırıldı (artık RPC üzerinden)
+- expenses UPDATE/DELETE politikaları kaldırıldı (artık RPC üzerinden)
+- expense_splits SELECT + expenses INSERT/SELECT korunuyor
+
+**Değişen dosyalar:**
+- `supabase/migrations/0011_update_delete_expense_rpc.sql` (yeni)
+- `lib/supabase/queries.ts` (`updateExpenseWithSplits` + `deleteExpense` RPC'ye döndü)
+- `hooks/useExpenses.ts` (`useUpdateExpense` yeni imza)
+- `app/(tabs)/groups/[id]/add-expense.tsx` (edit mode çağrısı güncellendi)
+
+**Nasıl test edilir:**
+1. Masraf düzenleme: aç → tutar/açıklama/ödeyen/split değiştir → kaydet → bakiye doğru mu?
+2. Masraf silme: masraf kartında 🗑️ → sil → masraf kayboldu mu? aktivite log'da görünüyor mu?
+3. Yetkisiz düzenleme: başkasının masrafını düzenlemeye çalış → "Bu masrafı düzenleme yetkiniz yok"
+4. Yetkisiz silme: başkasının masrafını silmeye çalış → "Bu masrafı silme yetkiniz yok"
+5. Atomiklik: split toplamı yanlış gönder → masraf değişMEMELİ (eski split'ler korunmalı)
+
+**Kontrol tablosu:**
+- [x] `update_expense_with_splits` RPC: auth.uid() + sahip/founder + sum + member + atomik
+- [x] `delete_expense` RPC: auth.uid() + sahip/founder + atomik soft-delete
+- [x] `updateExpenseWithSplits` client: 4 çağrı → 1 RPC
+- [x] `deleteExpense` client: 2 çağrı → 1 RPC
+- [x] `useUpdateExpense` hook yeni imzaya güncellendi
+- [x] `add-expense.tsx` edit mode güncellendi
+- [x] expense_splits INSERT/DELETE RLS kaldırıldı (RPC only)
+- [x] expenses UPDATE/DELETE RLS kaldırıldı (RPC only)
+- [x] tsc temiz
+- [x] Tüm client doğrudan yazma akışları kontrol edildi — kırılma yok
+- [x] Migration SQL Editor'de çalıştırıldı
+- [x] Masraf düzenleme test edildi
+- [x] Masraf silme test edildi
+- [x] Yetkisiz erişim test edildi
+
+**Not:** 0011'de expense_splits INSERT/DELETE + expenses UPDATE/DELETE politikaları kaldırılmıştı. SECURITY DEFINER RPC'ler Supabase'de her zaman RLS bypass etmediği için 0012'de bu 4 politika geri eklendi.
+
+**Ek migration:** `0012_fix_expense_splits_rls.sql` — kaldırılan 4 policy'yi geri ekler.
+
+---
+
+---
+### 🔒 P0-5 / B69: Para birimi — 0/3 ondalıklı para birimleri UI'dan kaldırıldı
+
+**Sorun:** DB `numeric(14,2)` ama `SUPPORTED_CURRENCIES` listesinde 0 ondalıklı (JPY, KRW, VND) ve 3 ondalıklı (BHD, KWD, OMR, TND) para birimleri vardı. Kullanıcı KWD seçip 1.255 girebilir → DB'de 1.25 veya 1.26 olarak saklanır → veri kaybı.
+
+**Yapılan:**
+- `SUPPORTED_CURRENCIES`: JPY, KRW, VND, BHD, KWD, OMR, TND çıkarıldı. 18 para birimi kaldı (hepsi 2 ondalıklı).
+- `DECIMALS` record'u korundu — iç hesaplamada `toMinor`/`fromMinor` hâlâ 0/3 ondalık destekliyor.
+- `getDecimals` davranışı değişmedi.
+- Kullanıcı "Diğer" para birimi seçicide artık sadece 2 ondalıklılar görünür.
+
+**Değişen dosyalar:** `lib/finance/money.ts`, `CLAUDE.md`
+
+**Future:** Faz 9 integer minor unit migration will re-enable 0/3-decimal currencies.
+
+### 🔒 P0-6 / B70: parseMoneyInputToMinor — string→minor, float-free
+
+**Sorun:** `add-expense.tsx`te `toMinor(parseFloat(amountStr), currency)` kullanılıyordu — arada float var. README `parseNumericInput` diyordu ama fonksiyon yoktu. IEEE 754 precision riski.
+
+**Yapılan:**
+- `money.ts`'e `parseMoneyInputToMinor(input: string, currency: string): number` eklendi.
+- Virgül/nokta normalizasyonu (19,99 ve 19.99 ikisi de çalışır).
+- Binlik ayraç desteği (1.000,50 → 100050).
+- Para birimi sembolü temizleme (₺, $, €, £, ¥).
+- Tam ve ondalık kısmı ayırır, integer aritmetiğiyle birleştirir — **hiç float yok.**
+- `add-expense.tsx`teki tüm `toMinor(parseFloat(...))` ve `toMinor(amt, currency)` çağrıları `parseMoneyInputToMinor` ile değiştirildi.
+- Testler: 12 yeni test (19.99, 19,99, 100, 0,01, 5,5, 1.000,50, 1,000.50, ₺100, "", "0", " 19,99 ").
+
+**Değişen dosyalar:** `lib/finance/money.ts`, `lib/finance/__tests__/money.test.ts`, `app/(tabs)/groups/[id]/add-expense.tsx`
+
+### 🔒 P1-1→P0 / B71: Pro 5-grup limiti server-side enforce
+
+**Sorun:** 5 grup limiti sadece UI'da `reachedLimit` kontrolüydü — doğrudan API ile sınırsız grup açılabilirdi. Ayrıca `createGroup` atomik değildi (üyesiz grup kalabilirdi).
+
+**Yapılan (Migration 0013):**
+- `create_group_with_limit` RPC (SECURITY DEFINER):
+  - auth.uid() ile profiles.user_pro okur.
+  - Pro değilse: demo olmayan grup sayısını sayar, >= 5 ise exception.
+  - Pro ise limitsiz.
+  - Grup + founder member + activity log — **tek transaction (atomik).**
+- `queries.ts`: `createGroup` → `supabase.rpc('create_group_with_limit', {...})`
+- `userId` parametresi artık RPC içinde auth.uid()'ten alınıyor (geriye dönük uyumlu).
+
+**Değişen dosyalar:** `supabase/migrations/0013_group_invite_rpc.sql`, `lib/supabase/queries.ts`
+
+### 🔒 P1-9→P0 / B72: Invite token — kriptografik server-side üretim
+
+**Sorun:** `generateToken()` client'ta `Math.random()` ile 6 karakter üretiyordu. Predictable, collision retry yok, rate limit yok, expiry opsiyonel.
+
+**Yapılan (Migration 0013):**
+- `create_invite` RPC (SECURITY DEFINER):
+  - auth.uid() bu grubun aktif üyesi mi kontrol eder.
+  - Token: `gen_random_uuid()` → 8 karakter, okunabilir alfabe (I/O/0/1 hariç).
+  - Collision durumunda 10 denemeye kadar retry.
+  - `expires_at` = now() + 7 gün (varsayılan).
+- `queries.ts`: `generateToken()` kaldırıldı, `createInvite` → `supabase.rpc('create_invite', {...})`
+- Mevcut join-via-invite akışı etkilenmez (token formatı aynı).
+
+**Değişen dosyalar:** `supabase/migrations/0013_group_invite_rpc.sql`, `lib/supabase/queries.ts`
+
+---
+
+**Kontrol tablosu (toplu):**
+- [x] Para birimi listesi: 18 para birimi, hepsi 2 ondalıklı
+- [x] `parseMoneyInputToMinor`: string→minor, 12 test geçti
+- [x] `add-expense.tsx`: tüm float dönüşümleri kaldırıldı
+- [x] `create_group_with_limit` RPC: limit + atomik
+- [x] `create_invite` RPC: kriptografik token + expiry
+- [x] tsc temiz
+- [x] 87/87 test geçti
+- [ ] Migration 0013 SQL Editor'de çalıştırıldı
+- [ ] 5 grup limiti test edildi (6. grubu açmayı dene)
+- [ ] Davet kodu oluşturma test edildi
+- [ ] Masraf tutarı girişi test edildi (19,99 ve 19.99)
+
+---
+
+*Son güncelleme: 2026-06-01 — P0-5/B69 + P0-6/B70 + B71 + B72 eklendi (para birimi sınırlama + parseMoneyInputToMinor + Pro limit + invite token güvenliği)*

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -21,12 +21,13 @@ import { useAuth } from '@/lib/auth';
 import { useGroupDetail } from '@/hooks/useGroupDetail';
 import { useAddExpense, useUpdateExpense } from '@/hooks/useExpenses';
 import { supabase } from '@/lib/supabase/client';
-import { toMinor, fromMinor, getDecimals, SUPPORTED_CURRENCIES } from '@/lib/finance/money';
+import { toMinor, fromMinor, getDecimals, SUPPORTED_CURRENCIES, parseMoneyInputToMinor } from '@/lib/finance/money';
 import { splitEqual, splitCustomAmounts, splitSubset } from '@/lib/finance/split';
 import { CATEGORIES, CATEGORY_ICONS, CATEGORY_COLORS } from '@/lib/finance/categories';
 import type { Category } from '@/lib/finance/categories';
 import type { GroupMemberRow, SplitType, ExpenseRow, ExpenseSplitRow } from '@/lib/supabase/types';
 import { Colors, Typography, Radius, Shadows } from '@/constants/theme';
+import TipsButton from '@/components/TipsButton';
 
 const PRIMARY_CURRENCIES = ['TRY', 'USD', 'EUR'];
 
@@ -119,6 +120,23 @@ export default function AddExpenseScreen() {
       title: isEditMode ? t('expense.editTitle') : t('expense.addTitle'),
     });
   }, [isEditMode, t, navigation]);
+
+  // ── Tips button in header ──
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TipsButton
+          title={t('tips.addExpense.title')}
+          tips={[
+            { icon: 'cash-outline' as const, text: t('tips.addExpense.tip1') },
+            { icon: 'git-branch-outline' as const, text: t('tips.addExpense.tip2') },
+            { icon: 'person-outline' as const, text: t('tips.addExpense.tip3') },
+            { icon: 'calendar-outline' as const, text: t('tips.addExpense.tip4') },
+          ]}
+        />
+      ),
+    });
+  }, [navigation, t]);
 
   // ── Auto-select current user as payer (new mode only) ──
   useEffect(() => {
@@ -216,8 +234,7 @@ export default function AddExpenseScreen() {
     const amt = getAmountNumber();
     if (!amt || amt <= 0 || activeMembers.length === 0) return null;
 
-    const totalMinor = toMinor(amt, currency);
-    const decimals = getDecimals(currency);
+    const totalMinor = parseMoneyInputToMinor(amountStr, currency);
 
     try {
       if (splitType === 'equal') {
@@ -239,9 +256,8 @@ export default function AddExpenseScreen() {
         let sumMinor = 0;
         for (const m of activeMembers) {
           const raw = customAmounts[m.id];
-          const val = raw ? parseFloat(raw) : 0;
-          if (!raw || isNaN(val)) continue; // skip empty
-          const minor = toMinor(val, currency);
+          if (!raw) continue; // skip empty
+          const minor = parseMoneyInputToMinor(raw, currency);
           entries.push({ memberId: m.id, amountMinor: minor });
           sumMinor += minor;
         }
@@ -304,7 +320,7 @@ export default function AddExpenseScreen() {
       const actorMember = activeMembers.find((m) => m.user_id === user?.id);
       if (!actorMember) throw new Error('Üyelik bulunamadı');
 
-      const totalMinor = toMinor(amt, currency);
+      const totalMinor = parseMoneyInputToMinor(amountStr, currency);
       const memberIds = activeMembers.map((m) => m.id);
 
       let splitEntries: { memberId: string; shareMinor: number }[];
@@ -312,12 +328,15 @@ export default function AddExpenseScreen() {
       if (splitType === 'equal') {
         splitEntries = splitEqual(totalMinor, memberIds, paidById);
       } else if (splitType === 'custom') {
-        // Build entries from customAmounts state
+        // Build entries from customAmounts state (string→minor, float-free)
         const customEntries: { memberId: string; amountMinor: number }[] = [];
         for (const m of activeMembers) {
           const raw = customAmounts[m.id];
-          if (raw && parseFloat(raw) > 0) {
-            customEntries.push({ memberId: m.id, amountMinor: toMinor(parseFloat(raw), currency) });
+          if (raw) {
+            const minor = parseMoneyInputToMinor(raw, currency);
+            if (minor > 0) {
+              customEntries.push({ memberId: m.id, amountMinor: minor });
+            }
           }
         }
         splitEntries = splitCustomAmounts(totalMinor, customEntries);
@@ -337,19 +356,19 @@ export default function AddExpenseScreen() {
       if (isEditMode && expenseId) {
         await updateExpenseMutation.mutateAsync({
           expenseId,
-          updates: {
-            description: description.trim(),
-            note: note.trim() || null,
-            amount: amt,
-            currency,
-            category,
-            expense_date: expenseDate,
-          },
+          description: description.trim(),
+          note: note.trim() || null,
+          amount: amt,
+          currency,
+          category,
+          splitType,
+          paidBy: paidById,
+          actorMemberId: actorMember.id,
+          expenseDate,
           splits: splitEntries.map((s) => ({
             memberId: s.memberId,
             shareAmount: fromMinor(s.shareMinor, currency),
           })),
-          actorMemberId: actorMember.id,
         });
       } else {
         await addExpenseMutation.mutateAsync({

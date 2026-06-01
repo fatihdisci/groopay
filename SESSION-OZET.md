@@ -1,13 +1,13 @@
 # Groopay — Oturum Özeti
 
 > Son oturum: 2026-06-01
-> Durum: Faz 0-7 tamam ✅, Faz 8'e hazır ✅, Bugfix turu B1-B64 tamam ✅
+> Durum: Faz 0-7 tamam ✅, P0 güvenlik turu tamam (B65-B72) ✅, Faz 8'e hazır ✅
 
 ---
 
 ## Şu an neredeyiz?
 
-Faz 0-7 tamam. 15 tur bugfix (B1-B64) tamamlandı. Uygulama Expo Go'da çalışır durumda. Tüm kritik işlevler yerinde. Header mimarisi oturdu: Gruplar sekmesinde Tab header "Gruplar" gösterir, grup detay/düzenlemede custom gradient header kullanılır, butonlar üste yaslı. Alt bar 4 sekmeli (Panel · Gruplar · Aktivite · Hesap). Tüm tutarlar `formatAmount()` ile tr-TR formatında (sembol + binlik nokta + ondalık virgül) gösteriliyor.
+Faz 0-7 tamam. 15 tur bugfix (B1-B64) tamamlandı. **P0 güvenlik turu (B65-B72) tamam:** tüm RPC'ler auth.uid() korumalı, RLS daraltıldı, atomik mutation'lar, RevenueCat revoke handling, para birimi 2-ondalık sınırı, server-side Pro limiti, kriptografik invite token. Uygulama Expo Go'da çalışır durumda.
 
 ---
 
@@ -32,6 +32,7 @@ Detaylar için: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
 | 13 | Dashboard para birimi seçici + profil varsayılanı | B57 |
 | 14 | Dashboard detaylı analiz, kurucu ayrılma, TipsButton, header butonları | B58-B62 |
 | 15 | Para formatı tutarsızlığı, masraf kartı layout | B63-B64 |
+| 16 | **P0 güvenlik:** RPC auth, RLS daraltma, RevenueCat revoke, atomik mutation, para birimi, Pro limiti, invite token | B65-B72 |
 
 ---
 
@@ -133,6 +134,11 @@ C:\Users\fatih\groopay\
 6. `0006_settlements_currency_iban.sql` — Settlement para birimi + IBAN requests + 3 RPC
 7. `0007_group_management.sql` — groups.description, avatar_emoji, avatar_color + delete_group, remove_member, transfer_ownership RPC
 8. `0008_preferred_currency.sql` — profiles.preferred_currency (NULL = otomatik dominant)
+9. `0009_rpc_auth_checks.sql` — **P0-1:** add_expense_with_splits, add_settlement, confirm_settlement, reject_settlement RPC'lere auth.uid() yetki kontrolü
+10. `0010_rls_tighten.sql` — **P0-2:** expenses/settlements/group_members/groups RLS daraltma + is_founder_of helper
+11. `0011_update_delete_expense_rpc.sql` — **P0-4:** update_expense_with_splits + delete_expense atomik RPC (SECURITY DEFINER)
+12. `0012_fix_expense_splits_rls.sql` — RLS fix: 0011'de kaldırılan 4 politika geri eklendi
+13. `0013_group_invite_rpc.sql` — **P1-1/P1-9:** create_group_with_limit (Pro limiti) + create_invite (kriptografik token) RPC
 
 ---
 
@@ -142,7 +148,7 @@ C:\Users\fatih\groopay\
 |---|---|
 | `join-via-invite` | ✅ Deploy edildi |
 | `send-push` | ✅ Yazıldı, deploy bekliyor |
-| `revenuecat-webhook` | ✅ Yazıldı, deploy bekliyor |
+| `revenuecat-webhook` | ✅ P0-3: revoke handling eklendi, deploy bekliyor |
 | `delete-account` | ✅ Yazıldı, deploy bekliyor |
 
 ---
@@ -168,7 +174,14 @@ npx expo start --tunnel --clear
 | Kontrol | Durum |
 |---|---|
 | `npx tsc --noEmit` | ✅ Temiz |
-| Split testleri (vitest, 75 test) | ✅ 75/75 geçti |
+| Split + money testleri (vitest) | ✅ 87/87 geçti |
+| P0 güvenlik: RPC auth.uid() | ✅ 7 RPC korumalı |
+| P0 güvenlik: RLS daraltma | ✅ 6 tablo daraltıldı |
+| P0 güvenlik: atomik mutation | ✅ update/delete expense |
+| P0 güvenlik: RevenueCat revoke | ✅ EXPIRATION/CANCELLATION/REFUND |
+| Para birimi: 2-ondalık sınırı | ✅ 18 para birimi, 0/3 UI'da gizli |
+| Pro limiti: server-side | ✅ create_group_with_limit |
+| Invite token: kriptografik | ✅ create_invite RPC |
 | Add-expense: equal/custom/subset | ✅ Çalışıyor |
 | Add-expense: diğer para birimi (20) | ✅ Modal seçim |
 | Add-expense: canlı önizleme | ✅ Anlık |
@@ -193,11 +206,14 @@ npx expo start --tunnel --clear
 - EAS dev build (EAS Build ile iOS + Android)
 - RevenueCat webhook deploy + gerçek IAP testi (sandbox)
 - send-push + delete-account Edge Function deploy
+- Sentry/error monitoring (native module — EAS build ile)
 - Gizlilik/şartlar URL'leri (Vercel)
 - İkon, splash, ekran görüntüleri
 - TestFlight / Internal Testing
 - Erişilebilirlik son kontroller
+- P2 cila: delete-account transaction, ownership edge case (launch sonrası)
+- Para birimi integer minor unit migration (Faz 9)
 
 ---
 
-*Son güncelleme: 2026-06-01 — B64: para formatı tutarsızlığı + masraf kartı layout düzeltmesi*
+*Son güncelleme: 2026-06-01 — P0 güvenlik turu tamam (B65-B72)*

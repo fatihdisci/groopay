@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toMinor, fromMinor, getDecimals } from '../money';
+import { toMinor, fromMinor, getDecimals, parseMoneyInputToMinor } from '../money';
 
 describe('getDecimals', () => {
   it('returns 2 for TRY', () => {
@@ -102,5 +102,55 @@ describe('toMinor/fromMinor roundtrip', () => {
     const minor = toMinor(original, 'EUR');
     const back = fromMinor(minor, 'EUR');
     expect(back).toBe(original);
+  });
+});
+
+describe('parseMoneyInputToMinor', () => {
+  it('"19.99" → 1999 (dot decimal)', () => {
+    expect(parseMoneyInputToMinor('19.99', 'TRY')).toBe(1999);
+  });
+
+  it('"19,99" → 1999 (comma decimal)', () => {
+    expect(parseMoneyInputToMinor('19,99', 'TRY')).toBe(1999);
+  });
+
+  it('"100" → 10000 (integer)', () => {
+    expect(parseMoneyInputToMinor('100', 'TRY')).toBe(10000);
+  });
+
+  it('"0,01" → 1 (small amount)', () => {
+    expect(parseMoneyInputToMinor('0,01', 'TRY')).toBe(1);
+  });
+
+  it('"5,5" → 550 (single decimal digit)', () => {
+    expect(parseMoneyInputToMinor('5,5', 'TRY')).toBe(550);
+  });
+
+  it('"5.5" → 550 (dot single decimal)', () => {
+    expect(parseMoneyInputToMinor('5.5', 'TRY')).toBe(550);
+  });
+
+  it('"1.000,50" → 100050 (thousands dot + decimal comma)', () => {
+    expect(parseMoneyInputToMinor('1.000,50', 'TRY')).toBe(100050);
+  });
+
+  it('"1,000.50" → 100050 (thousands comma + decimal dot)', () => {
+    expect(parseMoneyInputToMinor('1,000.50', 'TRY')).toBe(100050);
+  });
+
+  it('"₺100" → 10000 (currency symbol)', () => {
+    expect(parseMoneyInputToMinor('₺100', 'TRY')).toBe(10000);
+  });
+
+  it('"" → 0 (empty)', () => {
+    expect(parseMoneyInputToMinor('', 'TRY')).toBe(0);
+  });
+
+  it('"0" → 0 (zero)', () => {
+    expect(parseMoneyInputToMinor('0', 'TRY')).toBe(0);
+  });
+
+  it('" 19,99 " → 1999 (whitespace)', () => {
+    expect(parseMoneyInputToMinor(' 19,99 ', 'TRY')).toBe(1999);
   });
 });

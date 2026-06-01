@@ -126,32 +126,17 @@ export async function getGroupDetail(groupId: string): Promise<GroupWithMembers>
 export async function createGroup(
   name: string,
   baseCurrency: string,
-  userId: string,
+  _userId: string,       // kept for backward compat — RPC uses auth.uid()
   displayName: string,
 ): Promise<string> {
-  const { data: group, error } = await supabase
-    .from('groups')
-    .insert({ name, base_currency: baseCurrency, created_by: userId })
-    .select('id')
-    .single();
-  if (error || !group) throw error ?? new Error('create failed');
-  const groupId = (group as GroupRow).id;
-
-  // Add founder as member — copy profile display_name
-  const { error: mErr } = await supabase.from('group_members').insert({
-    group_id: groupId, user_id: userId,
-    display_name: displayName,
-    role: 'founder',
-  });
-  if (mErr) throw mErr;
-
-  // Activity log
-  await supabase.from('activity_log').insert({
-    group_id: groupId, action_type: 'group_created',
-    target_type: 'group', target_id: groupId, metadata: {},
+  const { data, error } = await supabase.rpc('create_group_with_limit', {
+    p_name: name,
+    p_base_currency: baseCurrency,
+    p_display_name: displayName,
   });
 
-  return groupId;
+  if (error) throw error;
+  return data as string;
 }
 
 export async function updateGroup(
@@ -232,21 +217,22 @@ export async function updateMember(
 
 // ── Invites ──
 
-function generateToken(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no I,O,0,1 for readability
-  let token = '';
-  for (let i = 0; i < 6; i++) token += chars[Math.floor(Math.random() * chars.length)];
-  return token;
-}
+export async function createInvite(groupId: string, _createdBy: string): Promise<GroupInviteRow> {
+  const { data: token, error } = await supabase.rpc('create_invite', {
+    p_group_id: groupId,
+  });
 
-export async function createInvite(groupId: string, createdBy: string): Promise<GroupInviteRow> {
-  const token = generateToken();
-  const { data, error } = await supabase
+  if (error || !token) throw error ?? new Error('create invite failed');
+
+  // Fetch the full invite row for backward compat
+  const { data: invite } = await supabase
     .from('group_invites')
-    .insert({ group_id: groupId, token, created_by: createdBy })
-    .select('*').single();
-  if (error || !data) throw error ?? new Error('create invite failed');
-  return data as GroupInviteRow;
+    .select('*')
+    .eq('token', token as string)
+    .single();
+
+  if (!invite) throw new Error('invite created but not found');
+  return invite as GroupInviteRow;
 }
 
 export async function getGroupInvites(groupId: string): Promise<GroupInviteRow[]> {
@@ -324,83 +310,49 @@ export async function addExpense(input: AddExpenseInput): Promise<string> {
   return data as string;
 }
 
-export async function updateExpenseWithSplits(
-  expenseId: string,
-  updates: {
-    description?: string;
-    note?: string | null;
-    amount?: number;
-    currency?: string;
-    category?: string;
-    expense_date?: string;
-  },
-  splits: { memberId: string; shareAmount: number }[],
-  actorMemberId: string,
-): Promise<void> {
-  const { data: expense, error: fetchErr } = await supabase
-    .from('expenses').select('*').eq('id', expenseId).single();
-  if (fetchErr || !expense) throw fetchErr ?? new Error('Expense not found');
-  const groupId = (expense as ExpenseRow).group_id;
-
-  // 1. Update expense row
-  const { error: updErr } = await supabase
-    .from('expenses')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', expenseId);
-  if (updErr) throw updErr;
-
-  // 2. Delete old splits
-  const { error: delErr } = await supabase
-    .from('expense_splits')
-    .delete()
-    .eq('expense_id', expenseId);
-  if (delErr) throw delErr;
-
-  // 3. Insert new splits
-  const { error: insErr } = await supabase
-    .from('expense_splits')
-    .insert(
-      splits.map((s) => ({
-        expense_id: expenseId,
-        member_id: s.memberId,
-        share_amount: s.shareAmount,
-      })),
-    );
-  if (insErr) throw insErr;
-
-  // 4. Activity log
-  await supabase.from('activity_log').insert({
-    group_id: groupId,
-    actor_member_id: actorMemberId,
-    action_type: 'expense_edited',
-    target_type: 'expense',
-    target_id: expenseId,
-    metadata: { updates },
+export async function updateExpenseWithSplits(input: {
+  expenseId: string;
+  description: string;
+  note: string | null;
+  amount: number;
+  currency: string;
+  category: string;
+  splitType: string;
+  paidBy: string;
+  actorMemberId: string;
+  expenseDate: string;
+  splits: { memberId: string; shareAmount: number }[];
+}): Promise<void> {
+  const { error } = await supabase.rpc('update_expense_with_splits', {
+    p_expense_id: input.expenseId,
+    p_description: input.description,
+    p_note: input.note ?? null,
+    p_amount: input.amount,
+    p_currency: input.currency,
+    p_category: input.category,
+    p_split_type: input.splitType,
+    p_paid_by: input.paidBy,
+    p_actor_member_id: input.actorMemberId,
+    p_expense_date: input.expenseDate,
+    p_splits: input.splits.map((s) => ({
+      member_id: s.memberId,
+      share_amount: s.shareAmount,
+    })),
   });
+
+  if (error) throw error;
 }
 
 export async function deleteExpense(
   expenseId: string,
   actorMemberId: string,
 ): Promise<void> {
-  const { data: expense, error: fetchErr } = await supabase
-    .from('expenses').select('group_id').eq('id', expenseId).single();
-  if (fetchErr || !expense) throw fetchErr ?? new Error('Expense not found');
-
-  const { error } = await supabase
-    .from('expenses')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('id', expenseId);
-  if (error) throw error;
-
-  await supabase.from('activity_log').insert({
-    group_id: (expense as ExpenseRow).group_id,
-    actor_member_id: actorMemberId,
-    action_type: 'expense_deleted',
-    target_type: 'expense',
-    target_id: expenseId,
-    metadata: {},
+  const { error } = await supabase.rpc('delete_expense', {
+    p_expense_id: expenseId,
+    p_actor_member_id: actorMemberId,
   });
+
+  if (error) throw error;
 }
 
 /**
