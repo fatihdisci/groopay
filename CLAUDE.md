@@ -144,13 +144,14 @@ groopay/
 - Stack header `useLayoutEffect` ile gizlenir (`headerShown: false`).
 - Gradient header (`LinearGradient #6366F1 → #8B5CF6`) ekranın en üstünde başlar.
 - **Gradient style:** `borderRadius: Radius.xl` (tüm köşeler yuvarlak), `paddingBottom: Spacing.xl`, `paddingHorizontal: Spacing.lg`. `paddingTop` YOK (static'te kaldırıldı, içeride headerTopBar handle eder).
-- **Header button bar:** `headerTopBar` — `paddingTop: 2` (inline), `marginBottom: 8`. Butonlar status bar'ın hemen altında.
-- **Content container:** `paddingTop: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl * 2`.
+- **Header button bar:** `headerTopBar` — `paddingTop: 4` (inline), `marginBottom: 8`. Butonlar status bar'ın hemen altında.
+- **Content container:** `paddingTop: 12, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl * 2`.
 - Butonlar: geri (sol), düzenle+tips (sağ). Founder değilse düzenleme görünmez.
 - **DO NOT** move group routes to root Stack — this hides the bottom tab bar.
 - **DO NOT** create nested `app/groups/[id]/_layout.tsx` — causes duplicate route conflicts.
 - **DO NOT** add `paddingTop` to `headerGradient` static style — butonlar aşağı kayar.
 - **DO NOT** add `insets.top` to `headerTopBar` — React Navigation safe area'yı zaten handle ediyor, çift sayım yapar.
+- **DO NOT** change `headerTopBar.paddingTop` (4) or `content.paddingTop` (12) without testing on device — butonların status bar mesafesi bu iki değerin toplamına bağlı.
 
 ### Dashboard
 - 4th tab "Panel" (stats-chart icon)

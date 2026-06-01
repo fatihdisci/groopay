@@ -1176,8 +1176,8 @@ supabase functions deploy delete-account
 
 **Yapılan:**
 - `headerGradient` static style: `paddingTop` tamamen kaldırıldı. `borderRadius: Radius.xl` korundu (tüm köşeler yuvarlak, eski kart görünümü).
-- `headerTopBar` inline: `paddingTop: 2`. Safe area React Navigation tarafından zaten handle ediliyor, ekstra insets.top çift sayıma sebep oluyordu.
-- `content`: `padding: spacing.md` → `paddingTop: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl * 2`.
+- `headerTopBar` inline: `paddingTop: 4`. Safe area React Navigation tarafından zaten handle ediliyor.
+- `content`: `padding: spacing.md` → `paddingTop: 12, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl * 2`.
 - **Gruplar listesi çift başlık:** `groups/index.tsx` — `useLayoutEffect` `setOptions({ title })` → `setOptions({ headerShown: false })`. Tab header "Gruplar" gösterir, Stack header gizlenir.
 - **Tab sıralaması:** Panel ilk sıraya alındı: `Gruplar · Panel · Aktivite · Hesap` → `Panel · Gruplar · Aktivite · Hesap`.
 - Dashboard TipsButton: `headerRight` wrapper'a `marginRight: 8` eklendi, TipsButton icon size 22→24.
@@ -1185,9 +1185,9 @@ supabase functions deploy delete-account
 **Gradient header yeni padding yapısı (referans):**
 | Katman | Önce | Sonra |
 |---|---|---|
-| `content` paddingTop | 12px | **8px** |
+| `content` paddingTop | 12px | **12px** |
 | `headerGradient` static paddingTop | `Spacing.lg` (20px) | **yok** |
-| `headerTopBar` inline paddingTop | `insets.top + 4` (~51px) | **2px** |
+| `headerTopBar` inline paddingTop | `insets.top + 4` (~51px) | **4px** |
 
 **Değişen dosyalar:**
 - `app/(tabs)/groups/[id]/index.tsx` — headerGradient paddingTop kaldırıldı, headerTopBar paddingTop: 2, content paddingTop: 8
