@@ -77,3 +77,22 @@ export type CurrencyCode = (typeof SUPPORTED_CURRENCIES)[number]['code'];
 export function getCurrencyInfo(code: string) {
   return SUPPORTED_CURRENCIES.find((c) => c.code === code.toUpperCase());
 }
+
+/**
+ * Format a decimal amount for display using Intl.NumberFormat with tr-TR locale.
+ * Includes currency symbol, thousands separator (.), and decimal comma (,).
+ *
+ *   formatAmount(591.63, 'TRY') → "₺591,63"
+ *   formatAmount(50050.5, 'TRY') → "₺50.050,50"
+ *   formatAmount(50, 'EUR') → "€50,00"
+ *   formatAmount(100, 'USD') → "$100,00"
+ *
+ * Falls back to "amount currency" on invalid currency codes.
+ */
+export function formatAmount(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency, minimumFractionDigits: 2 }).format(amount);
+  } catch {
+    return `${amount.toFixed(getDecimals(currency))} ${currency}`;
+  }
+}

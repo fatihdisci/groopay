@@ -1,17 +1,17 @@
 # Groopay — Oturum Özeti
 
 > Son oturum: 2026-06-01
-> Durum: Faz 0-7 tamam ✅, Faz 8'e hazır ✅, Bugfix turu B1-B57 tamam ✅
+> Durum: Faz 0-7 tamam ✅, Faz 8'e hazır ✅, Bugfix turu B1-B64 tamam ✅
 
 ---
 
 ## Şu an neredeyiz?
 
-Faz 0-7 tamam. 14 tur bugfix (B1-B62) tamamlandı. Uygulama Expo Go'da çalışır durumda. Tüm kritik işlevler yerinde. Header mimarisi oturdu: Gruplar sekmesinde Tab header "Gruplar" gösterir, grup detay/düzenlemede custom gradient header kullanılır, butonlar üste yaslı. Alt bar 4 sekmeli (Panel · Gruplar · Aktivite · Hesap).
+Faz 0-7 tamam. 15 tur bugfix (B1-B64) tamamlandı. Uygulama Expo Go'da çalışır durumda. Tüm kritik işlevler yerinde. Header mimarisi oturdu: Gruplar sekmesinde Tab header "Gruplar" gösterir, grup detay/düzenlemede custom gradient header kullanılır, butonlar üste yaslı. Alt bar 4 sekmeli (Panel · Gruplar · Aktivite · Hesap). Tüm tutarlar `formatAmount()` ile tr-TR formatında (sembol + binlik nokta + ondalık virgül) gösteriliyor.
 
 ---
 
-## Bugfix Turları (B1-B56)
+## Bugfix Turları (B1-B64)
 
 Detaylar için: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
 
@@ -30,6 +30,8 @@ Detaylar için: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
 | 11 | Header mimarisi (B45-B46), add-expense regresyon (B47-B53) | B45-B53 |
 | 12 | Dashboard para birimi karışması (B54-B56) | B54-B56 |
 | 13 | Dashboard para birimi seçici + profil varsayılanı | B57 |
+| 14 | Dashboard detaylı analiz, kurucu ayrılma, TipsButton, header butonları | B58-B62 |
+| 15 | Para formatı tutarsızlığı, masraf kartı layout | B63-B64 |
 
 ---
 
@@ -113,7 +115,7 @@ C:\Users\fatih\groopay\
       delete-account/                    # Faz 8: hesap silme (Apple zorunlu)
   docs/                                  # groopay-scope.md, groopay-build-spec.md
   CLAUDE.md                             # Proje kuralları + bugfix kayıt kuralı
-  BUGFIX-CILA.md                        # Tüm bugfix kayıtları (B1-B56)
+  BUGFIX-CILA.md                        # Tüm bugfix kayıtları (B1-B64)
   SESSION-OZET.md                       # Bu dosya
   FAZ0-PLAN.md ... FAZ7-PLAN.md
   .env
@@ -198,4 +200,4 @@ npx expo start --tunnel --clear
 
 ---
 
-*Son güncelleme: 2026-06-01 — B62: header butonları yukarı yaslandı + çift başlık giderildi + tab sıralaması Panel öne alındı*
+*Son güncelleme: 2026-06-01 — B64: para formatı tutarsızlığı + masraf kartı layout düzeltmesi*

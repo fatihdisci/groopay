@@ -1211,3 +1211,40 @@ supabase functions deploy delete-account
 - Gruplar bottom bar: `paddingBottom: 36 → 12`, `backgroundColor: Colors.surface → Colors.background`, `borderTopWidth` + `borderTopColor` kaldırıldı. Butonlar alt bara ve sayfa arka planına yakınlaştı, aradaki çizgi yok.
 
 *Son güncelleme: 2026-06-01 — B62 eklendi (header butonları + çift başlık + tab sıralaması + groups bottom bar)*
+
+---
+
+### ✅ B63: Para/tutar formatı tutarsızlığı düzeltildi
+
+**Sorun:** Panel "₺591,63" (doğru tr-TR formatı), Aktivite "500.5 TRY" (ham sayı), masraf kartları "350.50 TRY" (sembolsüz, noktalı) gösteriyordu.
+
+**Yapılan:**
+- `lib/finance/money.ts` — `formatAmount(amount, currency)` fonksiyonu eklendi. `Intl.NumberFormat('tr-TR', { style:'currency', currency })` kullanır. Sembol + binlik nokta + ondalık virgül: `₺591,63`, `€50,00`, `$100,00`, `₺50.050.050,00`.
+- `lib/finance/index.ts` — barrel export'a eklendi.
+- `app/(tabs)/dashboard.tsx` — yerel `formatAmount` kaldırıldı, `@/lib/finance`'ten import ediliyor.
+- `app/(tabs)/activity.tsx` — `formatActivity()` içinde `expense_added`, `settlement_marked` tutarları formatlanıyor.
+- `app/(tabs)/groups/[id]/index.tsx` — 12 noktada `toFixed() + currency` → `formatAmount()`: masraf kartı tutarı, split detay, self summary, raw/simplified bakiye, bekleyen ödemeler, settlement modal, FX display, aktivite, hatırlatma mesajı.
+- `locales/tr.json`, `locales/en.json` — i18n template'lerinden ayrı `{{currency}}`/`{{cur}}` parametreleri kaldırıldı (formatAmount zaten sembolü içeriyor). 8 key güncellendi.
+
+**Değişen dosyalar:** `lib/finance/money.ts`, `lib/finance/index.ts`, `app/(tabs)/dashboard.tsx`, `app/(tabs)/activity.tsx`, `app/(tabs)/groups/[id]/index.tsx`, `locales/tr.json`, `locales/en.json`
+
+---
+
+### ✅ B64: Masraf kartı layout düzeltmesi
+
+**Sorun:** Masraf adı + tutar aynı satırda yan yana. Açıklama uzayınca tutar sağa sıkışıyor veya üst üste biniyordu. Kategori, düzenle/sil/genişlet butonları da aynı satırda karışıyordu.
+
+**Yapılan:**
+- Kart 3 satıra bölündü:
+  - **Satır 1:** `[kategori ikon] [masraf adı (flex:1, 2 satır)] [tutar (flexShrink:0, sağda sabit)]`
+  - **Satır 2:** `"Ali ödedi · 1 Haz 2026"`
+  - **Satır 3:** `kategori (sol) · ✏️ 🗑️ ⌄ butonları (sağ)`
+- Tutar `flexShrink:0` ile her zaman sağ üstte sabit, uzun metinlerle çakışmaz.
+- Kategori ayrı satıra alındı, butonlar `expenseActions` ile sağa yaslandı.
+- Kullanılmayan `splitSummary`/`splitChip` stilleri temizlendi, `expenseCategory` stili geri eklendi.
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/index.tsx`
+
+---
+
+*Son güncelleme: 2026-06-01 — B64 eklendi (para formatı + masraf kartı layout)*

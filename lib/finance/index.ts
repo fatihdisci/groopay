@@ -1,4 +1,4 @@
-export { toMinor, fromMinor, getDecimals, SUPPORTED_CURRENCIES, getCurrencyInfo } from './money';
+export { toMinor, fromMinor, getDecimals, SUPPORTED_CURRENCIES, getCurrencyInfo, formatAmount } from './money';
 export type { CurrencyCode } from './money';
 export {
   splitEqual,

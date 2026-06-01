@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useRealtimeAllGroups } from '@/hooks/useRealtime';
+import { formatAmount } from '@/lib/finance/money';
 import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { palette, spacing, fontSizes, radii } from '@/constants/theme';
 import type { ActivityLogRow, GroupMemberRow, GroupRow } from '@/lib/supabase/types';
@@ -193,8 +194,7 @@ function formatActivity(
       return t('activity.expense_added', {
         name,
         desc: meta.description ?? '?',
-        amount: meta.amount ?? '',
-        currency: meta.currency ?? '',
+        amount: meta.amount ? formatAmount(Number(meta.amount), meta.currency ?? 'TRY') : '?',
       });
     case 'expense_edited':
       return t('activity.expense_edited', { name, desc: meta.updates?.description ?? meta.description ?? '?' });
@@ -208,8 +208,7 @@ function formatActivity(
       return t('activity.settlement_marked', {
         name,
         to: meta.to_name ?? memberNames.get(meta.to_member) ?? '?',
-        amt: meta.amount ?? '',
-        cur: meta.currency ?? '',
+        amt: meta.amount ? formatAmount(Number(meta.amount), meta.currency ?? 'TRY') : '?',
       });
     case 'settlement_rejected':
       return t('activity.settlement_rejected', { name });

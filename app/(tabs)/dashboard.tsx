@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { getProDashboardAnalytics, type DashboardAnalyticsData } from '@/lib/supabase/queries';
 import { supabase } from '@/lib/supabase/client';
 import { computeBalances, groupByCurrency } from '@/lib/finance';
-import { fromMinor } from '@/lib/finance/money';
+import { fromMinor, formatAmount } from '@/lib/finance/money';
 import { CATEGORIES, CATEGORY_COLORS } from '@/lib/finance/categories';
 import type { Category } from '@/lib/finance/categories';
 import { FadeInUp } from '@/components/Animations';
@@ -400,14 +400,6 @@ export default function DashboardScreen() {
       <View style={{ height: 40 }} />
     </ScrollView>
   );
-}
-
-function formatAmount(amount: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency, minimumFractionDigits: 2 }).format(amount);
-  } catch {
-    return `${amount.toFixed(2)} ${currency}`;
-  }
 }
 
 function ProLockPlaceholder({ height, onUnlock }: { height: number; onUnlock: () => void }) {

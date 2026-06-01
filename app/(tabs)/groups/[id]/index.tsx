@@ -13,7 +13,7 @@ import { useBalance } from '@/hooks/useBalance';
 import type { BalanceByCurrency } from '@/hooks/useBalance';
 import { useFxRate } from '@/hooks/useFxRate';
 import { useGroupSettlements, useAddSettlement, useConfirmSettlement, useRejectSettlement } from '@/hooks/useSettlements';
-import { fromMinor, getDecimals } from '@/lib/finance';
+import { fromMinor, formatAmount } from '@/lib/finance';
 import type { MemberBalance, SimplifiedTx, SettlementForBalance } from '@/lib/finance';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
@@ -274,12 +274,11 @@ export default function GroupDetailScreen() {
   };
 
   const handleRemind = async (to: GroupMemberRow, currency: string, amountMinor: number) => {
-    const amt = fromMinor(amountMinor, currency).toFixed(getDecimals(currency));
+    const amt = formatAmount(fromMinor(amountMinor, currency), currency);
     const msg = t('iban.remindMessage', {
       group: group.name,
       to: to.display_name,
       amt,
-      cur: currency,
     });
     try { await Share.share({ message: msg }); } catch { /* cancelled */ }
   };
@@ -464,12 +463,10 @@ export default function GroupDetailScreen() {
                     {[...balanceByCurrency.entries()].map(([cur, v]) => {
                       const self = v.balances.find((b) => b.memberId === actorMember.id);
                       if (!self) return null;
-                      const dec = getDecimals(cur);
-                      const amt = fromMinor(Math.abs(self.netMinor), cur).toFixed(dec);
                       return (
                         <View key={cur} style={styles.selfRow}>
                           <Text style={styles.selfAmount}>
-                            {amt} {cur}
+                            {formatAmount(fromMinor(Math.abs(self.netMinor), cur), cur)}
                           </Text>
                           <Text style={styles.selfStatus}>
                             {self.netMinor > 0 ? t('balance.youAreOwed') : self.netMinor < 0 ? t('balance.youOwe') : t('balance.youAreEven')}
@@ -508,9 +505,9 @@ export default function GroupDetailScreen() {
                       return (
                         <View key={s.id} style={styles.pendingRow}>
                           <Text style={styles.pendingText}>
-                            {isDebtor ? t('settle.youMarked', { amt: Number(s.amount).toFixed(2), cur: s.currency, to: toM?.display_name ?? '?' }) :
-                             isCreditor ? t('settle.markedToYou', { from: fromM?.display_name ?? '?', amt: Number(s.amount).toFixed(2), cur: s.currency }) :
-                             t('settle.markedGeneric', { from: fromM?.display_name ?? '?', to: toM?.display_name ?? '?', amt: Number(s.amount).toFixed(2), cur: s.currency })}
+                            {isDebtor ? t('settle.youMarked', { amt: formatAmount(Number(s.amount), s.currency), to: toM?.display_name ?? '?' }) :
+                             isCreditor ? t('settle.markedToYou', { from: fromM?.display_name ?? '?', amt: formatAmount(Number(s.amount), s.currency) }) :
+                             t('settle.markedGeneric', { from: fromM?.display_name ?? '?', to: toM?.display_name ?? '?', amt: formatAmount(Number(s.amount), s.currency) })}
                           </Text>
                           {isCreditor && (
                             <View style={{ flexDirection: 'row', gap: spacing.xs }}>
@@ -624,7 +621,7 @@ export default function GroupDetailScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{t('settle.payTitle', { to: settleTarget?.toName ?? '' })}</Text>
-            <Text style={styles.modalSub}>{t('settle.paySub', { cur: settleTarget?.currency ?? '', max: settleTarget ? fromMinor(settleTarget.maxMinor, settleTarget.currency).toFixed(getDecimals(settleTarget.currency)) : '' })}</Text>
+            <Text style={styles.modalSub}>{t('settle.paySub', { max: settleTarget ? formatAmount(fromMinor(settleTarget.maxMinor, settleTarget.currency), settleTarget.currency) : '' })}</Text>
             <TextInput style={styles.modalInput} keyboardType="decimal-pad" placeholder="0.00" placeholderTextColor={palette.muted}
               value={settleAmountStr} onChangeText={setSettleAmountStr} />
             <View style={styles.modalBtns}>
@@ -636,7 +633,7 @@ export default function GroupDetailScreen() {
                 const amt = parseFloat(settleAmountStr.replace(',', '.'));
                 if (!amt || amt <= 0) { Alert.alert('', t('settle.invalidAmount')); return; }
                 const max = fromMinor(settleTarget.maxMinor, settleTarget.currency);
-                if (amt > max) { Alert.alert('', t('settle.overpay', { max: max.toFixed(getDecimals(settleTarget.currency)), cur: settleTarget.currency })); return; }
+                if (amt > max) { Alert.alert('', t('settle.overpay', { max: formatAmount(max, settleTarget.currency) })); return; }
                 addSettlementMut.mutate({ groupId: id!, fromMember: actorMember.id, toMember: settleTarget.to, amount: amt, currency: settleTarget.currency, markedBy: actorMember.id });
                 setSettleModalVisible(false);
               }}>
@@ -712,7 +709,6 @@ export default function GroupDetailScreen() {
 // ── Balance sub-components ──
 
 function RawBalanceList({ balances, members, currency, t }: { balances: MemberBalance[]; members: GroupMemberRow[]; currency: string; t: (k: string, opts?: any) => string }) {
-  const dec = getDecimals(currency);
   return (
     <View>
       {balances.map((b) => {
@@ -724,7 +720,7 @@ function RawBalanceList({ balances, members, currency, t }: { balances: MemberBa
             <Avatar initials={getInitials(m?.display_name ?? '?')} size={32} />
             <Text style={styles.balanceName}>{m?.display_name ?? '?'}</Text>
             <Text style={[styles.balanceAmount, isPositive && styles.balancePositive, isNegative && styles.balanceNegative]}>
-              {fromMinor(Math.abs(b.netMinor), currency).toFixed(dec)} {currency}
+              {formatAmount(fromMinor(Math.abs(b.netMinor), currency), currency)}
             </Text>
             <Text style={[styles.balanceStatus, isPositive && styles.balancePositive, isNegative && styles.balanceNegative]}>
               {isPositive ? t('balance.youAreOwed') : isNegative ? t('balance.youOwe') : ''}
@@ -744,7 +740,6 @@ function SimplifiedBalanceList({ txs, members, currency, actorMember, onSettle, 
   settlements: SettlementRow[];
   t: (k: string, o?: Record<string, unknown>) => string;
 }) {
-  const dec = getDecimals(currency);
   if (txs.length === 0) {
     return <Text style={styles.noDebts}>{t('balance.allSettled')}</Text>;
   }
@@ -769,7 +764,7 @@ function SimplifiedBalanceList({ txs, members, currency, actorMember, onSettle, 
                 <Text style={styles.simplifiedTo}>{toM?.display_name ?? '?'}</Text>
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
-                <Text style={styles.simplifiedAmount}>{fromMinor(tx.amountMinor, currency).toFixed(dec)} {currency}</Text>
+                <Text style={styles.simplifiedAmount}>{formatAmount(fromMinor(tx.amountMinor, currency), currency)}</Text>
                 {isDebtor && hasPendingSettle && (
                   <View style={styles.pendingBadge}>
                     <Text style={styles.pendingBadgeText}>{t('settle.awaitingApproval')}</Text>
@@ -803,7 +798,7 @@ function ExpenseCard({ expense, splits, members, payerName, category, groupCurre
   const [expanded, setExpanded] = useState(false);
   const { data: fxData } = useFxRate(expense.currency, groupCurrency);
   const fxDisplay = showFx && fxData?.rate && expense.currency !== groupCurrency
-    ? `≈ ${(Number(expense.amount) * fxData.rate).toFixed(2)} ${groupCurrency}` : null;
+    ? `≈ ${formatAmount(Number(expense.amount) * fxData.rate, groupCurrency)}` : null;
   const dateFormatted = new Date(expense.expense_date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' });
   const hasNote = !!(expense as any).note;
   const positiveSplits = splits.filter((s) => Number(s.share_amount) > 0);
@@ -815,37 +810,47 @@ function ExpenseCard({ expense, splits, members, payerName, category, groupCurre
 
   return (
     <TouchableOpacity style={styles.expenseCard} onPress={toggle} activeOpacity={0.95}>
-      {/* Header row */}
+      {/* Top row: category icon + expense name + amount */}
       <View style={styles.expenseCardHeader}>
         <View style={[styles.categoryIcon, { backgroundColor: CATEGORY_COLORS[category] + '20' }]}>
           <Ionicons name={CATEGORY_ICONS[category] as any} size={18} color={CATEGORY_COLORS[category]} />
         </View>
-        <View style={styles.expenseInfo}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text style={styles.expenseDesc}>{expense.description}</Text>
-            {hasNote && !expanded && (
-              <Ionicons name="document-text-outline" size={13} color={palette.muted} />
-            )}
+        <View style={styles.expenseContent}>
+          {/* Row 1: name (flex:1) + amount (fixed right) */}
+          <View style={styles.expenseTopRow}>
+            <View style={styles.expenseNameRow}>
+              <Text style={styles.expenseDesc} numberOfLines={2}>{expense.description}</Text>
+              {hasNote && !expanded && (
+                <Ionicons name="document-text-outline" size={13} color={palette.muted} style={{ marginLeft: 4 }} />
+              )}
+            </View>
+            <View style={styles.expenseAmountCol}>
+              <Text style={styles.expenseAmount}>{formatAmount(Number(expense.amount), expense.currency)}</Text>
+              {fxDisplay && <Text style={styles.fxDisplayText}>{fxDisplay}</Text>}
+            </View>
           </View>
-          <Text style={styles.expenseMeta}>{payerName} {t('expense.paidByLabel')} · {dateFormatted}</Text>
-          <Text style={styles.expenseCategory}>{t(`categories.${category}`)}</Text>
-        </View>
-        <View style={styles.expenseAmountCol}>
-          <Text style={styles.expenseAmount}>{Number(expense.amount).toFixed(2)} {expense.currency}</Text>
-          {fxDisplay && <Text style={styles.fxDisplayText}>{fxDisplay}</Text>}
-        </View>
-        {canModify && (
-          <View style={styles.actionButtons}>
-            <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.actionBtn}>
-              <Ionicons name="pencil-outline" size={16} color={palette.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="trash-outline" size={16} color={palette.danger} />
-            </TouchableOpacity>
+          {/* Row 2: payer · date */}
+          <Text style={styles.expenseMeta} numberOfLines={1}>
+            {payerName} {t('expense.paidByLabel')} · {dateFormatted}
+          </Text>
+          {/* Row 3: category (left) + action buttons + chevron (right) */}
+          <View style={styles.expenseCategoryRow}>
+            <Text style={styles.expenseCategory}>{t(`categories.${category}`)}</Text>
+            <View style={styles.expenseActions}>
+              {canModify && (
+                <>
+                  <TouchableOpacity onPress={onEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.actionBtn}>
+                    <Ionicons name="pencil-outline" size={15} color={palette.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={onDelete} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.actionBtn}>
+                    <Ionicons name="trash-outline" size={15} color={palette.danger} />
+                  </TouchableOpacity>
+                </>
+              )}
+              <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={palette.muted} />
+            </View>
           </View>
-        )}
-        {/* Expand chevron */}
-        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={palette.muted} style={{ marginLeft: 2 }} />
+        </View>
       </View>
 
       {/* Expanded: note + full split detail */}
@@ -871,7 +876,7 @@ function ExpenseCard({ expense, splits, members, payerName, category, groupCurre
                       <View style={[styles.splitDetailDot, { backgroundColor: CATEGORY_COLORS[category] }]} />
                       <Text style={styles.splitDetailName}>{m?.display_name ?? '?'}</Text>
                     </View>
-                    <Text style={styles.splitDetailAmount}>{Number(s.share_amount).toFixed(2)} {expense.currency}</Text>
+                    <Text style={styles.splitDetailAmount}>{formatAmount(Number(s.share_amount), expense.currency)}</Text>
                   </View>
                 );
               })}
@@ -931,7 +936,7 @@ function formatActivity(a: ActivityLogRow, members: GroupMemberRow[], t: (k: str
     case 'member_deactivated': return t('activity.member_deactivated', { name });
     case 'member_claimed':
       return t('activity.member_claimed', { name, target: meta.ghost_name ?? meta.display_name ?? '' });
-    case 'expense_added': return t('activity.expense_added', { name, desc: meta.description ?? '', amount: meta.amount ?? '', currency: meta.currency ?? '' });
+    case 'expense_added': return t('activity.expense_added', { name, desc: meta.description ?? '', amount: meta.amount ? formatAmount(Number(meta.amount), meta.currency ?? 'TRY') : '?' });
     case 'expense_edited': return t('activity.expense_edited', { name, desc: meta.updates?.description ?? meta.description ?? '' });
     case 'expense_deleted': return t('activity.expense_deleted', { name, desc: meta.description ?? '' });
     case 'group_archived': return t('activity.group_archived', { name });
@@ -941,8 +946,7 @@ function formatActivity(a: ActivityLogRow, members: GroupMemberRow[], t: (k: str
       return t('activity.settlement_marked', {
         name,
         to: meta.to_name ?? members.find((m) => m.id === meta.to_member)?.display_name ?? '',
-        amt: meta.amount ?? '',
-        cur: meta.currency ?? '',
+        amt: meta.amount ? formatAmount(Number(meta.amount), meta.currency ?? 'TRY') : '?',
       });
     case 'settlement_rejected':
       return t('activity.settlement_rejected', { name });
@@ -992,22 +996,20 @@ const styles = StyleSheet.create({
   placeholderText: { marginTop: spacing.sm, fontSize: fontSizes.md, color: palette.textSecondary },
   // Expense cards
   expenseCard: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.cardPadding, marginBottom: Spacing.sm, ...Shadows.sm },
-  expenseCardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
-  categoryIcon: { width: 36, height: 36, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', marginTop: 2 },
-  expenseInfo: { flex: 1 },
-  expenseDesc: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.base, color: Colors.textPrimary, flexShrink: 1 },
-  expenseMeta: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textSecondary, marginTop: 2 },
-  expenseCategory: { fontFamily: Typography.fontBodyMedium, fontSize: Typography.size.xs, color: Colors.textSecondary, marginTop: 2 },
-  expenseAmountCol: { alignItems: 'flex-end', marginRight: Spacing.xs },
+  expenseCardHeader: { flexDirection: 'row', alignItems: 'flex-start' },
+  categoryIcon: { width: 36, height: 36, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', marginTop: 3 },
+  expenseContent: { flex: 1, marginLeft: Spacing.sm },
+  expenseTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+  expenseNameRow: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', marginRight: Spacing.sm },
+  expenseDesc: { flex: 1, fontFamily: Typography.fontBodyBold, fontSize: Typography.size.base, color: Colors.textPrimary },
+  expenseAmountCol: { alignItems: 'flex-end', flexShrink: 0 },
   expenseAmount: { fontFamily: Typography.fontDisplayMedium, fontSize: Typography.size.md, color: Colors.textPrimary },
   fxDisplayText: { fontFamily: Typography.fontBody, fontSize: Typography.size.xs, color: Colors.textTertiary, fontStyle: 'italic' },
-  actionButtons: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
-  actionBtn: { paddingRight: 4 },
-  splitSummary: { flexDirection: 'row', gap: spacing.xs, marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: palette.border, flexWrap: 'wrap' },
-  splitChip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: palette.surface, paddingHorizontal: spacing.sm, paddingVertical: 3, borderRadius: radii.sm },
-  splitChipName: { fontSize: fontSizes.xs, color: palette.textSecondary },
-  splitChipAmount: { fontSize: fontSizes.xs, color: palette.text, fontWeight: '600' },
-  splitMore: { fontSize: fontSizes.xs, color: palette.muted, marginLeft: 2 },
+  expenseMeta: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textSecondary, marginTop: 5 },
+  expenseCategoryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  expenseCategory: { fontFamily: Typography.fontBodyMedium, fontSize: Typography.size.xs, color: Colors.textTertiary },
+  expenseActions: { flexDirection: 'row', alignItems: 'center', gap: 2, flexShrink: 0 },
+  actionBtn: { padding: 4 },
   // Expanded card
   expandedSection: { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: Spacing.sm, marginTop: Spacing.xs },
   noteBox: { backgroundColor: Colors.background, borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.sm },
