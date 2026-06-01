@@ -7,7 +7,7 @@
 
 ## Şu an neredeyiz?
 
-Faz 0-7 tamam. 13 tur bugfix (B1-B57) tamamlandı. Uygulama Expo Go'da çalışır durumda. Tüm kritik işlevler (masraf ekleme/düzenleme, bölüşme equal/custom/subset, çoklu para birimi, bakiye, netleşme, IBAN, aktivite, grup yönetimi, hesap silme, veri dışa aktarma, dashboard, paywall) yerinde. Dashboard'da para birimi seçici + profil varsayılan para birimi ayarı eklendi (B57). Header mimarisi oturdu. Alt bar 4 sekmeli.
+Faz 0-7 tamam. 14 tur bugfix (B1-B62) tamamlandı. Uygulama Expo Go'da çalışır durumda. Tüm kritik işlevler yerinde. Header mimarisi oturdu: Gruplar sekmesinde Tab header "Gruplar" gösterir, grup detay/düzenlemede custom gradient header kullanılır, butonlar üste yaslı. Alt bar 4 sekmeli (Panel · Gruplar · Aktivite · Hesap).
 
 ---
 
@@ -198,4 +198,4 @@ npx expo start --tunnel --clear
 
 ---
 
-*Son güncelleme: 2026-06-01 — B57: dashboard para birimi seçici + profil varsayılanı*
+*Son güncelleme: 2026-06-01 — B62: header butonları yukarı yaslandı + çift başlık giderildi + tab sıralaması Panel öne alındı*

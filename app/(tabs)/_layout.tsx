@@ -51,21 +51,20 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="groups"
-        options={{
-          title: t('tabs.groups'),
-          headerShown: false,
-          tabBarIcon: ({ focused, color, size }) => (
-            <Ionicons name={focused ? ICONS.groups!.filled : ICONS.groups!.outline} size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="dashboard"
         options={{
           title: t('tabs.dashboard'),
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons name={focused ? ICONS.dashboard!.filled : ICONS.dashboard!.outline} size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="groups"
+        options={{
+          title: t('tabs.groups'),
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons name={focused ? ICONS.groups!.filled : ICONS.groups!.outline} size={size} color={color} />
           ),
         }}
       />

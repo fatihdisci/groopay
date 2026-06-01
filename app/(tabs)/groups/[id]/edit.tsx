@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useGroupDetail, useDeleteGroup, useRemoveMember, useTransferOwnership } from '@/hooks/useGroupDetail';
 import { useAuth } from '@/lib/auth';
 import { updateGroup } from '@/lib/supabase/queries';
@@ -40,12 +41,19 @@ export default function EditGroupScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation();
   const router = useRouter();
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data, isLoading } = useGroupDetail(id!);
   const deleteGroupMut = useDeleteGroup();
   const removeMemberMut = useRemoveMember(id!);
   const transferMut = useTransferOwnership(id!);
+
+  // Hide Stack header — back button is embedded in gradient hero
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -80,6 +88,7 @@ export default function EditGroupScreen() {
   const myMember = members.find((m: GroupMemberRow) => m.user_id === user?.id);
   const isFounder = myMember?.role === 'founder';
   const activeMembers = members.filter((m: GroupMemberRow) => m.is_active);
+  const realActiveMembers = activeMembers.filter((m: GroupMemberRow) => m.user_id !== null);
   const activeCount = members.filter((m: GroupMemberRow) => m.is_active).length;
 
   const handleSave = async () => {
@@ -108,8 +117,8 @@ export default function EditGroupScreen() {
   const handleLeave = () => {
     if (!myMember) return;
     if (isFounder) {
-      const others = activeMembers.filter((m) => m.id !== myMember.id);
-      if (others.length === 0) {
+      const realOthers = realActiveMembers.filter((m) => m.id !== myMember.id);
+      if (realOthers.length === 0) {
         Alert.alert(t('group.leaveTitle'), t('group.leaveSoloFounder'), [
           { text: t('groups.cancel'), style: 'cancel' },
           { text: t('group.deleteGroup'), style: 'destructive', onPress: () => setShowDeleteConfirm(true) },
@@ -149,12 +158,24 @@ export default function EditGroupScreen() {
   return (
     <View style={styles.flex}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* Header — same as group detail */}
+        {/* Header — gradient with embedded back button */}
         <LinearGradient
           colors={['#6366F1', '#8B5CF6']}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
+          {/* Top bar: back button (left), safe area aware */}
+          <View style={[styles.headerTopBar, { paddingTop: 2 }]}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.headerNavButton}
+            >
+              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }} />
+          </View>
+
           <Text style={styles.editModeLabel}>{t('group.editMode')}</Text>
 
           <Avatar
@@ -254,14 +275,14 @@ export default function EditGroupScreen() {
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>{t('group.transferOwnership')}</Text>
               <Text style={styles.modalSub}>{t('group.transferRequired')}</Text>
-              {activeMembers.filter((m) => m.id !== myMember?.id).map((m) => (
+              {realActiveMembers.filter((m) => m.id !== myMember?.id).map((m) => (
                 <TouchableOpacity key={m.id} style={styles.transferOption} onPress={() => handleTransferAndLeave(m.id)} disabled={transferMut.isPending}>
                   <Avatar initials={getInitials(m.display_name)} color={m.user_id && memberAvatarColors ? memberAvatarColors[m.user_id] : undefined} ghostColor={!m.user_id ? palette.muted : undefined} size={36} />
                   <Text style={styles.transferName}>{m.display_name}</Text>
                   <Ionicons name="chevron-forward" size={18} color={palette.muted} />
                 </TouchableOpacity>
               ))}
-              <TouchableOpacity style={[styles.modalCancel, { marginTop: spacing.md }]} onPress={() => setShowTransferPicker(false)}><Text style={styles.modalCancelText}>{t('groups.cancel')}</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.modalCancel, { marginTop: spacing.lg, flex: 0 }]} onPress={() => setShowTransferPicker(false)}><Text style={styles.modalCancelText}>{t('groups.cancel')}</Text></TouchableOpacity>
             </View>
           </View>
         )}
@@ -291,11 +312,13 @@ export default function EditGroupScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, backgroundColor: palette.background },
-  content: { padding: spacing.md, paddingBottom: spacing.xxl * 2 },
+  content: { paddingTop: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl * 2 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.background },
 
-  // Header — exact copy from group detail (+ edit mode label)
-  headerGradient: { alignItems: 'center', paddingTop: Spacing.lg, paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
+  // Header — gradient with embedded back button
+  headerGradient: { alignItems: 'center', paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
+  headerTopBar: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, marginBottom: 8 },
+  headerNavButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   editModeLabel: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.xs, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, marginBottom: Spacing.sm },
   groupName: { fontFamily: Typography.fontDisplayBold, fontSize: Typography.size.xl, color: '#FFFFFF', marginTop: Spacing.sm },
   groupDescription: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: 'rgba(255,255,255,0.6)', marginTop: 4, textAlign: 'center', paddingHorizontal: Spacing.md },
@@ -338,7 +361,7 @@ const styles = StyleSheet.create({
   modalCancelText: { fontSize: fontSizes.md, color: palette.textSecondary, fontWeight: '600' },
   modalConfirm: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing.md, borderRadius: radii.lg, minHeight: minTouchTarget },
   modalConfirmText: { fontSize: fontSizes.md, color: 'white', fontWeight: '700' },
-  transferOption: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: radii.md, backgroundColor: palette.surface, marginBottom: spacing.xs },
+  transferOption: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.md, borderRadius: radii.md, backgroundColor: palette.surface, marginBottom: spacing.sm },
   transferName: { flex: 1, fontSize: fontSizes.md, color: palette.text, fontWeight: '500' },
   overlayBlocker: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent', zIndex: 199 },
 });

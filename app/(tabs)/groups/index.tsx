@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useLayoutEffect } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { useGroups } from '@/hooks/useGroups';
 import { useAuth } from '@/lib/auth';
@@ -26,9 +26,14 @@ function getInitials(name: string): string {
 export default function GroupsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const navigation = useNavigation();
   const { user } = useAuth();
   const { data: groups, isLoading } = useGroups();
   const { isUserPro } = usePro();
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
 
   const { data: createdGroupCount } = useQuery({
     queryKey: ['created-group-count', user?.id],

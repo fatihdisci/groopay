@@ -1049,4 +1049,162 @@ supabase functions deploy delete-account
 | Boş veride kart gizleme | ✅ `topPayer`/`settlementSummary` null ise gizli |
 | DEV Pro butonuyla test | ✅ `__DEV__` toggle ile Pro aktif edilir |
 
-*Son güncelleme: 2026-06-01 — B58 eklendi (dashboard detaylı analiz)*
+*Son güncelleme: 2026-06-01 — B59 eklendi (kurucu ayrılma kenar durumu + grup silme sonrası)*
+
+---
+
+## B59: Kurucu ayrılma kenar durumu + grup silme sonrası temizlik (14. Tur)
+
+> Tarih: 2026-06-01
+
+### Kurucu Ayrılma — Gerçek Üye Kontrolü
+
+**Sorun:** Kurucu ayrılmak istediğinde `handleLeave` tüm aktif üyeleri sayıyordu (hayaletler dahil). Grupta sadece hayalet üye varsa, kurucu devir picker'ı gösteriliyor ama devredecek gerçek kullanıcı yoktu. Hayalete devir anlamsızdı.
+
+**Yapılan:**
+- `realActiveMembers` filtresi eklendi: `user_id IS NOT NULL` + `is_active = true`
+- `handleLeave`: kurucu için devir kontrolü artık `realActiveMembers` bazlı — gerçek üye yoksa devir sorusu sorulmaz, direkt grup silme önerilir
+- Transfer picker'ı da `realActiveMembers` kullanıyor — hayaletler listede görünmez
+- `leaveSoloFounder` mesajı güncellendi: "Grupta devredebileceğin başka üye yok. Gruptan ayrılmak için grubu silmen gerekiyor."
+
+### Grup Silme Sonrası Durum
+
+**Sorun:** `useDeleteGroup` hook'u cache invalidation'da `['group']` (generic) kullanıyordu, `['group', groupId]` spesifik sorguları invalidate olmuyordu.
+
+**Yapılan:**
+- `useDeleteGroup` `onSuccess` artık `(data, groupId)` parametrelerini alıp `['group', groupId]` spesifik invalidate yapıyor
+- Silme sonrası `router.replace('/(tabs)/groups')` ile gruplar listesine dönülür (mevcut, değişmedi)
+- Cascade: expenses, splits, settlements, activity_log, group_members — DB seviyesinde cascade ile silinir
+- Grup Pro entitlement: kayıt silindiği için otomatik geçersiz — ek işlem gerekmez
+- Silme bildirimi: Faz 8'e bırakıldı (şu an yok)
+
+**Değişen dosyalar:**
+- `app/(tabs)/groups/[id]/edit.tsx` — `realActiveMembers` + handleLeave + transfer picker
+- `hooks/useGroupDetail.ts` — `useDeleteGroup` cache invalidation
+- `locales/tr.json` — `group.leaveSoloFounder` güncellendi
+- `locales/en.json` — `group.leaveSoloFounder` güncellendi
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Kurucu + sadece hayalet → devir yok, sil öner | ✅ |
+| Kurucu + gerçek üye var → devir picker'ı | ✅ |
+| Transfer picker: sadece gerçek üyeler | ✅ |
+| Normal üye ayrılma | ✅ Değişmedi |
+| Grup silme → cache temizliği | ✅ `['group', groupId]` |
+| Grup silme → gruplar listesine dönüş | ✅ `router.replace` |
+| i18n (tr + en) | ✅ Güncellendi |
+
+*Son güncelleme: 2026-06-01 — B61 eklendi (dashboard TipsButton + gruplar header border)*
+
+---
+
+## B61: Dashboard TipsButton tutarlılığı + Gruplar header alt çizgisi
+
+> Tarih: 2026-06-01
+
+**Sorun:**
+- Dashboard TipsButton'u (`useLayoutEffect` + `navigation.setOptions` ile) diğer sayfalardaki TipsButton'lardan farklı görünüyordu. Tab header ile Stack header arasındaki `headerRight` render farkı sebebiyle buton konumlandırması tutarsızdı.
+- Gruplar sekmesindeki Stack header'ın alt çizgisi (border) görünmüyordu. `0d7e028` commitinde Tab header tekrar gizlenip Stack header'a geçilirken `headerShadowVisible` default olarak Android'de `false` olduğu için alt çizgi kaybolmuştu (`7a42fa5`'te düzeltilmişti, sonra tekrar bozuldu).
+
+**Yapılan:**
+- **Dashboard TipsButton:** `dashboard.tsx` içindeki `useLayoutEffect`/`navigation.setOptions` kodu kaldırıldı. TipsButton doğrudan `_layout.tsx`'teki `Tabs.Screen` options'ında `headerRight` olarak tanımlandı. Bu, title ve tabBarIcon gibi diğer tab seçenekleriyle aynı seviyede yapılandırılmasını sağladı ve Tab header'ın kendi render yapısıyla uyumlu hale getirdi.
+- **Gruplar header alt çizgisi:** `groups/_layout.tsx` Stack `screenOptions`'a `headerShadowVisible: true` eklendi. Tüm Stack header'larda (index, new, detail, add-expense, members, edit) alt çizgi görünür oldu.
+
+**Değişen dosyalar:**
+- `app/(tabs)/_layout.tsx` — TipsButton import + dashboard `headerRight` eklendi
+- `app/(tabs)/dashboard.tsx` — TipsButton + useNavigation + useLayoutEffect kaldırıldı
+- `app/(tabs)/groups/_layout.tsx` — `headerShadowVisible: true` eklendi
+
+**Üst bar mimarisi (mevcut durum - referans):**
+- Tabs header: `headerStyle.backgroundColor: Colors.background`, `headerShadowVisible: true` (varsayılan)
+- Groups Stack header: `headerStyle.backgroundColor: Colors.background`, `headerShadowVisible: true` (explicit)
+- Her iki header tipi de aynı font/renk/çizgi özelliklerine sahip
+- Gruplar sekmesi: `headerShown: false` → Stack header yönetiyor
+- Diğer sekmeler: Tab header kullanıyor
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Dashboard TipsButton header'da görünür | ✅ |
+| Gruplar listesi header alt çizgisi | ✅ |
+| Grup detayı header alt çizgisi | ✅ |
+| Diğer Stack header'lar | ✅ |
+| Mevcut TipsButton kullanımları korundu | ✅ (grup detayı + members + add-expense) |
+| Tab header'lar değişmedi | ✅ (activity + account) |
+
+---
+
+## B60: add-expense ve dashboard sayfalarına TipsButton eklendi
+
+> Tarih: 2026-06-01
+
+**Yapılan:**
+- **add-expense.tsx:** Header sağ üste TipsButton eklendi. 4 ipucu: tutar/para birimi girişi, bölüşme tipleri (eşit/özel/alt-küme), ödeyen mantığı, tarih değiştirme.
+- **dashboard.tsx:** Header sağ üste TipsButton eklendi. 4 ipucu: para birimi seçici, kategori/trend grafiği, Pro detaylı analiz, para birimleri ayrı takip.
+- **i18n (`tips.addExpense.*`):** tr.json güncellendi — tip3 "fiilen" vurgusu, tip4 "tarih/takvim ikonu" olarak değişti. en.json da aynı şekilde güncellendi.
+- **i18n (`tips.dashboard.*`):** tr.json + en.json — yeni 5 anahtar (title + 4 tip).
+
+**Değişen dosyalar:**
+- `app/(tabs)/groups/[id]/add-expense.tsx` — TipsButton import + useLayoutEffect
+- `app/(tabs)/dashboard.tsx` — TipsButton import + useNavigation + useLayoutEffect
+- `locales/tr.json` — tips.addExpense güncellendi + tips.dashboard eklendi
+- `locales/en.json` — tips.addExpense güncellendi + tips.dashboard eklendi
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| TipsButton bileşeni değişmedi | ✅ Sadece kullanıldı |
+| add-expense header sağ üst "?" | ✅ |
+| dashboard header sağ üst "?" | ✅ |
+| i18n tr + en | ✅ |
+| Mevcut TipsButton kullanımları korundu | ✅ (grup detayı + members) |
+
+*Son güncelleme: 2026-06-01 — B61 eklendi (dashboard TipsButton + gruplar header border)*
+
+---
+
+### ✅ B62: Grup detay/düzenleme header butonları yukarı yaslandı + çift başlık giderildi
+
+> Tarih: 2026-06-01
+
+**Sorun:**
+- Grup detay ve düzenleme sayfalarında gradient header içindeki nav butonları (geri/düzenle/tips) çok aşağıdaydı, üstlerinde gereksiz mor boşluk vardı.
+- Sebep 1: `headerGradient` static style'ında `paddingTop: Spacing.lg` (20px) + `headerTopBar` inline `paddingTop: insets.top + 4` = çift katmanlı padding butonları aşağı itiyordu.
+- Sebep 2: `content` (`contentContainerStyle`) `padding: spacing.md` (12px) ScrollView içinde gradient'i 12px aşağı itiyordu.
+- Gruplar listesinde Tab header + Stack header çakışmasından çift "Gruplar" başlığı görünüyordu.
+
+**Yapılan:**
+- `headerGradient` static style: `paddingTop` tamamen kaldırıldı. `borderRadius: Radius.xl` korundu (tüm köşeler yuvarlak, eski kart görünümü).
+- `headerTopBar` inline: `paddingTop: 2`. Safe area React Navigation tarafından zaten handle ediliyor, ekstra insets.top çift sayıma sebep oluyordu.
+- `content`: `padding: spacing.md` → `paddingTop: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl * 2`.
+- **Gruplar listesi çift başlık:** `groups/index.tsx` — `useLayoutEffect` `setOptions({ title })` → `setOptions({ headerShown: false })`. Tab header "Gruplar" gösterir, Stack header gizlenir.
+- **Tab sıralaması:** Panel ilk sıraya alındı: `Gruplar · Panel · Aktivite · Hesap` → `Panel · Gruplar · Aktivite · Hesap`.
+- Dashboard TipsButton: `headerRight` wrapper'a `marginRight: 8` eklendi, TipsButton icon size 22→24.
+
+**Gradient header yeni padding yapısı (referans):**
+| Katman | Önce | Sonra |
+|---|---|---|
+| `content` paddingTop | 12px | **8px** |
+| `headerGradient` static paddingTop | `Spacing.lg` (20px) | **yok** |
+| `headerTopBar` inline paddingTop | `insets.top + 4` (~51px) | **2px** |
+
+**Değişen dosyalar:**
+- `app/(tabs)/groups/[id]/index.tsx` — headerGradient paddingTop kaldırıldı, headerTopBar paddingTop: 2, content paddingTop: 8
+- `app/(tabs)/groups/[id]/edit.tsx` — aynı değişiklikler
+- `app/(tabs)/groups/index.tsx` — useLayoutEffect headerShown: false
+- `app/(tabs)/_layout.tsx` — tab sıralaması Panel önce
+- `app/(tabs)/dashboard.tsx` — TipsButton marginRight wrapper
+- `components/TipsButton.tsx` — icon size 22→24
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Grup detay butonları üste yaslı | ✅ |
+| Grup düzenleme butonları üste yaslı | ✅ |
+| Gruplar listesi tek başlık | ✅ |
+| Tab sıralaması Panel · Gruplar · Aktivite · Hesap | ✅ |
+| headerGradient borderRadius korundu | ✅ |
+| Alt bar tüm ekranlarda | ✅ |
+
+*Son güncelleme: 2026-06-01 — B62 eklendi (header butonları + çift başlık + tab sıralaması)*

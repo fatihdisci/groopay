@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
+import { useRouter, useNavigation } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { usePro } from '@/hooks/usePro';
@@ -14,6 +14,7 @@ import { fromMinor } from '@/lib/finance/money';
 import { CATEGORIES, CATEGORY_COLORS } from '@/lib/finance/categories';
 import type { Category } from '@/lib/finance/categories';
 import { FadeInUp } from '@/components/Animations';
+import TipsButton from '@/components/TipsButton';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
 import { palette, spacing, radii } from '@/constants/theme';
@@ -22,6 +23,7 @@ import type { ExpenseForBalance, SplitForBalance, SettlementForBalance } from '@
 export default function DashboardScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const navigation = useNavigation();
   const { user } = useAuth();
   const { isUserPro } = usePro();
 
@@ -137,6 +139,25 @@ export default function DashboardScreen() {
       setSelectedCurrency(heroData.dominantCurrency);
     }
   }, [heroData, user?.preferred_currency]);
+
+  // Dashboard tips button in header
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={{ marginRight: 8 }}>
+          <TipsButton
+            title={t('tips.dashboard.title')}
+            tips={[
+              { icon: 'filter-outline' as const, text: t('tips.dashboard.tip1') },
+              { icon: 'pie-chart-outline' as const, text: t('tips.dashboard.tip2') },
+              { icon: 'star-outline' as const, text: t('tips.dashboard.tip3') },
+              { icon: 'git-compare-outline' as const, text: t('tips.dashboard.tip4') },
+            ]}
+          />
+        </View>
+      ),
+    });
+  }, [navigation, t]);
 
   const activeCurrency = selectedCurrency ?? 'TRY';
 

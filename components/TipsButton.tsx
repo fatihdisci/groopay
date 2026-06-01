@@ -7,14 +7,16 @@ import { Colors } from '@/constants/theme';
 interface TipsButtonProps {
   title: string;
   tips: TipItem[];
+  color?: string;
 }
 
 /**
  * "?" button that opens a TipsModal with page-specific help content.
  * Place it in headerRight or anywhere you need contextual help.
  */
-export default function TipsButton({ title, tips }: TipsButtonProps) {
+export default function TipsButton({ title, tips, color }: TipsButtonProps) {
   const [visible, setVisible] = useState(false);
+  const iconColor = color ?? Colors.primary;
 
   return (
     <>
@@ -23,7 +25,7 @@ export default function TipsButton({ title, tips }: TipsButtonProps) {
         onPress={() => setVisible(true)}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Ionicons name="help-circle-outline" size={22} color={Colors.primary} />
+        <Ionicons name="help-circle-outline" size={24} color={iconColor} />
       </TouchableOpacity>
 
       <TipsModal

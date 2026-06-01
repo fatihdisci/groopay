@@ -123,7 +123,7 @@ groopay/
 ## UI/UX Decisions (June 2026)
 
 ### Tab Bar
-- 4 tabs: Gruplar · Panel · Aktivite · Hesap
+- 4 tabs: Panel · Gruplar · Aktivite · Hesap
 - Active: filled icon + primary color + pill indicator + scale animation (Reanimated)
 - Inactive: outline icon + textTertiary
 - Shadow: purple-tinted, upwards
@@ -131,14 +131,26 @@ groopay/
 - `TabBarButton` component handles scale animation
 
 ### Header Architecture (KRİTİK — DO NOT BREAK)
-- **Tabs header**: `headerShown: false` on `groups` tab
-- **Stack headers** handle ALL group page headers via `app/(tabs)/groups/_layout.tsx`
-- `index` (list): `title: 'Gruplar'`
-- `[id]/index` (detail): `title: 'Grup Detayı'` + auto back button
-- `[id]/edit`: `title: 'Grubu Düzenle'` + auto back button
-- **DO NOT** move group routes to root Stack — this hides the bottom tab bar
-- **DO NOT** create nested `app/groups/[id]/_layout.tsx` — causes duplicate route conflicts
-- Gradient headers on detail/edit have NO back button (Stack provides it)
+
+**Genel prensip:** Sayfalar iki tipte header kullanır:
+- **Tab header** (Tabs.Screen options): Panel, Aktivite, Hesap sekmelerinde. `headerShadowVisible: true`, `headerStyle.backgroundColor: Colors.background`.
+- **Custom gradient header** (LinearGradient): Grup detayı ve düzenleme sayfalarında. Stack header gizlenir, gradient içine gömülü nav butonları kullanılır.
+
+**Groups sekmesi (grup listesi):**
+- Tab header "Gruplar" başlığını gösterir (`headerShown` default `true`, KALDIRILMAZ).
+- `groups/index.tsx`: Stack header `useLayoutEffect` ile gizlenir (`headerShown: false`). Tab header görünür kalır.
+
+**Grup detay/düzenleme ([id]/index, [id]/edit) — custom gradient header:**
+- Stack header `useLayoutEffect` ile gizlenir (`headerShown: false`).
+- Gradient header (`LinearGradient #6366F1 → #8B5CF6`) ekranın en üstünde başlar.
+- **Gradient style:** `borderRadius: Radius.xl` (tüm köşeler yuvarlak), `paddingBottom: Spacing.xl`, `paddingHorizontal: Spacing.lg`. `paddingTop` YOK (static'te kaldırıldı, içeride headerTopBar handle eder).
+- **Header button bar:** `headerTopBar` — `paddingTop: 2` (inline), `marginBottom: 8`. Butonlar status bar'ın hemen altında.
+- **Content container:** `paddingTop: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl * 2`.
+- Butonlar: geri (sol), düzenle+tips (sağ). Founder değilse düzenleme görünmez.
+- **DO NOT** move group routes to root Stack — this hides the bottom tab bar.
+- **DO NOT** create nested `app/groups/[id]/_layout.tsx` — causes duplicate route conflicts.
+- **DO NOT** add `paddingTop` to `headerGradient` static style — butonlar aşağı kayar.
+- **DO NOT** add `insets.top` to `headerTopBar` — React Navigation safe area'yı zaten handle ediyor, çift sayım yapar.
 
 ### Dashboard
 - 4th tab "Panel" (stats-chart icon)

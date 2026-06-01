@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Share, TextInput, Modal, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, useRouter, useNavigation } from 'expo-router';
@@ -59,23 +60,12 @@ export default function GroupDetailScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { data, isLoading } = useGroupDetail(id!);
+  const insets = useSafeAreaInsets();
 
-  // Group detail tips button in header
+  // Hide Stack header — nav buttons are embedded in gradient hero
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <TipsButton
-          title={t('tips.groupDetail.title')}
-          tips={[
-            { icon: 'receipt-outline' as const, text: t('tips.groupDetail.tip1') },
-            { icon: 'swap-horizontal-outline' as const, text: t('tips.groupDetail.tip2') },
-            { icon: 'git-compare-outline' as const, text: t('tips.groupDetail.tip3') },
-            { icon: 'document-text-outline' as const, text: t('tips.groupDetail.tip4') },
-          ]}
-        />
-      ),
-    });
-  }, [navigation, t]);
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
 
   const [filterCategory, setFilterCategory] = useState<Category | null>(null);
   const [showFx, setShowFx] = useState(false);
@@ -308,22 +298,47 @@ export default function GroupDetailScreen() {
   return (
     <View style={styles.flex}>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        {/* Group header — gradient, back button in Stack header */}
+        {/* Group header — gradient with embedded nav buttons */}
         <LinearGradient
           colors={['#6366F1', '#8B5CF6']}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
-          {/* Edit button — top-right corner, founder only */}
-          {isFounder && (
+          {/* Top bar: back (left) · edit + tips (right), safe area aware */}
+          <View style={[styles.headerTopBar, { paddingTop: 2 }]}>
             <TouchableOpacity
-              style={styles.headerEditButton}
-              onPress={() => router.push(`/groups/${id}/edit`)}
+              onPress={() => router.back()}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.headerNavButton}
             >
-              <Ionicons name="pencil-outline" size={18} color="rgba(255,255,255,0.85)" />
+              <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
             </TouchableOpacity>
-          )}
+
+            {/* Spacer — group name is centered below, buttons on sides */}
+            <View style={{ flex: 1 }} />
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              {isFounder && (
+                <TouchableOpacity
+                  onPress={() => router.push(`/groups/${id}/edit`)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  style={styles.headerNavButton}
+                >
+                  <Ionicons name="create-outline" size={22} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
+              <TipsButton
+                color="#FFFFFF"
+                title={t('tips.groupDetail.title')}
+                tips={[
+                  { icon: 'receipt-outline' as const, text: t('tips.groupDetail.tip1') },
+                  { icon: 'swap-horizontal-outline' as const, text: t('tips.groupDetail.tip2') },
+                  { icon: 'git-compare-outline' as const, text: t('tips.groupDetail.tip3') },
+                  { icon: 'document-text-outline' as const, text: t('tips.groupDetail.tip4') },
+                ]}
+              />
+            </View>
+          </View>
 
           <Avatar
             initials={getInitials(group.name)}
@@ -940,11 +955,12 @@ function formatActivity(a: ActivityLogRow, members: GroupMemberRow[], t: (k: str
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: palette.surface },
   container: { flex: 1 },
-  content: { padding: spacing.md, paddingBottom: spacing.xxl * 2 },
+  content: { paddingTop: 8, paddingHorizontal: spacing.md, paddingBottom: spacing.xxl * 2 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.background },
   emptyText: { color: palette.textSecondary, fontSize: fontSizes.md },
-  headerGradient: { alignItems: 'center', paddingTop: Spacing.lg, paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
-  headerEditButton: { position: 'absolute', top: 8, right: 8, padding: 8, zIndex: 10 },
+  headerGradient: { alignItems: 'center', paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
+  headerTopBar: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, marginBottom: 8 },
+  headerNavButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   groupName: { fontFamily: Typography.fontDisplayBold, fontSize: Typography.size.xl, color: '#FFFFFF', marginTop: Spacing.sm },
   groupDescription: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: 'rgba(255,255,255,0.6)', marginTop: 4, textAlign: 'center', paddingHorizontal: Spacing.md },
   groupMeta: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: 'rgba(255,255,255,0.7)', marginTop: 4 },
