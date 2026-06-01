@@ -18,7 +18,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-000?style=for-the-badge&logo=typescript&logoColor=3178C6&labelColor=1B1B1F&color=3178C6)](https://www.typescriptlang.org)
 [![React 19](https://img.shields.io/badge/React-19-000?style=for-the-badge&logo=react&logoColor=61DAFB&labelColor=1B1B1F&color=087EA4)](https://react.dev)
 [![Supabase](https://img.shields.io/badge/Supabase-Backend-000?style=for-the-badge&logo=supabase&logoColor=3ECF8E&labelColor=1B1B1F&color=3ECF8E)](https://supabase.com)
-[![Vitest](https://img.shields.io/badge/Tests-75/75-000?style=for-the-badge&logo=vitest&logoColor=6E9F18&labelColor=1B1B1F&color=10B981)](https://vitest.dev)
+[![Vitest](https://img.shields.io/badge/Tests-87/87-000?style=for-the-badge&logo=vitest&logoColor=6E9F18&labelColor=1B1B1F&color=10B981)](https://vitest.dev)
 
 <br />
 
@@ -84,7 +84,7 @@
 | 🤖 | **En Az İşlemle Netleşme** — Graph algoritması. Gereksiz ödemeleri ele. |
 | 🔐 | **IBAN Saklanmaz** — Sunucuda ASLA. Realtime broadcast ile anlık iletilir, uçar. |
 | 👻 | **Hayalet Üyeler** — Gruba ekle, sonradan hesap açınca geçmişi devralsın. |
-| 🔒 | **Row-Level Security** — PostgreSQL RLS. Her kullanıcı sadece kendi gruplarını görür. |
+| 🔒 | **Server-Side Auth** — Tüm yazma işlemleri SECURITY DEFINER RPC + auth.uid() kontrolü. RLS daraltıldı. |
 | 💎 | **Panel & Pro** — 4. sekme genel bakiye + kategori analizi. Pro ile sınırsız grup. |
 
 </div>
@@ -218,7 +218,7 @@
 <td>
   <img src="https://img.shields.io/badge/Vitest-75_test-000?style=flat-square&logo=vitest&logoColor=6E9F18&color=10B981" />
 </td>
-<td>Tüm finansal fonksiyonlar PURE. Her fonksiyonun birim testi var. <code>npx vitest run</code> → 75/75 ✅</td>
+<td>Tüm finansal fonksiyonlar PURE. Her fonksiyonun birim testi var. <code>npx vitest run</code> → 87/87 ✅</td>
 </tr>
 </table>
 
@@ -388,7 +388,7 @@ getAvatarHeaderGradient(selectedColor) → [koyuTon, base]
 <td><b>ASLA float</b></td>
 <td>
 
-Tüm hesaplamalar **integer kuruş** cinsinden. `toMinor(19.99, 'TRY') → 1999`. `toMajor(1999, 'TRY') → "19,99"`. `parseNumericInput("19.99") → 1999`.
+Tüm hesaplamalar **integer kuruş** cinsinden. `toMinor(19.99, 'TRY') → 1999`. Kullanıcı girişi: `parseMoneyInputToMinor("19.99", "TRY") → 1999` (string→minor, float-free).
 
 </td>
 </tr>
@@ -491,29 +491,39 @@ Real member:   AYNI satır, user_id SET edilir (yeni row DEĞİL)
                ↓  sonuç: geçmiş masraflar, bakiye — her şey korunur
 ```
 
-### 🔐 RLS (Row-Level Security)
+### 🔐 RLS + RPC Security (P0 Hardened)
 
 ```sql
--- Recursion'ı önleyen SECURITY DEFINER fonksiyon
-CREATE OR REPLACE FUNCTION is_member_of(p_group_id uuid)
-RETURNS boolean
-LANGUAGE sql
-SECURITY DEFINER
-AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM group_members
-    WHERE group_id = p_group_id
-      AND user_id = auth.uid()
-      AND is_active = true
-  );
-$$;
+-- Recursion'ı önleyen SECURITY DEFINER yardımcılar:
+CREATE OR REPLACE FUNCTION is_member_of(gid uuid)
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public
+AS $$ SELECT EXISTS (SELECT 1 FROM group_members
+  WHERE group_id = gid AND user_id = auth.uid() AND is_active = true); $$;
 
--- Tüm tablolarda:
-ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Members can view expenses"
-  ON expenses FOR SELECT
-  USING (is_member_of(group_id));
+CREATE OR REPLACE FUNCTION is_founder_of(gid uuid)
+RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path = public
+AS $$ SELECT EXISTS (SELECT 1 FROM group_members
+  WHERE group_id = gid AND user_id = auth.uid() AND role = 'founder' AND is_active = true); $$;
+
+-- RLS: SELECT geniş (is_member_of), yazma DAR (sahip veya founder)
+CREATE POLICY "expenses select" ON expenses FOR SELECT USING (is_member_of(group_id));
+-- INSERT/UPDATE/DELETE: ya RPC üzerinden (SECURITY DEFINER) ya da sahip/founder kontrolüyle.
+
+-- TÜM yazma RPC'lerinde auth.uid() yetki kontrolü:
+CREATE FUNCTION add_expense_with_splits(...) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$ BEGIN
+  -- Yetki: çağıran bu grubun aktif üyesi mi?
+  IF NOT EXISTS (SELECT 1 FROM group_members
+    WHERE id = p_created_by AND user_id = auth.uid()
+      AND group_id = p_group_id AND is_active = true) THEN
+    RAISE EXCEPTION 'Bu işlemi yapmaya yetkiniz yok';
+  END IF;
+  -- ... atomik işlem ...
+END; $$;
 ```
+
+> **Prensip:** Tüm hassas yazma işlemleri SECURITY DEFINER RPC + auth.uid() kontrolüyle yapılır. Doğrudan tablo yazımı RLS ile kısıtlı. Client-side kontrollere ASLA güvenilmez.
 
 ---
 
@@ -534,13 +544,13 @@ cp .env.example .env
 # 4. Supabase migration'ları çalıştır
 # supabase CLI ile: supabase migration up
 # VEYA SQL dosyalarını supabase dashboard → SQL Editor'da sırayla çalıştır
-# (supabase/migrations/0001..0008)
+# (supabase/migrations/0001..0013)
 
 # 5. Başlat! 🚀
 npx expo start --tunnel --clear
 
 # 6. Testleri çalıştır
-npm test        # vitest run (75 test)
+npm test        # vitest run (87 test)
 npx tsc --noEmit  # TypeScript kontrolü
 ```
 
@@ -744,35 +754,30 @@ Supabase Dashboard'da şunları aç:
 
 ```
 lib/finance/
-├── money.test.ts        ✅ 18 test
+├── money.test.ts        ✅ 30 test
 ├── split.test.ts        ✅ 22 test
 ├── balance.test.ts      ✅ 20 test
 └── simplify.test.ts     ✅ 15 test
 ─────────────────────────────────
-     Toplam:             75/75 ✅
+     Toplam:             87/87 ✅
 ```
 
 </div>
 
 ```typescript
 // Örnek: money.test.ts
-describe('toMinor', () => {
-  it('converts TRY string to kuruş', () => {
-    expect(toMinor('19.99', 'TRY')).toBe(1999)
+describe('parseMoneyInputToMinor', () => {
+  it('converts "19.99" to 1999 kuruş', () => {
+    expect(parseMoneyInputToMinor('19.99', 'TRY')).toBe(1999)
   })
-  it('handles comma decimal separator', () => {
-    expect(toMinor('19,99', 'TRY')).toBe(1999)
+  it('converts "19,99" to 1999 kuruş (comma)', () => {
+    expect(parseMoneyInputToMinor('19,99', 'TRY')).toBe(1999)
   })
-  it('rejects floats via parseNumericInput', () => {
-    expect(parseNumericInput('19.99')).toBe(1999)
-    expect(parseNumericInput('19,99')).toBe(1999)
+  it('handles thousands separator: "1.000,50" → 100050', () => {
+    expect(parseMoneyInputToMinor('1.000,50', 'TRY')).toBe(100050)
   })
-})
-
-describe('parseNumericInput', () => {
-  it('strips non-numeric characters', () => {
-    expect(parseNumericInput('50050050')).toBe(50050050)
-    expect(parseNumericInput('₺100')).toBe(10000)
+  it('strips currency symbol: "₺100" → 10000', () => {
+    expect(parseMoneyInputToMinor('₺100', 'TRY')).toBe(10000)
   })
 })
 ```
@@ -790,7 +795,16 @@ describe('parseNumericInput', () => {
 <td>🏰 <b>Row-Level Security</b></td>
 <td>
 
-PostgreSQL RLS. Her tabloda `is_member_of(group_id)` policy'si. Kullanıcı sadece üyesi olduğu grupların verilerini görebilir.
+PostgreSQL RLS daraltıldı. SELECT geniş (`is_member_of`), INSERT/UPDATE/DELETE dar (sahip veya founder). Yazma işlemleri SECURITY DEFINER RPC + `auth.uid()` kontrollü. Doğrudan tablo yazımı anon key ile ENGELLENDI.
+
+</td>
+</tr>
+
+<tr>
+<td>🔑 <b>RPC Auth (7 RPC)</b></td>
+<td>
+
+`add_expense_with_splits`, `update_expense_with_splits`, `delete_expense`, `add_settlement`, `confirm_settlement`, `reject_settlement`, `create_group_with_limit`, `create_invite` — tamamı `auth.uid()` yetki kontrolüyle. 6/2026 P0 turunda sertleştirildi.
 
 </td>
 </tr>
@@ -804,7 +818,7 @@ PostgreSQL RLS. Her tabloda `is_member_of(group_id)` policy'si. Kullanıcı sade
 <td>🛡 <b>SECURITY DEFINER</b></td>
 <td>
 
-`is_member_of()` fonksiyonu `SECURITY DEFINER` — RLS recursion tuzağını önler.
+`is_member_of()` ve `is_founder_of()` yardımcıları + tüm yazma RPC'leri `SECURITY DEFINER SET search_path = public` — RLS recursion tuzağını önler.
 
 </td>
 </tr>
@@ -819,8 +833,18 @@ IBAN **hiçbir tabloda KALICI SAKLANMAZ**. Realtime broadcast channel ile anlık
 </tr>
 
 <tr>
-<td>💳 <b>Entitlement Sunucuda</b></td>
-<td>RevenueCat webhook → `profiles.user_pro` / `groups.is_pro`. Client entitlement'a GÜVENMEZ, sunucudan okur.</td>
+<td>💳 <b>RevenueCat Revoke</b></td>
+<td>Webhook: GRANT (purchase/renewal/uncancel) → `user_pro = true`, REVOKE (expiration/cancel/refund/pause) → `user_pro = false`. BILLING_ISSUE → log only. Expiration safety net ile defense-in-depth.</td>
+</tr>
+
+<tr>
+<td>🔢 <b>Server-Side Pro Limit</b></td>
+<td>`create_group_with_limit` RPC: Pro değilse demo hariç 5 grup. Client UI kontrolüne ek olarak server-side enforce.</td>
+</tr>
+
+<tr>
+<td>🎲 <b>Kriptografik Invite</b></td>
+<td>`create_invite` RPC: `gen_random_uuid()` tabanlı 8 karakter token, collision retry, 7 gün expiry. Client-side `Math.random()` kaldırıldı.</td>
 </tr>
 
 <tr>
