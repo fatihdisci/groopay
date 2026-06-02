@@ -8,6 +8,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Modal,
@@ -220,6 +221,12 @@ export default function AddExpenseScreen() {
     } else {
       setAmountStr((prev) => (prev === '0' ? val : prev + val));
     }
+  };
+
+  const handleAmountPress = (): void => {
+    Keyboard.dismiss();
+    if (!showNumpad) setShowDetails(false);
+    setShowNumpad((prev) => !prev);
   };
 
   const formatDisplayAmount = () => {
@@ -521,7 +528,7 @@ export default function AddExpenseScreen() {
         {/* ── Amount display (tap to toggle numpad) ── */}
         <TouchableOpacity
           style={styles.amountContainer}
-          onPress={() => setShowNumpad((prev) => !prev)}
+          onPress={handleAmountPress}
           activeOpacity={0.7}
         >
           <Text style={styles.amountText}>{formatDisplayAmount()}</Text>

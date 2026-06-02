@@ -13,6 +13,7 @@
 - **Her hata düzeltmesi, regresyon giderme, tasarım değişikliği veya yeni özellik `BUGFIX-CILA.md` dosyasına kaydedilir.**
 - Format: `### ✅ BXX: Başlık` — sorun, yapılan, değişen dosyalar, nasıl test edileceği, kontrol tablosu.
 - Numaralandırma sıralıdır (B1, B2, …). Son numaradan devam et.
+- Doğru sıradaki B numarası her zaman `BUGFIX-CILA.md` içindeki son B kaydından bulunur; başka dosyadaki sayaç ipucu tek başına kaynak değildir.
 - Her madde sonrası `*Son güncelleme: TARİH — BXX eklendi*` satırı güncellenir.
 - Commit mesajlarında B numarası referans verilir: `fix: B47-B53 add-expense regresyon düzeltmeleri`.
 
@@ -67,14 +68,25 @@
 - Demo groups excluded from limits/stats (`is_demo` filter).
 - RLS: use `SECURITY DEFINER` function to avoid recursion trap.
 
-## Auth (Phase 1+)
+## Auth (Phase 8)
+- Anonymous auth is retired for production direction.
 - Google + Apple Sign-In only (Supabase OAuth).
 - No password storage.
 - Apple requires "Sign in with Apple" when third-party sign-in is offered.
 
 ## IBAN
 - IBAN is NEVER stored in the database (no exceptions).
-- "Request IBAN" flow: debtor requests → creditor receives notification → enters IBAN momentarily → shared → NOT saved.
+- IBAN sharing uses WhatsApp deep links.
+- Debtor taps the WhatsApp/IBAN action → app generates a localized WhatsApp message → opens WhatsApp; if unavailable, the message is copied to clipboard.
+- Do NOT re-add Supabase Realtime broadcast, `iban_requests` queries, or `iban_requests` listeners for IBAN sharing.
+
+## Realtime
+- Group detail uses `useRealtime(groupId)` for per-group expenses, splits, members, and activity changes.
+- Global tabs use `useRealtimeAllGroups(memberGroupIds)` for panel, groups list, and activity updates.
+- `memberGroupIds` passed to `useRealtimeAllGroups` MUST be memoized with `useMemo`; do not pass a fresh array each render.
+- Realtime-backed React Query hooks should use `staleTime: 0`.
+- Global Realtime listens to `expenses`, `group_members`, `activity_log`, and `settlements`.
+- Do NOT add an `iban_requests` Realtime listener; IBAN moved to WhatsApp.
 
 ## Monetization (Phase 7+) — Simplified June 2026
 - RevenueCat for IAP (receipt validation + entitlement).
@@ -91,6 +103,9 @@
 - Sufficient color contrast (WCAG AA minimum).
 - Touch targets ≥ 44px (`minTouchTarget` in theme).
 - Respect `prefers-reduced-motion` for animations.
+- Critical touchables must have `accessibilityLabel` from i18n (`t()`), never hardcoded strings.
+- Use `accessibilityRole="button"` for buttons and `accessibilityRole="radio"` plus `accessibilityState.selected` for selected option chips.
+- Preserve existing `hitSlop` and touch target sizing when adding accessibility props.
 
 ## Environment
 - Only `EXPO_PUBLIC_` prefixed env vars are usable.
@@ -172,16 +187,24 @@ groopay/
 
 ### Paywall
 - Modern fintech: open feature rows, soft shadow price card
+- Gradient hero header uses `expo-linear-gradient`, `Colors.gradientStart` → `Colors.gradientEnd`, with the close button on top of the hero.
 - Only User Pro, no Group Pro card
 - X close button top-right (no title bar)
 - Live price via RevenueCat offering
+- Price loading must have a 5-second timeout. While loading show spinner; after timeout show `paywall.priceError`; CTA disabled only while still waiting for price.
 
 ### Add Expense
 - Wise-style numpad (View-based, 48px bold amount)
 - Currency pill selector, expandable details
+- When numpad opens, system keyboard closes and details panel collapses to avoid overlapping input modes.
 - `splitEqual()` from `lib/finance/split.ts` — NEVER float math
 - Split type selector (equal/custom/subset)
 - Validation: amount > 0 + description + paidBy required
+
+### Balance Screen
+- `SimplifiedBalanceList` keeps the amount column aligned on the right.
+- Debtor action buttons live under the amount in `simplifiedActionRow`, not beside the amount.
+- Action buttons keep labels visible and compact; preserve existing touch targets and accessibility labels.
 
 ### Group Management
 - Group edit: name, description, avatar color (8), emoji (16)
@@ -225,3 +248,8 @@ groopay/
 ### Migration 0014
 - `delete_group` RPC: child tabloları sırayla siler (FK cascade hatasını önler)
 - Sıra: expense_splits → expenses → settlements → activity_log → iban_requests → group_invites → group_members → groups
+
+### Current Numbering
+- Latest bugfix log entry: check `BUGFIX-CILA.md` before adding any B record.
+- Latest migration applied: `0014_fix_delete_group_cascade.sql`.
+- Next migration number: `0015`.

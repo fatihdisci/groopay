@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 
@@ -58,6 +58,7 @@ export function useRealtime(groupId: string) {
  */
 export function useRealtimeAllGroups(memberGroupIds: string[]) {
   const qc = useQueryClient();
+  const channelNameRef = useRef(`global-changes-${Math.random().toString(36).slice(2)}`);
 
   useEffect(() => {
     if (memberGroupIds.length === 0) return;
@@ -71,7 +72,7 @@ export function useRealtimeAllGroups(memberGroupIds: string[]) {
     };
 
     const channel = supabase
-      .channel('global-changes')
+      .channel(channelNameRef.current)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'expenses' },

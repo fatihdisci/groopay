@@ -35,7 +35,7 @@
 ### Security
 - Sensitive writes (expense, settlement, member, group, invite) → **SECURITY DEFINER RPC** with `auth.uid()` check inside the RPC.
 - Never rely on client-side auth checks alone.
-- IBAN: **never stored in DB** — Realtime broadcast only.
+- IBAN: **never stored in DB**. IBAN sharing uses WhatsApp deep links with clipboard fallback; do not re-add Realtime broadcast or `iban_requests` listeners.
 
 ### Icons
 - `Ionicons` from `@expo/vector-icons` only. No SVG icons, no emoji icons.
@@ -91,6 +91,17 @@ Two header types:
 - Balance: derived (never stored) from `expenses + splits + confirmed settlements`, per currency.
 - Pending settlements: do NOT affect balance.
 - Demo groups: excluded from limits/stats via `is_demo` filter.
+
+---
+
+## REALTIME
+
+- Group detail uses `useRealtime(groupId)` for per-group expenses, splits, members, and activity changes.
+- Global tabs use `useRealtimeAllGroups(memberGroupIds)` for panel, groups list, and activity updates.
+- `memberGroupIds` passed to `useRealtimeAllGroups` must be memoized with `useMemo`; do not pass a fresh array each render.
+- Realtime-backed React Query hooks should use `staleTime: 0` so invalidations refetch immediately.
+- Global Realtime listens to `expenses`, `group_members`, `activity_log`, and `settlements`.
+- Do not add an `iban_requests` Realtime listener; IBAN moved to the WhatsApp flow.
 
 ---
 
@@ -164,5 +175,5 @@ Every fix, feature, or design change must be appended to `BUGFIX-CILA.md`:
 **Test:** ...
 *Son güncelleme: YYYY-MM-DD — BXX eklendi*
 ```
-Next B number: **B101** (check BUGFIX-CILA.md for latest).  
-Commit message format: `fix: B101 short description`
+Next B number: always check **BUGFIX-CILA.md** and continue from the latest B entry.  
+Commit message format: `fix: BXX short description` or `feat: BXX short description`

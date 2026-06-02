@@ -2357,3 +2357,72 @@ npx supabase functions deploy revenuecat-webhook
 | `npx tsc --noEmit` temiz | ✅ |
 
 *Son güncelleme: 2026-06-02 — B100 eklendi (global realtime invalidation)*
+
+---
+
+### ✅ B101: Masraf tutarına dönünce sistem klavyesi kapanıyor
+
+> Tarih: 2026-06-02
+
+**Sorun:** Masraf ekleme ekranında açıklama/not gibi alanlarda sistem klavyesi açıkken tutar alanına dokunup numpad'e dönüldüğünde klavye ekranda kalabiliyordu.
+
+**Yapılan:**
+- Tutar alanı basma davranışı `handleAmountPress` fonksiyonuna taşındı.
+- Tutar alanına basıldığında `Keyboard.dismiss()` çağrılarak sistem klavyesinin kapanması sağlandı.
+- Mevcut numpad aç/kapat davranışı korundu.
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/add-expense.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| Tutar alanına basınca klavye kapanır | ✅ |
+| Numpad toggle davranışı korundu | ✅ |
+| `npx tsc --noEmit` temiz | ✅ |
+
+*Son güncelleme: 2026-06-02 — B101 eklendi (masraf numpad klavye kapatma)*
+
+---
+
+### ✅ B102: Global Realtime channel isim çakışması düzeltildi
+
+> Tarih: 2026-06-02
+
+**Sorun:** `useRealtimeAllGroups` birden fazla tab ekranında çalışınca her instance aynı `global-changes` channel adını kullanıyordu. Supabase mevcut subscribe edilmiş channel'a tekrar `postgres_changes` callback eklemeye çalıştığı için `cannot add postgres_changes callbacks ... after subscribe()` hatası oluşuyordu.
+
+**Yapılan:**
+- Global Realtime channel adı her hook instance'ı için `useRef` ile benzersiz ve stabil hale getirildi.
+- Re-render sırasında channel adı değişmeden kalıyor; farklı tab instance'ları birbirleriyle çakışmıyor.
+
+**Değişen dosyalar:** `hooks/useRealtime.ts`
+
+| Kontrol | Durum |
+|---|---|
+| Birden fazla global Realtime instance channel çakışması yaratmaz | ✅ |
+| Channel adı render boyunca stabil | ✅ |
+| `npx tsc --noEmit` temiz | ✅ |
+
+*Son güncelleme: 2026-06-02 — B102 eklendi (global realtime channel çakışması)*
+
+---
+
+### ✅ B103: Masraf numpad detay paneli ve proje anayasası güncellendi
+
+> Tarih: 2026-06-02
+
+**Sorun:** Masraf ekleme ekranında numpad açılırken detay paneli açık kalınca ekran karışıyordu. Ayrıca AGENTS.md ve CLAUDE.md dosyalarında güncel IBAN, Realtime, Paywall, Auth ve B numarası kuralları tek kaynak olarak netleşmemişti.
+
+**Yapılan:**
+- Masraf tutar alanına basılıp numpad açılırken detay paneli otomatik kapatıldı.
+- AGENTS.md içinde B numarasının her zaman BUGFIX-CILA.md'den bulunacağı, IBAN'ın WhatsApp sistemiyle çalıştığı ve global Realtime kuralları kayda alındı.
+- CLAUDE.md içinde Auth, IBAN, Realtime, Paywall, Balance screen, migration ve accessibility bölümleri güncel proje kurallarına göre genişletildi.
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/add-expense.tsx`, `AGENTS.md`, `CLAUDE.md`, `BUGFIX-CILA.md`
+
+| Kontrol | Durum |
+|---|---|
+| Numpad açılırken detay paneli kapanır | ✅ |
+| AGENTS.md güncel B numarası, IBAN ve Realtime kurallarını içerir | ✅ |
+| CLAUDE.md güncel Auth, IBAN, Realtime, Paywall, Balance ve accessibility kurallarını içerir | ✅ |
+| `npx tsc --noEmit` temiz | ✅ |
+
+*Son güncelleme: 2026-06-02 — B103 eklendi (masraf numpad detay paneli + anayasa güncellemeleri)*
