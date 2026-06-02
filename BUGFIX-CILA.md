@@ -1861,3 +1861,48 @@ npx supabase functions deploy revenuecat-webhook
 | Temizle butonu | ✅ X ikonu |
 
 *Son güncelleme: 2026-06-01 — B81-B82 eklendi (Panel varsayılan sekme + aktivite arama)*
+
+---
+
+### ✅ B83: Üye yönetimi sayfası tasarım yenilemesi
+
+**Sorun:** Grup adı düz metin, butonlar ayrı köşeli kutular, üye listesi çok sade, boş alan fazla.
+
+**Yapılan:**
+
+**Üst bölüm:**
+- Grup adı: `fontDisplayBold`, `textPrimary`, büyük. Altında "X aktif üye" `bodySmall`.
+- İki aksiyon butonu yan yana (eşit genişlik `flex: 1`):
+  - Sol: "Hayalet Ekle" — outline (mor çerçeve, mor metin). Sadece kurucu görür, değilse disabled.
+  - Sağ: "Davet Linki" — `LinearGradient` dolgu, tüm üyeler görür.
+  - Height: 48px, radius: 12px.
+
+**Üye listesi:**
+- Her satır: 48px gradient avatar + isim badgeleri + alt satır tip bilgisi.
+- Badge'ler: Kurucu (warning pill), Sen (primary pill).
+- Alt satır: ikon (👤 gerçek / 👻 hayalet) + tip metni.
+- Sağ: Founder başkası için "Çıkar" (person-remove, kırmızı daire), normal üye kendisi için "Ayrıl" (log-out, kırmızı daire).
+- Satır arası hairline ayırıcı.
+
+**Modal:**
+- Yeni tasarım: 56px primary ghost daire ikon, başlık + açıklama alt metin.
+- Input: 1.5px border, background arka plan rengi.
+- Ekle butonu: `LinearGradient` dolgu, devre dışıyken gri.
+- Kart: beyaz surface, `Radius.xl`, `Shadows.lg`.
+
+**Genel:**
+- `FlatList` + `ListHeaderComponent` + `ItemSeparatorComponent`.
+- `members.you`, `members.membersSection`, `members.noMembers`, `members.addGhostDesc` i18n anahtarları eklendi.
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/members.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| 87/87 test geçti | ✅ |
+| Kurucu/üye yetkileri | ✅ Korundu |
+| Buton eşit genişlik | ✅ `flex: 1` |
+| Hayalet ekle sadece kurucu | ✅ |
+| Modal tasarım | ✅ Gradient buton + ikon + açıklama |
+
+*Son güncelleme: 2026-06-01 — B83 eklendi (üye yönetimi tasarım yenilemesi)*
