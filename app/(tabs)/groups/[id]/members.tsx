@@ -1,7 +1,7 @@
 import { useState, useLayoutEffect } from 'react';
 import {
   StyleSheet, Text, View, FlatList, TouchableOpacity, TextInput,
-  Alert, ActivityIndicator, Share, Modal,
+  Alert, ActivityIndicator, Share,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -245,6 +245,44 @@ export default function MembersScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* ── Inline ghost add form ── */}
+            {showAdd && (
+              <View style={styles.inlineBox}>
+                <Text style={styles.inlineLabel}>{t('members.addGhostName')}</Text>
+                <TextInput
+                  style={styles.inlineInput}
+                  value={ghostName}
+                  onChangeText={setGhostName}
+                  placeholder={t('members.addGhostPlaceholder')}
+                  placeholderTextColor={Colors.textTertiary}
+                  autoFocus
+                />
+                <View style={styles.inlineActions}>
+                  <TouchableOpacity onPress={() => { setShowAdd(false); setGhostName(''); }}>
+                    <Text style={styles.inlineClose}>{t('groups.cancel')}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.inlineAddBtn, !ghostName.trim() && styles.btnDisabled]}
+                    onPress={handleAddGhost}
+                    disabled={!ghostName.trim() || addGhost.isPending}
+                    activeOpacity={0.85}
+                  >
+                    <LinearGradient
+                      colors={ghostName.trim() ? [Colors.gradientStart, Colors.gradientEnd] : [Colors.border, Colors.border]}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                      style={styles.inlineAddGradient}
+                    >
+                      {addGhost.isPending ? (
+                        <ActivityIndicator size="small" color="#FFFFFF" />
+                      ) : (
+                        <Text style={styles.inlineAddText}>{t('members.addGhostBtn')}</Text>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
             {/* ── Invite code box ── */}
             {inviteCode && (
               <View style={styles.inviteBox}>
@@ -283,51 +321,6 @@ export default function MembersScreen() {
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
 
-      {/* ── Add ghost modal ── */}
-      <Modal visible={showAdd} animationType="fade" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalIconCircle}>
-                <Ionicons name="person-add-outline" size={24} color={Colors.primary} />
-              </View>
-              <Text style={styles.modalTitle}>{t('members.addGhost')}</Text>
-              <Text style={styles.modalSubtitle}>{t('members.addGhostDesc')}</Text>
-            </View>
-            <TextInput
-              style={styles.modalInput}
-              value={ghostName}
-              onChangeText={setGhostName}
-              placeholder={t('members.addGhostName')}
-              placeholderTextColor={Colors.textTertiary}
-              autoFocus
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setShowAdd(false)}>
-                <Text style={styles.modalCancelText}>{t('groups.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalAddBtn, !ghostName.trim() && styles.btnDisabled]}
-                onPress={handleAddGhost}
-                disabled={!ghostName.trim() || addGhost.isPending}
-                activeOpacity={0.85}
-              >
-                <LinearGradient
-                  colors={ghostName.trim() ? [Colors.gradientStart, Colors.gradientEnd] : [Colors.textTertiary, Colors.textTertiary]}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={styles.modalAddGradient}
-                >
-                  {addGhost.isPending ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <Text style={styles.modalAddText}>{t('members.addGhostBtn')}</Text>
-                  )}
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -499,34 +492,17 @@ const styles = StyleSheet.create({
   emptyList: { paddingVertical: 40, alignItems: 'center' },
   emptyText: { fontFamily: Typography.fontBody, fontSize: Typography.size.base, color: Colors.textSecondary },
 
-  // ── Modal ──
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: Spacing.xl },
-  modalCard: {
+  // ── Inline form (ghost add) ──
+  inlineBox: {
     backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
-    padding: Spacing.xl,
-    ...Shadows.lg,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.primary + '40',
+    marginBottom: Spacing.sm,
   },
-  modalHeader: { alignItems: 'center', marginBottom: Spacing.lg },
-  modalIconCircle: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: Colors.primaryGhost,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: Spacing.md,
-  },
-  modalTitle: {
-    fontFamily: Typography.fontDisplayBold,
-    fontSize: Typography.size.lg,
-    color: Colors.textPrimary,
-    marginBottom: 4,
-  },
-  modalSubtitle: {
-    fontFamily: Typography.fontBody,
-    fontSize: Typography.size.sm,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
-  modalInput: {
+  inlineLabel: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textSecondary, marginBottom: Spacing.sm },
+  inlineInput: {
     borderWidth: 1.5,
     borderColor: Colors.border,
     borderRadius: Radius.md,
@@ -536,29 +512,12 @@ const styles = StyleSheet.create({
     fontSize: Typography.size.base,
     color: Colors.textPrimary,
     backgroundColor: Colors.background,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.md,
   },
-  modalActions: { flexDirection: 'row', gap: Spacing.md },
-  modalCancelBtn: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  modalCancelText: { fontFamily: Typography.fontBodyMedium, fontSize: Typography.size.base, color: Colors.textSecondary },
-  modalAddBtn: {
-    flex: 2,
-    borderRadius: Radius.lg,
-    overflow: 'hidden',
-  },
-  modalAddGradient: {
-    paddingVertical: Spacing.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalAddText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.base, color: '#FFFFFF' },
+  inlineActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: Spacing.md },
+  inlineClose: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textTertiary, paddingVertical: Spacing.sm },
+  inlineAddBtn: { borderRadius: Radius.md, overflow: 'hidden' },
+  inlineAddGradient: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, alignItems: 'center', justifyContent: 'center' },
+  inlineAddText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, color: '#FFFFFF' },
   btnDisabled: { opacity: 0.5 },
 });

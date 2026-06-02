@@ -212,6 +212,7 @@
     "addGhost": "Add Ghost",
     "addGhostDesc": "Add someone who doesn't use the app",
     "addGhostName": "Member name",
+    "addGhostPlaceholder": "e.g. John",
     "addGhostBtn": "Add",
     "invite": "Invite",
     "inviteCode": "Invite Code",

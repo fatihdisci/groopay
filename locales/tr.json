@@ -133,6 +133,7 @@
     "addGhost": "Hayalet Ekle",
     "addGhostDesc": "Uygulamayı kullanmayan birini gruba ekle",
     "addGhostName": "Üye adı",
+    "addGhostPlaceholder": "örn. Ahmet",
     "addGhostBtn": "Ekle",
     "invite": "Davet Et",
     "inviteCode": "Davet Kodu",

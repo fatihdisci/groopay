@@ -1904,5 +1904,6 @@ npx supabase functions deploy revenuecat-webhook
 | Buton eşit genişlik | ✅ `flex: 1` |
 | Hayalet ekle sadece kurucu | ✅ |
 | Modal tasarım | ✅ Gradient buton + ikon + açıklama |
+| **Ek:** Modal → inline form | ✅ Davet kutusu gibi açılır |
 
-*Son güncelleme: 2026-06-01 — B83 eklendi (üye yönetimi tasarım yenilemesi)*
+*Son güncelleme: 2026-06-01 — B83 eklendi (üye yönetimi tasarım yenilemesi + inline ghost form)*
