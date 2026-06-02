@@ -78,20 +78,10 @@
     "request": "Get IBAN",
     "requestLabel": "Request IBAN",
     "requestTitle": "Request IBAN from {{name}}",
-    "requestConfirm": "Send IBAN request to {{name}}? They'll enter their IBAN and it will be shared with you.",
-    "requestSent": "IBAN request sent",
-    "pendingRequests": "IBAN Requests",
-    "enterIban": "Enter IBAN (not stored)",
-    "enterIbanTitle": "Enter IBAN for {{name}}",
-    "shareIban": "Share IBAN",
-    "disclaimer": "IBAN is only shared for this request, never persisted.",
-    "receivedTitle": "IBAN Received",
-    "receivedFrom": "{{name}} shared their IBAN:",
-    "copy": "Copy",
-    "copied": "Copied!",
+    "requestWhatsApp": "Request IBAN via WhatsApp",
+    "copiedFallback": "Message copied. You can send it from any app.",
     "remind": "Remind",
-    "remindMessage": "Groopay reminder: You owe {{to}} {{amt}} in {{group}}. Don't forget to pay!",
-    "shared": "IBAN shared ✓"
+    "remindMessage": "Groopay reminder: You owe {{to}} {{amt}} in {{group}}. Don't forget to pay!"
   },
   "groupDetail": {
     "members": "Members",

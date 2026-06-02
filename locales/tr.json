@@ -251,20 +251,10 @@
     "request": "IBAN iste",
     "requestLabel": "IBAN isteği gönder",
     "requestTitle": "{{name}} kişisinden IBAN iste",
-    "requestConfirm": "{{name}} kişisine IBAN isteği gönderilsin mi? IBAN'ı girdikten sonra sana iletecek.",
-    "requestSent": "IBAN isteği gönderildi",
-    "pendingRequests": "IBAN İstekleri",
-    "enterIban": "IBAN'ını gir (saklanmaz)",
-    "enterIbanTitle": "{{name}} için IBAN'ını gir",
-    "shareIban": "IBAN'ı Paylaş",
-    "disclaimer": "IBAN sadece bu istek için iletilir, sunucuda saklanmaz.",
-    "receivedTitle": "IBAN Alındı",
-    "receivedFrom": "{{name}} IBAN'ını paylaştı:",
-    "copy": "Kopyala",
-    "copied": "Kopyalandı!",
+    "requestWhatsApp": "WhatsApp ile IBAN iste",
+    "copiedFallback": "Mesaj panoya kopyalandı, istediğin uygulamadan gönderebilirsin.",
     "remind": "Hatırlat",
-    "remindMessage": "Groopay hatırlatması: {{group}} grubunda {{to}} kişisine {{amt}} borcun var. Ödemeyi unutma!",
-    "shared": "IBAN paylaşıldı ✓"
+    "remindMessage": "Groopay hatırlatması: {{group}} grubunda {{to}} kişisine {{amt}} borcun var. Ödemeyi unutma!"
   },
   "auth": {
     "appName": "Groopay",

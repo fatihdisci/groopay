@@ -14,7 +14,6 @@ import type {
   ExpenseWithGroupInfo,
   AddExpenseInput,
   SettlementRow,
-  IbanRequestRow,
 } from './types';
 
 // ── Profiles ──
@@ -528,38 +527,20 @@ export async function getGroupSettlements(groupId: string): Promise<SettlementRo
   return (data ?? []) as SettlementRow[];
 }
 
-// ── IBAN Requests (IBAN itself NEVER stored) ──
+// ── IBAN WhatsApp message generator ──
 
-export async function requestIban(
-  groupId: string,
-  fromMember: string,
-  toMember: string,
-): Promise<string> {
-  const { data, error } = await supabase
-    .from('iban_requests')
-    .insert({ group_id: groupId, from_member: fromMember, to_member: toMember })
-    .select('id')
-    .single();
-  if (error || !data) throw error ?? new Error('IBAN request failed');
-  return (data as IbanRequestRow).id;
-}
-
-export async function getPendingIbanRequests(groupId: string): Promise<IbanRequestRow[]> {
-  const { data } = await supabase
-    .from('iban_requests')
-    .select('*')
-    .eq('group_id', groupId)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false });
-  return (data ?? []) as IbanRequestRow[];
-}
-
-export async function fulfillIbanRequest(requestId: string): Promise<void> {
-  const { error } = await supabase
-    .from('iban_requests')
-    .update({ status: 'fulfilled', fulfilled_at: new Date().toISOString() })
-    .eq('id', requestId);
-  if (error) throw error;
+export function generateIbanRequestMessage(
+  requesterName: string,
+  groupName: string,
+  amountFormatted: string,
+  currency: string,
+): string {
+  return [
+    `Merhaba! 👋`,
+    `Groopay'deki *${groupName}* grubunda sana *${amountFormatted} ${currency}* borcum var.`,
+    `IBAN'ını paylaşır mısın?`,
+    `— Groopay`,
+  ].join('\n');
 }
 
 // ── WhatsApp share text generator ──
