@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Share, TextInput, Modal, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Share, TextInput, Modal, Animated, LayoutAnimation, Platform, UIManager, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -21,8 +21,8 @@ import { palette, spacing, fontSizes, radii } from '@/constants/theme';
 import { CATEGORY_ICONS, CATEGORY_COLORS, CATEGORIES } from '@/lib/finance/categories';
 import type { Category } from '@/lib/finance/categories';
 import type { GroupMemberRow, ExpenseWithSplits, ExpenseRow, ExpenseSplitRow, ActivityLogRow, SettlementRow } from '@/lib/supabase/types';
-import { getGroupActivity, generateWhatsAppSummary, requestIban, getPendingIbanRequests, fulfillIbanRequest } from '@/lib/supabase/queries';
-import { supabase } from '@/lib/supabase/client';
+import { getGroupActivity, generateWhatsAppSummary, generateIbanRequestMessage } from '@/lib/supabase/queries';
+import * as Clipboard from 'expo-clipboard';
 import Avatar from '@/components/Avatar';
 import TipsButton from '@/components/TipsButton';
 
@@ -134,63 +134,9 @@ export default function GroupDetailScreen() {
   const [settleModalVisible, setSettleModalVisible] = useState(false);
   const [settleTarget, setSettleTarget] = useState<{ to: string; toName: string; currency: string; maxMinor: number } | null>(null);
   const [settleAmountStr, setSettleAmountStr] = useState('');
-  const [ibanModalVisible, setIbanModalVisible] = useState(false);
-  const [ibanTargetMember, setIbanTargetMember] = useState<GroupMemberRow | null>(null);
-  const [ibanModalMode, setIbanModalMode] = useState<'request' | 'enter' | 'received'>('request');
-  const [ibanInputText, setIbanInputText] = useState('');
-  const [ibanReceivedText, setIbanReceivedText] = useState<string | null>(null);
-  const [ibanActiveRequestId, setIbanActiveRequestId] = useState<string | null>(null);
-  const ibanChannelsRef = useRef<Map<string, any>>(new Map());
 
-  // ── IBAN pending requests (for creditor) ──
-  const { data: ibanRequestsData } = useQuery({
-    queryKey: ['iban_requests', id],
-    queryFn: () => getPendingIbanRequests(id!),
-    enabled: !!id,
-    staleTime: 3_000,
-  });
-  const pendingIbanReqs = useMemo(
-    () => (ibanRequestsData ?? []).filter((r: { status: string }) => r.status === 'pending'),
-    [ibanRequestsData],
-  );
 
-  // ── IBAN realtime: listen for incoming IBAN broadcasts (debtor side) ──
-  useEffect(() => {
-    if (!pendingIbanReqs.length || !user?.id) return;
-    // Find actorMember from the latest data (may not be loaded yet on first render)
-    if (!data) return;
-    const actor = getActorMember(data.members as GroupMemberRow[], user.id);
-    if (!actor) return;
 
-    const channelsToClean: any[] = [];
-
-    for (const req of pendingIbanReqs) {
-      if (req.from_member !== actor.id) continue;
-      if (ibanChannelsRef.current.has(req.id)) continue;
-
-      const channelName = `iban-${req.id}`;
-      const channel = supabase.channel(channelName);
-      channel.on('broadcast', { event: 'iban_shared' }, (payload: any) => {
-        setIbanReceivedText(payload.payload?.iban ?? '');
-        setIbanActiveRequestId(req.id);
-        setIbanModalMode('received');
-        setIbanModalVisible(true);
-      }).subscribe((status: string) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[iban] Listening on', channelName);
-        }
-      });
-
-      ibanChannelsRef.current.set(req.id, channel);
-      channelsToClean.push(channel);
-    }
-
-    return () => {
-      for (const ch of channelsToClean) {
-        supabase.removeChannel(ch);
-      }
-    };
-  }, [pendingIbanReqs.length, user?.id, data]);
 
   const handleShareWhatsApp = async () => {
     const enriched = new Map<string, any>();
@@ -214,61 +160,28 @@ export default function GroupDetailScreen() {
   const actorMember = getActorMember(members as GroupMemberRow[], user?.id);
   const isFounder = actorMember?.role === 'founder';
 
-  // ── IBAN handlers ──
-  const handleIbanRequest = (to: GroupMemberRow, _currency: string) => {
-    setIbanTargetMember(to);
-    setIbanModalMode('request');
-    setIbanModalVisible(true);
-  };
-
-  const handleIbanRequestConfirm = async () => {
-    if (!ibanTargetMember || !actorMember) return;
-    try {
-      const reqId = await requestIban(id!, actorMember.id, ibanTargetMember.id);
-      // Subscribe to broadcast channel for this request (debtor side)
-      const channelName = `iban-${reqId}`;
-      const channel = supabase.channel(channelName);
-      channel.on('broadcast', { event: 'iban_shared' }, (payload: any) => {
-        setIbanReceivedText(payload.payload?.iban ?? '');
-        setIbanActiveRequestId(reqId);
-        setIbanModalMode('received');
-        setIbanModalVisible(true);
-      }).subscribe();
-
-      ibanChannelsRef.current.set(reqId, channel);
-      setIbanModalVisible(false);
-      Alert.alert('', t('iban.requestSent'));
-    } catch (e: any) {
-      Alert.alert(t('settle.errorTitle'), e?.message ?? t('settle.unknownError'));
-    }
-  };
-
-  const handleIbanEnter = (req: { id: string; from_member: string }) => {
-    const fromM = (members as GroupMemberRow[]).find((m) => m.id === req.from_member);
-    setIbanTargetMember(fromM ?? null);
-    setIbanActiveRequestId(req.id);
-    setIbanInputText('');
-    setIbanModalMode('enter');
-    setIbanModalVisible(true);
-  };
-
-  const handleIbanShare = async () => {
-    if (!ibanInputText.trim() || !ibanActiveRequestId) return;
-    const channelName = `iban-${ibanActiveRequestId}`;
-    const channel = supabase.channel(channelName);
-    channel.subscribe(async (status: string) => {
-      if (status === 'SUBSCRIBED') {
-        await channel.send({
-          type: 'broadcast',
-          event: 'iban_shared',
-          payload: { iban: ibanInputText.trim() },
+  // ── IBAN WhatsApp handler ──
+  const handleIbanWhatsApp = (
+    toMember: GroupMemberRow,
+    currency: string,
+    amountMinor: number,
+  ): void => {
+    const amountFormatted = formatAmount(fromMinor(amountMinor, currency), currency);
+    const msg = generateIbanRequestMessage(
+      actorMember?.display_name ?? '',
+      group.name,
+      amountFormatted,
+      currency,
+    );
+    const encoded = encodeURIComponent(msg);
+    const url = `whatsapp://send?text=${encoded}`;
+    Linking.canOpenURL(url).then((supported) => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        Clipboard.setStringAsync(msg).then(() => {
+          Alert.alert('', t('iban.copiedFallback'));
         });
-        // Mark request as fulfilled
-        await fulfillIbanRequest(ibanActiveRequestId);
-        supabase.removeChannel(channel);
-        setIbanModalVisible(false);
-        setIbanInputText('');
-        Alert.alert('', t('iban.shared'));
       }
     });
   };
@@ -572,30 +485,7 @@ export default function GroupDetailScreen() {
                   </View>
                 )}
 
-                {/* Pending IBAN requests (for creditor) */}
-                {actorMember && pendingIbanReqs.filter((r: any) => r.to_member === actorMember?.id).length > 0 && (
-                  <View style={styles.pendingCard}>
-                    <Text style={styles.pendingTitle}>{t('iban.pendingRequests').toLocaleUpperCase('tr-TR')}</Text>
-                    {pendingIbanReqs.filter((r: any) => r.to_member === actorMember?.id).map((r: any) => {
-                      const fromM = (members as GroupMemberRow[]).find((m: GroupMemberRow) => m.id === r.from_member);
-                      return (
-                        <View key={r.id} style={styles.pendingRow}>
-                          <Text style={styles.pendingText}>
-                            {t('iban.requestTitle', { name: fromM?.display_name ?? '?' })}
-                          </Text>
-                          <TouchableOpacity
-                            style={styles.confirmBtn}
-                            onPress={() => handleIbanEnter(r)}
-                            accessibilityRole="button"
-                            accessibilityLabel={t('iban.enterIban')}
-                          >
-                            <Text style={styles.confirmBtnText}>{t('iban.shareIban')}</Text>
-                          </TouchableOpacity>
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
+
 
                 {/* Per-currency balance sections */}
                 {[...balanceByCurrency.entries()].map(([currency, data]) => (
@@ -605,7 +495,7 @@ export default function GroupDetailScreen() {
                       <RawBalanceList balances={data.balances} members={members as GroupMemberRow[]} currency={currency} t={t} />
                     ) : (
                       <SimplifiedBalanceList txs={data.simplified} members={members as GroupMemberRow[]} currency={currency}
-                        actorMember={actorMember} onSettle={(to, toName, cur, max) => { setSettleTarget({ to, toName, currency: cur, maxMinor: max }); setSettleAmountStr(''); setSettleModalVisible(true); }} onIbanRequest={handleIbanRequest} settlements={settlements} t={t} />
+                        actorMember={actorMember} onSettle={(to, toName, cur, max) => { setSettleTarget({ to, toName, currency: cur, maxMinor: max }); setSettleAmountStr(''); setSettleModalVisible(true); }} onIbanWhatsApp={handleIbanWhatsApp} settlements={settlements} t={t} />
                     )}
                   </View>
                 ))}
@@ -698,64 +588,7 @@ export default function GroupDetailScreen() {
         </View>
       </Modal>
 
-      {/* ── IBAN request confirmation modal (debtor) ── */}
-      <Modal visible={ibanModalVisible && ibanModalMode === 'request'} transparent animationType="fade" onRequestClose={() => setIbanModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('iban.requestTitle', { name: ibanTargetMember?.display_name ?? '' })}</Text>
-            <Text style={styles.modalSub}>{t('iban.requestConfirm', { name: ibanTargetMember?.display_name ?? '' })}</Text>
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => setIbanModalVisible(false)}>
-                <Text style={styles.modalCancelText}>{t('groups.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalConfirm} onPress={handleIbanRequestConfirm}>
-                <Text style={styles.modalConfirmText}>{t('iban.request')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
-      {/* ── IBAN entry modal (creditor) ── */}
-      <Modal visible={ibanModalVisible && ibanModalMode === 'enter'} transparent animationType="fade" onRequestClose={() => setIbanModalVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('iban.enterIbanTitle', { name: ibanTargetMember?.display_name ?? '' })}</Text>
-            <TextInput style={styles.ibanInput} placeholder="TR00 0000 0000 0000 0000 0000 00" placeholderTextColor={palette.muted}
-              value={ibanInputText} onChangeText={setIbanInputText} autoCapitalize="characters" autoCorrect={false} />
-            <Text style={styles.ibanDisclaimer}>
-              <Ionicons name="shield-checkmark-outline" size={12} color={palette.muted} /> {t('iban.disclaimer')}
-            </Text>
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => setIbanModalVisible(false)}>
-                <Text style={styles.modalCancelText}>{t('groups.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalConfirm, !ibanInputText.trim() && { opacity: 0.5 }]} onPress={handleIbanShare} disabled={!ibanInputText.trim()}>
-                <Text style={styles.modalConfirmText}>{t('iban.shareIban')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── IBAN received modal (debtor) ── */}
-      <Modal visible={ibanModalVisible && ibanModalMode === 'received'} transparent animationType="fade" onRequestClose={() => { setIbanModalVisible(false); setIbanReceivedText(null); }}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('iban.receivedTitle')}</Text>
-            <Text style={styles.modalSub}>{t('iban.receivedFrom', { name: ibanTargetMember?.display_name ?? '' })}</Text>
-            <Text selectable style={styles.ibanReceivedText}>{ibanReceivedText}</Text>
-            <Text style={styles.ibanDisclaimer}>
-              <Ionicons name="shield-checkmark-outline" size={12} color={palette.muted} /> {t('iban.disclaimer')}
-            </Text>
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={[styles.modalConfirm, { flex: 1 }]} onPress={() => { setIbanModalVisible(false); setIbanReceivedText(null); }}>
-                <Text style={styles.modalConfirmText}>{t('groups.cancel')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -786,11 +619,11 @@ function RawBalanceList({ balances, members, currency, t }: { balances: MemberBa
   );
 }
 
-function SimplifiedBalanceList({ txs, members, currency, actorMember, onSettle, onIbanRequest, settlements, t }: {
+function SimplifiedBalanceList({ txs, members, currency, actorMember, onSettle, onIbanWhatsApp, settlements, t }: {
   txs: SimplifiedTx[]; members: GroupMemberRow[]; currency: string;
   actorMember?: GroupMemberRow;
   onSettle: (to: string, toName: string, currency: string, maxMinor: number) => void;
-  onIbanRequest: (to: GroupMemberRow, currency: string) => void;
+  onIbanWhatsApp: (member: GroupMemberRow, currency: string, amountMinor: number) => void;
   settlements: SettlementRow[];
   t: (k: string, o?: Record<string, unknown>) => string;
 }) {
@@ -811,43 +644,49 @@ function SimplifiedBalanceList({ txs, members, currency, actorMember, onSettle, 
         );
         return (
           <View key={i} style={styles.simplifiedRow}>
+            {/* Top row: names left, amount right — SAME for every row */}
             <View style={styles.simplifiedTopRow}>
               <View style={styles.simplifiedMembers}>
                 <Text style={styles.simplifiedFrom}>{fromM?.display_name ?? '?'}</Text>
                 <Ionicons name="arrow-forward-outline" size={14} color={palette.primary} />
                 <Text style={styles.simplifiedTo}>{toM?.display_name ?? '?'}</Text>
               </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.xs }}>
                 <Text style={styles.simplifiedAmount}>{formatAmount(fromMinor(tx.amountMinor, currency), currency)}</Text>
                 {isDebtor && hasPendingSettle && (
                   <View style={styles.pendingBadge}>
                     <Text style={styles.pendingBadgeText}>{t('settle.awaitingApproval')}</Text>
                   </View>
                 )}
-                {isDebtor && !hasPendingSettle && (
-                  <>
-                    <TouchableOpacity
-                      style={styles.actionIconBtnWrap}
-                      onPress={() => onSettle(tx.to, toM?.display_name ?? '?', currency, tx.amountMinor)}
-                      accessibilityLabel={t('settle.markPaidLabel')}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="checkmark" size={16} color={Colors.credit} />
-                      <Text style={styles.actionIconLabel}>{t('settle.markPaid')}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.actionIconBtnWrap}
-                      onPress={() => onIbanRequest(toM!, currency)}
-                      accessibilityLabel={t('iban.requestLabel')}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Ionicons name="card-outline" size={15} color={Colors.primary} />
-                      <Text style={styles.actionIconLabelBlue}>{t('iban.request')}</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
               </View>
             </View>
+
+            {/* Action links row — only for debtor, only when no pending settle */}
+            {isDebtor && !hasPendingSettle && (
+              <View style={styles.simplifiedActionRow}>
+                <TouchableOpacity
+                  style={styles.simplifiedActionBtn}
+                  onPress={() => onSettle(tx.to, toM?.display_name ?? '?', currency, tx.amountMinor)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel={t('settle.markPaidLabel')}
+                >
+                  <Ionicons name="checkmark-circle-outline" size={14} color={Colors.credit} />
+                  <Text style={styles.simplifiedActionBtnText}>{t('settle.markPaid')}</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.simplifiedActionDivider}>·</Text>
+
+                <TouchableOpacity
+                  style={styles.simplifiedActionBtn}
+                  onPress={() => onIbanWhatsApp(toM!, currency, tx.amountMinor)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel={t('iban.requestWhatsApp')}
+                >
+                  <Ionicons name="logo-whatsapp" size={14} color="#25D366" />
+                  <Text style={[styles.simplifiedActionBtnText, { color: Colors.primary }]}>{t('iban.request')}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         );
       })}
@@ -1129,10 +968,10 @@ const styles = StyleSheet.create({
   simplifiedFrom: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, color: Colors.debt },
   simplifiedTo: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, color: Colors.credit },
   simplifiedAmount: { fontFamily: Typography.fontDisplayMedium, fontSize: Typography.size.sm, color: Colors.textPrimary },
-  actionIconBtn: { width: 30, height: 30, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
-  actionIconBtnWrap: { alignItems: 'center', justifyContent: 'center', gap: 2, minWidth: 36, minHeight: 44 },
-  actionIconLabel: { fontFamily: Typography.fontBody, fontSize: 9, color: Colors.credit, textAlign: 'center' },
-  actionIconLabelBlue: { fontFamily: Typography.fontBody, fontSize: 9, color: Colors.primary, textAlign: 'center' },
+  simplifiedActionRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, paddingLeft: 2, gap: Spacing.xs },
+  simplifiedActionBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingVertical: 2, minHeight: 24 },
+  simplifiedActionBtnText: { fontFamily: Typography.fontBody, fontSize: 11, color: Colors.credit },
+  simplifiedActionDivider: { fontSize: 11, color: Colors.textTertiary },
   noDebts: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textTertiary, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
   // Activity
   activitySectionTitle: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.xs, color: Colors.textSecondary, letterSpacing: Typography.letterSpacing.wider, marginBottom: Spacing.sm, marginTop: Spacing.lg },
@@ -1169,9 +1008,7 @@ const styles = StyleSheet.create({
   modalConfirmText: { fontSize: fontSizes.sm, color: 'white', fontWeight: '700' },
   // IBAN
   remindBtn: { paddingHorizontal: spacing.xs, paddingVertical: 3 },
-  ibanInput: { backgroundColor: palette.surface, borderRadius: radii.md, padding: spacing.md, fontSize: fontSizes.md, color: palette.text, borderWidth: 1, borderColor: palette.border, marginBottom: spacing.sm, fontFamily: 'monospace', letterSpacing: 0.5 },
-  ibanDisclaimer: { fontSize: fontSizes.xs, color: palette.muted, marginBottom: spacing.md, fontStyle: 'italic', textAlign: 'center' },
-  ibanReceivedText: { backgroundColor: palette.surface, borderRadius: radii.md, padding: spacing.md, fontSize: fontSizes.lg, color: palette.text, borderWidth: 1, borderColor: palette.border, marginBottom: spacing.sm, fontFamily: 'monospace', fontWeight: '700', textAlign: 'center', letterSpacing: 1 },
+
   // FAB
   fab: { position: 'absolute', bottom: 32, right: 16, zIndex: 100, ...Shadows.fab },
   fabTouchable: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.primary, paddingHorizontal: 20, paddingVertical: 14, borderRadius: 28, minHeight: 52 },

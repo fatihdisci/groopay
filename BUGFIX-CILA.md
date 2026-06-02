@@ -2270,3 +2270,63 @@ npx supabase functions deploy revenuecat-webhook
 | Dokunma alanı korundu | ✅ |
 
 *Son güncelleme: 2026-06-02 — B97 eklendi (grup header üst buton hizası)*
+
+### ✅ B98: IBAN Realtime broadcast sistemi kaldırıldı, WhatsApp yönlendirmesi eklendi
+
+> Tarih: 2026-06-02
+
+**Sorun:** Mevcut IBAN sistemi Supabase Realtime broadcast kullanıyordu. Bu yaklaşım karmaşık state yönetimi, 3 ayrı modal, ve gerçek zamanlı kanal aboneliği gerektiriyordu. Kullanıcılar arası IBAN paylaşımı yerine WhatsApp üzerinden mesaj gönderilmesi daha pratik.
+
+**Yapılan:**
+- **Kaldırılan state:** `ibanModalVisible`, `ibanTargetMember`, `ibanModalMode`, `ibanInputText`, `ibanReceivedText`, `ibanActiveRequestId`, `ibanChannelsRef`
+- **Kaldırılan query/memo:** `iban_requests` useQuery, `pendingIbanReqs` useMemo
+- **Kaldırılan useEffect:** Realtime IBAN broadcast dinleyicisi (supabase.channel, iban_shared)
+- **Kaldırılan handler'lar:** `handleIbanRequest`, `handleIbanRequestConfirm`, `handleIbanEnter`, `handleIbanShare`
+- **Kaldırılan JSX:** 3 adet IBAN modal (request/enter/received) + "Pending IBAN requests" creditor kartı
+- **Kaldırılan stiller:** `ibanInput`, `ibanDisclaimer`, `ibanReceivedText`
+- **Kaldırılan queries.ts fonksiyonları:** `requestIban()`, `getPendingIbanRequests()`, `fulfillIbanRequest()`
+- **Kaldırılan types.ts:** `IbanRequestRow` import'u queries.ts'den kaldırıldı (interface hâlâ types.ts'de — ileride migration ile temizlenecek)
+- **Yeni fonksiyon:** `generateIbanRequestMessage()` — queries.ts'e eklendi (WhatsApp mesaj şablonu)
+- **Yeni handler:** `handleIbanWhatsApp()` — WhatsApp deep link açar, yoksa panoya kopyalar
+- **Yeni bağımlılık:** `expo-clipboard` — panoya kopyalama fallback için
+- **SimplifiedBalanceList:** `onIbanRequest` prop'u `onIbanWhatsApp` olarak değiştirildi; ikon `card-outline` → `logo-whatsapp` (#25D366)
+- **i18n:** 12 eski anahtar silindi, 2 yeni anahtar eklendi (`iban.requestWhatsApp`, `iban.copiedFallback`)
+- Kullanılmayan `supabase` client import'u kaldırıldı
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/index.tsx`, `lib/supabase/queries.ts`, `locales/tr.json`, `locales/en.json`, `package.json`
+
+| Kontrol | Durum |
+|---|---|
+| tsc --noEmit temiz | ✅ |
+| Eski IBAN state/query/useEffect/handler/modal tamamen silindi | ✅ |
+| Yeni WhatsApp handler çalışıyor | ✅ |
+| Clipboard fallback mevcut | ✅ |
+| i18n anahtarları güncellendi (tr + en) | ✅ |
+| expo-clipboard kuruldu | ✅ |
+| iban_requests DB tablosuna dokunulmadı | ✅ |
+
+*Son güncelleme: 2026-06-02 — B98 eklendi (IBAN Realtime → WhatsApp yönlendirme)*
+
+### ✅ B99: Bakiye satırı hizalama — butonlar tutarın altına
+
+> Tarih: 2026-06-02
+
+**Sorun:** `SimplifiedBalanceList` bileşeninde borçlu satırlarında işlem butonları tutar kolonuyla yan yana yer alıyordu. Bu durum borçlu satırının sağ kolondaki tutar hizasını bozarak diğer satırlarla (Mehmet→Ali vb.) uyumsuz görünmesine neden oluyordu.
+
+**Yapılan:**
+- Tutar kolonunun her satırda sağ kolonda sabit ve hizalı kalması sağlandı.
+- Borçlu satırına özel olan "Ödendi İşaretle" ve "IBAN İste" butonları, tutarın hemen altına yeni bir satır (`simplifiedActionRow`) olarak konumlandırıldı.
+- Diğer satırların layout yapısı (`simplifiedTopRow`) korunarak hizalama düzeni düzeltildi.
+- İlgili buton stilleri (`simplifiedActionRow`, `simplifiedActionBtn`, `simplifiedActionBtnText`, `simplifiedActionDivider`) eklendi.
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/index.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| tsc --noEmit temiz | ✅ |
+| Diğer satırların layout'u korunuyor | ✅ |
+| `simplifiedTopRow` stili değişmedi | ✅ |
+| Butonlar tutarın altında ve hizalı | ✅ |
+
+*Son güncelleme: 2026-06-02 — B99 eklendi (bakiye satırı hizalama — butonlar tutarın altına)*
+
