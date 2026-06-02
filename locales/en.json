@@ -309,6 +309,7 @@
     "recommended": "Recommended",
     "limitNote": "You've reached the 5-group limit. Go Pro for unlimited groups.",
     "loading": "Loading...",
+    "priceError": "Price unavailable",
     "ok": "OK",
     "successTitle": "Success",
     "userProSuccess": "Upgraded to Pro! All Pro features are now active.",

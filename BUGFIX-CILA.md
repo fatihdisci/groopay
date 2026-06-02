@@ -2022,3 +2022,35 @@ npx supabase functions deploy revenuecat-webhook
 | Mevcut arama davranışı korundu | ✅ |
 
 *Son güncelleme: 2026-06-02 — B87 eklendi (aktivite araması herkese açık)*
+
+---
+
+### ✅ B88: Paywall gradient header + 5s fiyat timeout
+
+> Tarih: 2026-06-02
+
+**Sorun:**
+- Paywall fiyat bilgisi `getOfferings()` yanıtını sonsuza kadar bekleyebiliyordu.
+- Paywall header düz yüzeyde kalıyor, uygulamanın modern fintech gradient hero diliyle tam tutarlı görünmüyordu.
+
+**Yapılan:**
+- `priceTimeout` state'i eklendi.
+- Offerings yükleme akışına 5 saniyelik timeout eklendi; timeout olursa fiyat alanı warning rengiyle `paywall.priceError` gösterir.
+- Offerings yüklenmeden önce fiyat alanı `ActivityIndicator` gösterir.
+- CTA disabled koşulu `purchasing !== null || (!offeringsLoaded && !priceTimeout)` olarak güncellendi.
+- Header `LinearGradient` ile `#4F46E5 → #7C3AED` hero yapısına taşındı.
+- Elmas ikonu beyaz yarı saydam daire içine alındı; kapatma butonu gradient üzerinde beyaz tonla gösterildi.
+- Feature rows, price card ve CTA yatay margin ile gradient dışındaki içerik genişliğiyle hizalandı.
+- `paywall.priceError` tr/en i18n anahtarı eklendi.
+
+**Değişen dosyalar:** `app/paywall.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| Fiyat yüklenirken spinner | ✅ |
+| 5 saniye sonra fiyat hata metni | ✅ |
+| CTA bekleme sırasında disabled | ✅ |
+| Gradient hero header | ✅ |
+| i18n tr/en | ✅ |
+
+*Son güncelleme: 2026-06-02 — B88 eklendi (paywall gradient header + fiyat timeout)*

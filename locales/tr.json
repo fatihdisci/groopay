@@ -306,6 +306,7 @@
     "recommended": "Önerilen",
     "limitNote": "5 grup limitine ulaştınız. Pro'ya geçerek sınırsız grup oluşturun.",
     "loading": "Yükleniyor...",
+    "priceError": "Fiyat bilgisi alınamadı",
     "ok": "Tamam",
     "successTitle": "Başarılı",
     "userProSuccess": "Pro'ya yükseltildiniz! Tüm Pro özellikleri aktif.",

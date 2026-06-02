@@ -9,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -41,13 +42,26 @@ export default function PaywallScreen() {
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [offerings, setOfferings] = useState<OfferingsResult | null>(null);
   const [offeringsLoaded, setOfferingsLoaded] = useState(false);
+  const [priceTimeout, setPriceTimeout] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    const timeout = setTimeout(() => {
+      if (!cancelled) setPriceTimeout(true);
+    }, 5000);
+
     (async () => {
       const off = await getOfferings();
+      if (cancelled) return;
+      clearTimeout(timeout);
       setOfferings(off);
       setOfferingsLoaded(true);
     })();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
   }, []);
 
   const handlePurchaseUserPro = async () => {
@@ -101,6 +115,9 @@ export default function PaywallScreen() {
   };
 
   const userProPrice = offerings?.userPro?.priceString;
+  const isWaitingForPrice = !offeringsLoaded && !priceTimeout;
+  const isPriceUnavailable = priceTimeout || (offeringsLoaded && !userProPrice);
+  const isPurchaseDisabled = purchasing !== null || isWaitingForPrice;
 
   // ── Already Pro ──
   if (isUserPro) {
@@ -124,17 +141,22 @@ export default function PaywallScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Close button */}
       <TouchableOpacity style={styles.closeButton} onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Ionicons name="close" size={24} color={Colors.textSecondary} />
+        <Ionicons name="close" size={24} color="rgba(255,255,255,0.85)" />
       </TouchableOpacity>
 
       {/* Header */}
-      <View style={styles.header}>
+      <LinearGradient
+        colors={['#4F46E5', '#7C3AED']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
         <View style={styles.diamondIcon}>
-          <Ionicons name="diamond" size={36} color={Colors.primary} />
+          <Ionicons name="diamond" size={40} color="white" />
         </View>
         <Text style={styles.title}>{t('paywall.title')}</Text>
         <Text style={styles.subtitle}>{t('paywall.subtitle')}</Text>
-      </View>
+      </LinearGradient>
 
       {/* Feature rows — open, no box */}
       <View style={styles.featuresSection}>
@@ -159,8 +181,10 @@ export default function PaywallScreen() {
           </View>
           {offeringsLoaded && userProPrice ? (
             <Text style={styles.priceValue}>{userProPrice}</Text>
+          ) : isPriceUnavailable ? (
+            <Text style={styles.priceError}>{t('paywall.priceError')}</Text>
           ) : (
-            <Text style={styles.priceLoading}>{t('paywall.loading')}</Text>
+            <ActivityIndicator size="small" color={Colors.primary} />
           )}
         </View>
         <Text style={styles.priceDesc}>{t('paywall.userProDetail')}</Text>
@@ -175,9 +199,9 @@ export default function PaywallScreen() {
 
       {/* CTA Button */}
       <TouchableOpacity
-        style={[styles.ctaButton, purchasing === 'user' && styles.ctaButtonDisabled]}
+        style={[styles.ctaButton, isPurchaseDisabled && styles.ctaButtonDisabled]}
         onPress={handlePurchaseUserPro}
-        disabled={purchasing !== null || !offeringsLoaded}
+        disabled={isPurchaseDisabled}
         activeOpacity={0.85}
       >
         {purchasing === 'user' ? (
@@ -220,22 +244,30 @@ export default function PaywallScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  content: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 48 },
+  content: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 48 },
   closeButton: { position: 'absolute', top: 16, right: 16, padding: 8, zIndex: 10 },
 
   // Header
-  header: { alignItems: 'center', marginBottom: 36 },
+  header: {
+    alignItems: 'center',
+    paddingTop: 56,
+    paddingBottom: 36,
+    paddingHorizontal: 28,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    marginBottom: 36,
+  },
   diamondIcon: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: Colors.primaryGhost,
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
     marginBottom: Spacing.md,
   },
-  title: { fontFamily: Typography.fontDisplayBold, fontSize: 28, color: Colors.textPrimary, textAlign: 'center' },
-  subtitle: { fontFamily: Typography.fontBody, fontSize: 16, color: Colors.textSecondary, marginTop: 8, textAlign: 'center', lineHeight: 22 },
+  title: { fontFamily: Typography.fontDisplayBold, fontSize: 28, color: 'white', textAlign: 'center' },
+  subtitle: { fontFamily: Typography.fontBody, fontSize: 15, color: 'rgba(255,255,255,0.82)', marginTop: 8, textAlign: 'center', lineHeight: 22 },
 
   // Features — open rows
-  featuresSection: { marginBottom: 32 },
+  featuresSection: { marginHorizontal: 24, marginBottom: 32 },
   featureRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 16, gap: 14,
@@ -253,6 +285,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: 20,
+    marginHorizontal: 24,
     ...Shadows.md,
   },
   priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
@@ -265,7 +298,7 @@ const styles = StyleSheet.create({
   },
   monthlyBadgeText: { fontFamily: Typography.fontBodyBold, fontSize: 12, color: Colors.primary },
   priceValue: { fontFamily: Typography.fontDisplayBold, fontSize: 22, color: Colors.primary },
-  priceLoading: { fontFamily: Typography.fontDisplayMedium, fontSize: 16, color: Colors.textTertiary },
+  priceError: { fontFamily: Typography.fontDisplayMedium, fontSize: 14, color: Colors.warning, textAlign: 'right' },
   priceDesc: { fontFamily: Typography.fontBody, fontSize: 13, color: Colors.textSecondary, lineHeight: 19 },
 
   // Limit note
@@ -285,6 +318,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 44,
     marginTop: 16,
+    marginHorizontal: 24,
     ...Shadows.md,
   },
   ctaButtonDisabled: { opacity: 0.6 },
