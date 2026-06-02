@@ -160,7 +160,7 @@ export default function EditGroupScreen() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {/* Header — gradient with embedded back button */}
         <LinearGradient
-          colors={['#6366F1', '#8B5CF6']}
+          colors={[Colors.gradientStart, Colors.gradientEnd]}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
 
   // Header — gradient with embedded back button
   headerGradient: { alignItems: 'center', paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
-  headerTopBar: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, marginBottom: 8 },
+  headerTopBar: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: -Spacing.sm, marginBottom: 8 },
   headerNavButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   editModeLabel: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.xs, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, marginBottom: Spacing.sm },
   groupName: { fontFamily: Typography.fontDisplayBold, fontSize: Typography.size.xl, color: '#FFFFFF', marginTop: Spacing.sm },

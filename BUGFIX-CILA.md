@@ -2224,3 +2224,49 @@ npx supabase functions deploy revenuecat-webhook
 | Hardcoded görünen metin eklenmedi | ✅ |
 
 *Son güncelleme: 2026-06-02 — B95 eklendi (profil tips butonu)*
+
+---
+
+### ✅ B96: Grup avatar header gradient tonu panel ile eşitlendi
+
+> Tarih: 2026-06-02
+
+**Sorun:** Paneldeki genel durum header'ı ile grup detay/düzenle ekranlarındaki avatar header gradient tonu farklı görünüyordu.
+
+**Yapılan:**
+- Grup detay header gradient'i `Colors.gradientStart` / `Colors.gradientEnd` sabitlerine bağlandı.
+- Grup düzenle header gradient'i aynı tasarım sabitlerine bağlandı.
+- Panel header ile grup avatar header'ları aynı mor tona getirildi.
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/index.tsx`, `app/(tabs)/groups/[id]/edit.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| Grup detay header tonu panel ile eşitlendi | ✅ |
+| Grup düzenle header tonu panel ile eşitlendi | ✅ |
+| Hardcoded ayrı gradient kaldırıldı | ✅ |
+
+*Son güncelleme: 2026-06-02 — B96 eklendi (header gradient tonu)*
+
+---
+
+### ✅ B97: Grup header üst butonları kenarlara yaklaştırıldı
+
+> Tarih: 2026-06-02
+
+**Sorun:** Grup detay ve grup düzenle ekranlarındaki avatar header üst bar butonları, header yatay padding'i nedeniyle kenarlardan fazla içeride görünüyordu.
+
+**Yapılan:**
+- Grup detay header üst barına yatay negatif margin verildi.
+- Grup düzenle header üst barı aynı ayarla hizalandı.
+- Geri, düzenle ve tips butonlarının 44px dokunma alanı korunarak görsel konumları kenarlara yaklaştırıldı.
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/index.tsx`, `app/(tabs)/groups/[id]/edit.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| Grup detay üst bar butonları kenara yaklaştı | ✅ |
+| Grup düzenle üst bar butonları kenara yaklaştı | ✅ |
+| Dokunma alanı korundu | ✅ |
+
+*Son güncelleme: 2026-06-02 — B97 eklendi (grup header üst buton hizası)*

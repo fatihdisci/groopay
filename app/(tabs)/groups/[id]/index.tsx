@@ -299,7 +299,7 @@ export default function GroupDetailScreen() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         {/* Group header — gradient with embedded nav buttons */}
         <LinearGradient
-          colors={['#6366F1', '#8B5CF6']}
+          colors={[Colors.gradientStart, Colors.gradientEnd]}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
@@ -1040,7 +1040,7 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.background },
   emptyText: { color: palette.textSecondary, fontSize: fontSizes.md },
   headerGradient: { alignItems: 'center', paddingBottom: Spacing.xl, paddingHorizontal: Spacing.lg, borderRadius: Radius.xl },
-  headerTopBar: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, marginBottom: 8 },
+  headerTopBar: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginHorizontal: -Spacing.sm, marginBottom: 8 },
   headerNavButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   groupName: { fontFamily: Typography.fontDisplayBold, fontSize: Typography.size.xl, color: '#FFFFFF', marginTop: Spacing.sm },
   groupDescription: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: 'rgba(255,255,255,0.6)', marginTop: 4, textAlign: 'center', paddingHorizontal: Spacing.md },
