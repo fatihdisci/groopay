@@ -5,6 +5,11 @@
     "activity": "Activity",
     "account": "Account"
   },
+  "months": {
+    "jan": "Jan", "feb": "Feb", "mar": "Mar", "apr": "Apr",
+    "may": "May", "jun": "Jun", "jul": "Jul", "aug": "Aug",
+    "sep": "Sep", "oct": "Oct", "nov": "Nov", "dec": "Dec"
+  },
   "groups": {
     "empty": "No groups yet"
   },
@@ -23,6 +28,7 @@
     "expense_added": "{{name}} added \"{{desc}}\" ({{amount}})",
     "expense_edited": "{{name}} updated \"{{desc}}\"",
     "expense_deleted": "{{name}} deleted \"{{desc}}\"",
+    "expense_deleted_no_desc": "{{name}} deleted an expense",
     "group_archived": "{{name}} archived the group",
     "settlement_confirmed": "{{name}} confirmed the payment",
     "settlement_marked": "{{name}} marked {{amt}} as paid to {{to}} (pending)",
@@ -317,7 +323,21 @@
     "settlementReceived": "Received",
     "otherCurrencyNote": "Note: Only {{currency}} expenses shown. Other currencies calculated separately.",
     "monthlySpending": "Monthly Spending ({{currency}})",
-    "trendSingleCurrency": "Only {{currency}} expenses shown"
+    "trendSingleCurrency": "Only {{currency}} expenses shown",
+    "allExpenses": "All Transactions",
+    "allExpensesEmpty": "No expenses yet",
+    "allExpensesNoMatch": "No expenses match this filter",
+    "loadMore": "Load More",
+    "filterMonth": "Month",
+    "filterCategory": "Category",
+    "filterCurrency": "Currency",
+    "filterGroup": "Group",
+    "allGroups": "All Groups",
+    "allCategories": "All Categories",
+    "allCurrencies": "All Currencies",
+    "allMonths": "All Months",
+    "tapToExpand": "Tap to see details",
+    "tapToCollapse": "Tap to collapse"
   },
   "account": {
     "title": "Account",

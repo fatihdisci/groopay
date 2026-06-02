@@ -10,6 +10,8 @@ import type {
   GroupWithMembers,
   ExpenseWithSplits,
   ExpenseFilters,
+  AllExpensesFilters,
+  ExpenseWithGroupInfo,
   AddExpenseInput,
   SettlementRow,
   IbanRequestRow,
@@ -793,4 +795,157 @@ export async function getProDashboardAnalytics(
   }
 
   return { monthlyTrend, topCategory, mostActiveMonth, trendCurrency: activeCurrency, topPayer, settlementSummary };
+}
+
+// ── All User Expenses (Dashboard "Tüm İşlemler") ──
+
+export interface AllExpensesResult {
+  expenses: ExpenseWithGroupInfo[];
+  hasMore: boolean;
+  total: number;
+}
+
+export async function getAllUserExpenses(
+  userId: string,
+  filters: AllExpensesFilters = {},
+  page: number = 0,
+  pageSize: number = 20,
+): Promise<AllExpensesResult> {
+  // 1. Get user's active group memberships
+  const { data: members } = await supabase
+    .from('group_members')
+    .select('group_id')
+    .eq('user_id', userId)
+    .eq('is_active', true);
+
+  if (!members || members.length === 0) {
+    return { expenses: [], hasMore: false, total: 0 };
+  }
+
+  const groupIds = members.map((m) => m.group_id);
+
+  // 2. Build base query (simple — no embedded joins, they silently fail)
+  let query = supabase
+    .from('expenses')
+    .select('*', { count: 'exact' })
+    .in('group_id', groupIds)
+    .is('deleted_at', null);
+
+  // 3. Apply filters
+  if (filters.groupId) {
+    query = query.eq('group_id', filters.groupId);
+  }
+  if (filters.category) {
+    query = query.eq('category', filters.category);
+  }
+  if (filters.currency) {
+    query = query.eq('currency', filters.currency);
+  }
+  if (filters.year !== undefined && filters.month !== undefined) {
+    const startOfMonth = new Date(filters.year, filters.month, 1);
+    const endOfMonth = new Date(filters.year, filters.month + 1, 1);
+    query = query
+      .gte('expense_date', startOfMonth.toISOString().split('T')[0]!)
+      .lt('expense_date', endOfMonth.toISOString().split('T')[0]!);
+  }
+
+  // 4. Fetch paginated expenses
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data: expenseRows, error, count } = await query
+    .order('expense_date', { ascending: false })
+    .range(from, to);
+
+  if (error) throw error;
+
+  const rows = (expenseRows ?? []) as any[];
+  const total = count ?? 0;
+
+  if (rows.length === 0) {
+    return { expenses: [], hasMore: false, total };
+  }
+
+  // 5. Batch-fetch group info + paid_by names (avoids broken embedded joins)
+  const uniqueGroupIds = [...new Set(rows.map((r) => r.group_id))] as string[];
+  const uniquePaidByIds = [...new Set(rows.map((r) => r.paid_by))] as string[];
+
+  const [{ data: groupsData }, { data: membersData }] = await Promise.all([
+    supabase.from('groups').select('id, name, avatar_emoji, avatar_color').in('id', uniqueGroupIds),
+    supabase.from('group_members').select('id, display_name').in('id', uniquePaidByIds),
+  ]);
+
+  const groupMap = new Map((groupsData ?? []).map((g: any) => [g.id, g]));
+  const memberMap = new Map((membersData ?? []).map((m: any) => [m.id, m]));
+
+  // 6. Map to ExpenseWithGroupInfo
+  const expenses: ExpenseWithGroupInfo[] = rows.map((row: any) => {
+    const group = groupMap.get(row.group_id);
+    const payer = memberMap.get(row.paid_by);
+    return {
+      id: row.id,
+      group_id: row.group_id,
+      group_name: group?.name ?? '?',
+      group_emoji: group?.avatar_emoji ?? null,
+      group_color: group?.avatar_color ?? '#4F46E5',
+      description: row.description,
+      amount: Number(row.amount),
+      currency: row.currency,
+      category: row.category,
+      split_type: row.split_type,
+      paid_by: row.paid_by,
+      paid_by_name: payer?.display_name ?? '?',
+      expense_date: row.expense_date,
+      created_at: row.created_at,
+    };
+  });
+
+  const hasMore = from + expenses.length < total;
+
+  return { expenses, hasMore, total };
+}
+
+// ── User Groups + Currencies (for filters) ──
+
+export async function getUserFilterOptions(
+  userId: string,
+): Promise<{ groups: { id: string; name: string; emoji: string | null; color: string }[]; currencies: string[] }> {
+  // Get groups
+  const { data: members } = await supabase
+    .from('group_members')
+    .select('group_id')
+    .eq('user_id', userId)
+    .eq('is_active', true);
+
+  if (!members || members.length === 0) {
+    return { groups: [], currencies: [] };
+  }
+
+  const groupIds = members.map((m) => m.group_id);
+
+  const { data: groups } = await supabase
+    .from('groups')
+    .select('id, name, avatar_emoji, avatar_color')
+    .in('id', groupIds)
+    .eq('archived', false)
+    .order('name');
+
+  // Get unique currencies from expenses
+  const { data: expenses } = await supabase
+    .from('expenses')
+    .select('currency')
+    .in('group_id', groupIds)
+    .is('deleted_at', null);
+
+  const currencies = [...new Set((expenses ?? []).map((e) => e.currency))].sort();
+
+  return {
+    groups: (groups ?? []).map((g) => ({
+      id: g.id,
+      name: g.name,
+      emoji: g.avatar_emoji,
+      color: g.avatar_color,
+    })),
+    currencies,
+  };
 }

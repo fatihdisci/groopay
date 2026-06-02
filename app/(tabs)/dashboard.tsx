@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter, useNavigation } from 'expo-router';
@@ -7,11 +7,12 @@ import { useQuery } from '@tanstack/react-query';
 
 import { usePro } from '@/hooks/usePro';
 import { useAuth } from '@/lib/auth';
-import { getProDashboardAnalytics, type DashboardAnalyticsData } from '@/lib/supabase/queries';
+import { getProDashboardAnalytics, getAllUserExpenses, getUserFilterOptions, type DashboardAnalyticsData } from '@/lib/supabase/queries';
+import type { AllExpensesFilters, ExpenseWithGroupInfo } from '@/lib/supabase/types';
 import { supabase } from '@/lib/supabase/client';
 import { computeBalances, groupByCurrency } from '@/lib/finance';
 import { fromMinor, formatAmount } from '@/lib/finance/money';
-import { CATEGORIES, CATEGORY_COLORS } from '@/lib/finance/categories';
+import { CATEGORIES, CATEGORY_COLORS, CATEGORY_ICONS } from '@/lib/finance/categories';
 import type { Category } from '@/lib/finance/categories';
 import { FadeInUp } from '@/components/Animations';
 import TipsButton from '@/components/TipsButton';
@@ -168,6 +169,90 @@ export default function DashboardScreen() {
     enabled: !!user?.id && isUserPro,
     staleTime: 60_000,
   });
+
+  // Enable LayoutAnimation on Android
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  // ── All Expenses section ──
+  const [allExpensesExpanded, setAllExpensesExpanded] = useState(false);
+  const [expenseFilters, setExpenseFilters] = useState<AllExpensesFilters>({});
+  const [expensePage, setExpensePage] = useState(0);
+  const [accumulatedExpenses, setAccumulatedExpenses] = useState<ExpenseWithGroupInfo[]>([]);
+  const [showFilterPicker, setShowFilterPicker] = useState<'month' | 'category' | 'currency' | 'group' | null>(null);
+
+  // Filter options (groups + currencies)
+  const { data: filterOptions } = useQuery({
+    queryKey: ['expense-filter-options', user?.id],
+    queryFn: () => getUserFilterOptions(user!.id),
+    enabled: !!user?.id && allExpensesExpanded,
+    staleTime: 60_000,
+  });
+
+  // All expenses query (paginated, filtered) — only when expanded + Pro
+  const cleanFilters: AllExpensesFilters = {};
+  if (expenseFilters.month !== undefined) cleanFilters.month = expenseFilters.month;
+  if (expenseFilters.year !== undefined) cleanFilters.year = expenseFilters.year;
+  if (expenseFilters.category) cleanFilters.category = expenseFilters.category;
+  if (expenseFilters.currency) cleanFilters.currency = expenseFilters.currency;
+  if (expenseFilters.groupId) cleanFilters.groupId = expenseFilters.groupId;
+
+  const { data: allExpensesData, isLoading: allExpensesLoading, isFetching: allExpensesFetching, isError: allExpensesError } = useQuery({
+    queryKey: ['all-user-expenses', user?.id, cleanFilters, expensePage],
+    queryFn: () => getAllUserExpenses(user!.id, cleanFilters, expensePage, 20),
+    enabled: !!user?.id && isUserPro && allExpensesExpanded,
+    staleTime: 30_000,
+    retry: 1,
+  });
+
+  // Single unified effect: reset on filter change, then accumulate
+  const prevFiltersKey = useRef('');
+  const filtersKey = `${cleanFilters.month ?? ''}|${cleanFilters.year ?? ''}|${cleanFilters.category ?? ''}|${cleanFilters.currency ?? ''}|${cleanFilters.groupId ?? ''}`;
+
+  useEffect(() => {
+    const filtersChanged = filtersKey !== prevFiltersKey.current;
+    if (filtersChanged) {
+      prevFiltersKey.current = filtersKey;
+      setExpensePage(0);
+      setAccumulatedExpenses([]);
+    }
+
+    if (!allExpensesData) return;
+
+    // On page 0 or filter change → replace. On page > 0 → append.
+    if (expensePage === 0 || filtersChanged) {
+      setAccumulatedExpenses(allExpensesData.expenses);
+    } else {
+      setAccumulatedExpenses((prev) => {
+        const existingIds = new Set(prev.map((e) => e.id));
+        const newItems = allExpensesData.expenses.filter((e) => !existingIds.has(e.id));
+        return [...prev, ...newItems];
+      });
+    }
+  }, [filtersKey, allExpensesData, expensePage]);
+
+  const toggleAllExpenses = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setAllExpensesExpanded((prev) => !prev);
+  }, []);
+
+  const handleLoadMore = useCallback(() => {
+    if (!allExpensesData?.hasMore || allExpensesFetching) return;
+    setExpensePage((prev) => prev + 1);
+  }, [allExpensesData?.hasMore, allExpensesFetching]);
+
+  // Month names for filter
+  const monthNames = [
+    t('months.jan'), t('months.feb'), t('months.mar'), t('months.apr'),
+    t('months.may'), t('months.jun'), t('months.jul'), t('months.aug'),
+    t('months.sep'), t('months.oct'), t('months.nov'), t('months.dec'),
+  ];
+
+  // Check if any filter is active (narrows results)
+  const hasActiveFilter = expenseFilters.month !== undefined || expenseFilters.category !== undefined || expenseFilters.currency !== undefined || expenseFilters.groupId !== undefined;
 
   if (heroLoading) {
     return (
@@ -389,6 +474,286 @@ export default function DashboardScreen() {
         </>
       )}
 
+      {/* ── ALL EXPENSES (Pro: full, Free: blurred preview) ── */}
+      {isUserPro ? (
+        <View style={styles.proSection}>
+          {/* Section header — tappable to expand/collapse */}
+          <TouchableOpacity style={styles.allExpensesHeader} onPress={toggleAllExpenses} activeOpacity={0.7}>
+            <Text style={styles.sectionTitle}>{t('dashboard.allExpenses')}</Text>
+            <View style={styles.allExpensesRight}>
+              {allExpensesExpanded && allExpensesData?.total !== undefined && (
+                <View style={styles.expenseCountBadge}>
+                  <Text style={styles.expenseCountText}>{allExpensesData.total}</Text>
+                </View>
+              )}
+              <Ionicons
+                name={allExpensesExpanded ? 'chevron-up-outline' : 'chevron-down-outline'}
+                size={20}
+                color={Colors.textTertiary}
+              />
+            </View>
+          </TouchableOpacity>
+
+          {allExpensesExpanded && (
+            <>
+              {/* Filter chip row */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow} contentContainerStyle={styles.filterRowContent}>
+                {/* Month filter */}
+                <TouchableOpacity
+                  style={[styles.filterChip, expenseFilters.month !== undefined && styles.filterChipActive]}
+                  onPress={() => setShowFilterPicker(showFilterPicker === 'month' ? null : 'month')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="calendar-outline" size={14} color={expenseFilters.month !== undefined ? '#FFFFFF' : Colors.primary} />
+                  <Text style={[styles.filterChipText, expenseFilters.month !== undefined && styles.filterChipTextActive]}>
+                    {expenseFilters.month !== undefined && expenseFilters.year
+                      ? `${monthNames[expenseFilters.month]} ${expenseFilters.year}`
+                      : t('dashboard.filterMonth')}
+                  </Text>
+                  {expenseFilters.month !== undefined && (
+                    <TouchableOpacity
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={() => setExpenseFilters((prev) => ({ ...prev, month: undefined, year: undefined }))}
+                    >
+                      <Ionicons name="close-circle" size={14} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+
+                {/* Category filter */}
+                <TouchableOpacity
+                  style={[styles.filterChip, expenseFilters.category && styles.filterChipActive]}
+                  onPress={() => setShowFilterPicker(showFilterPicker === 'category' ? null : 'category')}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="pricetag-outline" size={14} color={expenseFilters.category ? '#FFFFFF' : Colors.primary} />
+                  <Text style={[styles.filterChipText, expenseFilters.category && styles.filterChipTextActive]}>
+                    {expenseFilters.category ? t(`categories.${expenseFilters.category}`) : t('dashboard.filterCategory')}
+                  </Text>
+                  {expenseFilters.category && (
+                    <TouchableOpacity
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      onPress={() => setExpenseFilters((prev) => ({ ...prev, category: undefined }))}
+                    >
+                      <Ionicons name="close-circle" size={14} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+
+                {/* Currency filter */}
+                {(filterOptions?.currencies.length ?? 0) > 1 && (
+                  <TouchableOpacity
+                    style={[styles.filterChip, expenseFilters.currency && styles.filterChipActive]}
+                    onPress={() => setShowFilterPicker(showFilterPicker === 'currency' ? null : 'currency')}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="cash-outline" size={14} color={expenseFilters.currency ? '#FFFFFF' : Colors.primary} />
+                    <Text style={[styles.filterChipText, expenseFilters.currency && styles.filterChipTextActive]}>
+                      {expenseFilters.currency ?? t('dashboard.filterCurrency')}
+                    </Text>
+                    {expenseFilters.currency && (
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        onPress={() => setExpenseFilters((prev) => ({ ...prev, currency: undefined }))}
+                      >
+                        <Ionicons name="close-circle" size={14} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    )}
+                  </TouchableOpacity>
+                )}
+
+                {/* Group filter */}
+                {(filterOptions?.groups.length ?? 0) > 1 && (
+                  <TouchableOpacity
+                    style={[styles.filterChip, expenseFilters.groupId && styles.filterChipActive]}
+                    onPress={() => setShowFilterPicker(showFilterPicker === 'group' ? null : 'group')}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="people-outline" size={14} color={expenseFilters.groupId ? '#FFFFFF' : Colors.primary} />
+                    <Text style={[styles.filterChipText, expenseFilters.groupId && styles.filterChipTextActive]}>
+                      {expenseFilters.groupId
+                        ? (filterOptions?.groups.find((g) => g.id === expenseFilters.groupId)?.name ?? t('dashboard.filterGroup'))
+                        : t('dashboard.filterGroup')}
+                    </Text>
+                    {expenseFilters.groupId && (
+                      <TouchableOpacity
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        onPress={() => setExpenseFilters((prev) => ({ ...prev, groupId: undefined }))}
+                      >
+                        <Ionicons name="close-circle" size={14} color="#FFFFFF" />
+                      </TouchableOpacity>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+
+              {/* Filter picker dropdown */}
+              {showFilterPicker === 'month' && (
+                <View style={styles.filterPicker}>
+                  <ScrollView style={{ maxHeight: 200 }}>
+                    <TouchableOpacity
+                      style={styles.filterPickerItem}
+                      onPress={() => { setExpenseFilters((prev) => ({ ...prev, month: undefined, year: undefined })); setShowFilterPicker(null); }}
+                    >
+                      <Text style={styles.filterPickerText}>{t('dashboard.allMonths')}</Text>
+                    </TouchableOpacity>
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const d = new Date();
+                      d.setMonth(d.getMonth() - i);
+                      const monthIdx = d.getMonth();
+                      const year = d.getFullYear();
+                      return (
+                        <TouchableOpacity
+                          key={`${year}-${monthIdx}`}
+                          style={styles.filterPickerItem}
+                          onPress={() => { setExpenseFilters((prev) => ({ ...prev, month: monthIdx, year })); setShowFilterPicker(null); }}
+                        >
+                          <Text style={styles.filterPickerText}>{monthNames[monthIdx]} {year}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              )}
+
+              {showFilterPicker === 'category' && (
+                <View style={styles.filterPicker}>
+                  <ScrollView style={{ maxHeight: 200 }}>
+                    <TouchableOpacity
+                      style={styles.filterPickerItem}
+                      onPress={() => { setExpenseFilters((prev) => ({ ...prev, category: undefined })); setShowFilterPicker(null); }}
+                    >
+                      <Text style={styles.filterPickerText}>{t('dashboard.allCategories')}</Text>
+                    </TouchableOpacity>
+                    {(CATEGORIES as unknown as string[]).map((cat) => (
+                      <TouchableOpacity
+                        key={cat}
+                        style={styles.filterPickerItem}
+                        onPress={() => { setExpenseFilters((prev) => ({ ...prev, category: cat })); setShowFilterPicker(null); }}
+                      >
+                        <Ionicons name={CATEGORY_ICONS[cat as Category]} size={16} color={CATEGORY_COLORS[cat as Category]} style={{ marginRight: 8 }} />
+                        <Text style={styles.filterPickerText}>{t(`categories.${cat}`)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
+              {showFilterPicker === 'currency' && (
+                <View style={styles.filterPicker}>
+                  <TouchableOpacity
+                    style={styles.filterPickerItem}
+                    onPress={() => { setExpenseFilters((prev) => ({ ...prev, currency: undefined })); setShowFilterPicker(null); }}
+                  >
+                    <Text style={styles.filterPickerText}>{t('dashboard.allCurrencies')}</Text>
+                  </TouchableOpacity>
+                  {(filterOptions?.currencies ?? []).map((cur) => (
+                    <TouchableOpacity
+                      key={cur}
+                      style={styles.filterPickerItem}
+                      onPress={() => { setExpenseFilters((prev) => ({ ...prev, currency: cur })); setShowFilterPicker(null); }}
+                    >
+                      <Text style={styles.filterPickerText}>{cur}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {showFilterPicker === 'group' && (
+                <View style={styles.filterPicker}>
+                  <TouchableOpacity
+                    style={styles.filterPickerItem}
+                    onPress={() => { setExpenseFilters((prev) => ({ ...prev, groupId: undefined })); setShowFilterPicker(null); }}
+                  >
+                    <Text style={styles.filterPickerText}>{t('dashboard.allGroups')}</Text>
+                  </TouchableOpacity>
+                  {(filterOptions?.groups ?? []).map((g) => (
+                    <TouchableOpacity
+                      key={g.id}
+                      style={styles.filterPickerItem}
+                      onPress={() => { setExpenseFilters((prev) => ({ ...prev, groupId: g.id })); setShowFilterPicker(null); }}
+                    >
+                      <Text style={styles.groupPickerName}>{g.emoji ? `${g.emoji} ` : ''}{g.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Expense list */}
+              {allExpensesError ? (
+                <View style={styles.emptyCardSmall}>
+                  <Ionicons name="alert-circle-outline" size={28} color={Colors.debt} />
+                  <Text style={[styles.emptySmallText, { color: Colors.debt }]}>Yükleme hatası. Tekrar deneyin.</Text>
+                </View>
+              ) : allExpensesLoading || (allExpensesFetching && expensePage === 0) ? (
+                <ActivityIndicator color={Colors.primary} style={{ paddingVertical: 24 }} />
+              ) : accumulatedExpenses.length > 0 ? (
+                <View style={styles.expenseList}>
+                  {accumulatedExpenses.map((exp) => (
+                    <View key={exp.id} style={styles.expenseItem}>
+                      <View style={[styles.expenseIconCircle, { backgroundColor: (CATEGORY_COLORS[exp.category as Category] ?? Colors.primary) + '18' }]}>
+                        <Ionicons name={CATEGORY_ICONS[exp.category as Category] ?? 'ellipsis-horizontal-outline'} size={18} color={CATEGORY_COLORS[exp.category as Category] ?? Colors.primary} />
+                      </View>
+                      <View style={styles.expenseItemCenter}>
+                        <Text style={styles.expenseItemDesc} numberOfLines={1}>{exp.description}</Text>
+                        <View style={styles.expenseItemMeta}>
+                          <View style={styles.groupChip}>
+                            <Text style={styles.groupChipText} numberOfLines={1}>
+                              {exp.group_emoji ? `${exp.group_emoji} ` : ''}{exp.group_name}
+                            </Text>
+                          </View>
+                          <Text style={styles.expenseItemPayer}>{exp.paid_by_name} · {new Date(exp.expense_date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })}</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.expenseItemAmount}>{formatAmount(exp.amount, exp.currency)}</Text>
+                    </View>
+                  ))}
+
+                  {/* Load more */}
+                  {allExpensesData?.hasMore && (
+                    <TouchableOpacity
+                      style={styles.loadMoreButton}
+                      onPress={handleLoadMore}
+                      activeOpacity={0.7}
+                      disabled={allExpensesFetching}
+                    >
+                      {allExpensesFetching ? (
+                        <ActivityIndicator size="small" color={Colors.primary} />
+                      ) : (
+                        <Text style={styles.loadMoreText}>{t('dashboard.loadMore')}</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ) : (
+                <View style={styles.emptyCardSmall}>
+                  <Ionicons name="receipt-outline" size={28} color={Colors.textTertiary} />
+                  <Text style={styles.emptySmallText}>
+                    {hasActiveFilter ? t('dashboard.allExpensesNoMatch') : t('dashboard.allExpensesEmpty')}
+                  </Text>
+                </View>
+              )}
+
+              {/* Collapse hint */}
+              {accumulatedExpenses.length > 5 && (
+                <TouchableOpacity style={styles.collapseHint} onPress={toggleAllExpenses} activeOpacity={0.7}>
+                  <Ionicons name="chevron-up-outline" size={14} color={Colors.textTertiary} />
+                  <Text style={styles.collapseHintText}>{t('dashboard.tapToCollapse')}</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
+      ) : (
+        <View style={styles.proSection}>
+          <View style={styles.allExpensesHeader}>
+            <Text style={styles.sectionTitle}>{t('dashboard.allExpenses')}</Text>
+            <Ionicons name="chevron-down-outline" size={20} color={Colors.textTertiary} />
+          </View>
+          <ProLockPlaceholder height={120} onUnlock={() => router.push('/paywall?context=feature')} />
+        </View>
+      )}
+
       {!hasData && (
         <View style={styles.emptyCard}>
           <Ionicons name="stats-chart-outline" size={48} color={Colors.textTertiary} />
@@ -520,4 +885,44 @@ const styles = StyleSheet.create({
   emptySub: { fontFamily: Typography.fontBody, fontSize: 14, color: Colors.textSecondary, textAlign: 'center' },
   emptyCardSmall: { backgroundColor: Colors.surface, borderRadius: Radius.lg, padding: Spacing.lg, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
   emptySmallText: { fontFamily: Typography.fontBody, fontSize: 14, color: Colors.textTertiary },
+
+  // All Expenses section
+  allExpensesHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm },
+  allExpensesRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  expenseCountBadge: { backgroundColor: Colors.primary, borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2, minWidth: 22, alignItems: 'center' },
+  expenseCountText: { fontFamily: Typography.fontBodyBold, fontSize: 11, color: '#FFFFFF' },
+
+  // Filter chips
+  filterRow: { marginBottom: Spacing.sm },
+  filterRowContent: { gap: 8, paddingVertical: 4 },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.md, paddingVertical: 7, borderRadius: Radius.full, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  filterChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  filterChipText: { fontFamily: Typography.fontBody, fontSize: 13, color: Colors.textSecondary },
+  filterChipTextActive: { color: '#FFFFFF' },
+
+  // Filter picker dropdown
+  filterPicker: { backgroundColor: Colors.surface, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.sm, overflow: 'hidden' },
+  filterPickerItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
+  filterPickerText: { fontFamily: Typography.fontBody, fontSize: 14, color: Colors.textPrimary },
+  groupPickerName: { fontFamily: Typography.fontBody, fontSize: 14, color: Colors.textPrimary },
+
+  // Expense list
+  expenseList: { backgroundColor: Colors.surface, borderRadius: Radius.lg, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  expenseItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: Spacing.md, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: Colors.border },
+  expenseIconCircle: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', marginRight: Spacing.sm },
+  expenseItemCenter: { flex: 1, marginRight: Spacing.sm },
+  expenseItemDesc: { fontFamily: Typography.fontBodyBold, fontSize: 14, color: Colors.textPrimary, marginBottom: 4 },
+  expenseItemMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' as const },
+  groupChip: { backgroundColor: Colors.primaryGhost, borderRadius: Radius.sm, paddingHorizontal: 6, paddingVertical: 1 },
+  groupChipText: { fontFamily: Typography.fontBody, fontSize: 11, color: Colors.primary },
+  expenseItemPayer: { fontFamily: Typography.fontBody, fontSize: 11, color: Colors.textTertiary },
+  expenseItemAmount: { fontFamily: Typography.fontDisplayBold, fontSize: 14, color: Colors.textPrimary, flexShrink: 0 },
+
+  // Load more
+  loadMoreButton: { paddingVertical: 14, alignItems: 'center', justifyContent: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
+  loadMoreText: { fontFamily: Typography.fontBodyBold, fontSize: 14, color: Colors.primary },
+
+  // Collapse hint
+  collapseHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingTop: Spacing.sm },
+  collapseHintText: { fontFamily: Typography.fontBody, fontSize: 12, color: Colors.textTertiary },
 });

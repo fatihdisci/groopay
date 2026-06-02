@@ -75,9 +75,10 @@ export default function AccountScreen() {
         preferred_currency: preferredCurrency,
       });
       await i18n.changeLanguage(language);
-      // Invalidate group queries so member avatars reflect new color
+      // Invalidate group + activity queries so name/color changes propagate
       queryClient.invalidateQueries({ queryKey: ['group'] });
       queryClient.invalidateQueries({ queryKey: ['groups'] });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
       showToast(t('account.profileSaved'), 'success');
     } catch (e: any) {
       showToast(t('account.profileSaveError'), 'error');

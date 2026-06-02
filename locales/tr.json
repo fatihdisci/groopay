@@ -5,6 +5,11 @@
     "activity": "Aktivite",
     "account": "Hesap"
   },
+  "months": {
+    "jan": "Oca", "feb": "Şub", "mar": "Mar", "apr": "Nis",
+    "may": "May", "jun": "Haz", "jul": "Tem", "aug": "Ağu",
+    "sep": "Eyl", "oct": "Eki", "nov": "Kas", "dec": "Ara"
+  },
   "groups": {
     "empty": "Henüz grup yok",
     "emptyTitle": "Henüz grubun yok",
@@ -161,6 +166,7 @@
     "expense_added": "{{name}}, \"{{desc}}\" masrafını ekledi ({{amount}})",
     "expense_edited": "{{name}}, \"{{desc}}\" masrafını güncelledi",
     "expense_deleted": "{{name}}, \"{{desc}}\" masrafını sildi",
+    "expense_deleted_no_desc": "{{name}} bir masrafı sildi",
     "group_archived": "{{name}} grubu arşivledi",
     "settlement_confirmed": "{{name}} ödemeyi onayladı",
     "settlement_marked": "{{name}}, {{to}} kişisine {{amt}} ödedi (onay bekliyor)",
@@ -315,7 +321,21 @@
     "settlementReceived": "Sana Ödenen",
     "otherCurrencyNote": "Not: Sadece {{currency}} masraflar gösteriliyor. Diğer para birimleri ayrı hesaplanır.",
     "monthlySpending": "Aylık Harcama ({{currency}})",
-    "trendSingleCurrency": "Sadece {{currency}} masraflar gösteriliyor"
+    "trendSingleCurrency": "Sadece {{currency}} masraflar gösteriliyor",
+    "allExpenses": "Tüm İşlemler",
+    "allExpensesEmpty": "Henüz masraf yok",
+    "allExpensesNoMatch": "Bu filtreye uygun masraf yok",
+    "loadMore": "Daha Fazla Yükle",
+    "filterMonth": "Ay",
+    "filterCategory": "Kategori",
+    "filterCurrency": "Para Birimi",
+    "filterGroup": "Grup",
+    "allGroups": "Tüm Gruplar",
+    "allCategories": "Tüm Kategoriler",
+    "allCurrencies": "Tüm Para Birimleri",
+    "allMonths": "Tüm Aylar",
+    "tapToExpand": "Detayları görmek için dokun",
+    "tapToCollapse": "Daraltmak için dokun"
   },
   "account": {
     "title": "Hesap",

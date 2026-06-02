@@ -1545,11 +1545,231 @@ npx supabase functions deploy revenuecat-webhook
 - [x] `create_invite` RPC: kriptografik token + expiry
 - [x] tsc temiz
 - [x] 87/87 test geçti
-- [ ] Migration 0013 SQL Editor'de çalıştırıldı
-- [ ] 5 grup limiti test edildi (6. grubu açmayı dene)
-- [ ] Davet kodu oluşturma test edildi
-- [ ] Masraf tutarı girişi test edildi (19,99 ve 19.99)
+- [x] Migration 0013 SQL Editor'de çalıştırıldı
+- [x] 5 grup limiti test edildi (6. grubu açmayı dene)
+- [x] Davet kodu oluşturma test edildi
+- [x] Masraf tutarı girişi test edildi (19,99 ve 19.99)
 
 ---
 
 *Son güncelleme: 2026-06-01 — P0-5/B69 + P0-6/B70 + B71 + B72 eklendi (para birimi sınırlama + parseMoneyInputToMinor + Pro limit + invite token güvenliği)*
+
+---
+
+## B73: Dashboard "Tüm İşlemler" bölümü (16. Tur)
+
+> Tarih: 2026-06-01
+
+**Sorun:** Kullanıcı tüm masraf geçmişini görmek için her grubu tek tek açmak zorundaydı. Panel'de tüm grupların masraflarını tek yerde görmek istiyordu.
+
+**Yapılan:**
+
+### Types (`lib/supabase/types.ts`)
+- `AllExpensesFilters` — filtreleme için opsiyonel alanlar: `month`, `year`, `category`, `currency`, `groupId`
+- `ExpenseWithGroupInfo` — masraf + grup adı/emoji/rengi + ödeyen adı içeren UI tipi
+
+### Query (`lib/supabase/queries.ts`)
+- `getAllUserExpenses(userId, filters, page, pageSize)` — kullanıcının tüm gruplarındaki masrafları:
+  - `expense_date`'e göre sıralı (en yeni üstte)
+  - Ay/yıl, kategori, para birimi, grup ID filtreleri
+  - Sayfalama (`range(from, to)` + `count: 'exact'`)
+  - `groups!inner` join ile grup adı/emoji/rengi
+  - `group_members` join ile ödeyen adı
+  - `AllExpensesResult` dönüş tipi: `{ expenses, hasMore, total }`
+- `getUserFilterOptions(userId)` — filtre seçenekleri: kullanıcının grupları ve kullanılan para birimleri
+
+### Dashboard UI (`app/(tabs)/dashboard.tsx`)
+- **Genişleyen bölüm:** "Tüm İşlemler" başlığı + chevron. `LayoutAnimation.easeInEaseOut` ile açılır/kapanır.
+- **Filtre chip satırı:** Ay, Kategori, Para Birimi, Grup — yatay kaydırılabilir chip'ler. Aktif filtre primary dolgu + close butonu.
+- **Filtre picker:** Chip'e basınca dropdown picker (View-tabanlı liste). Diğer picker'lar kapanır (accordion).
+- **Masraf listesi:** Her satır: `[kategori ikonu] [masraf adı + grup chip'i + ödeyen·tarih] [tutar]`. `formatAmount()` ile tr-TR formatlı.
+- **Sayfalama:** "Daha Fazla Yükle" butonu. `accumulatedExpenses` state'i ile sayfalar biriktirilir. Filtre değişince reset.
+- **Pro/Free:** Pro'da tam erişim. Free'de bölüm başlığı + `ProLockPlaceholder` (blur önizleme + CTA).
+- **Boş durum:** "Henüz masraf yok" / "Bu filtreye uygun masraf yok".
+
+### i18n
+- `locales/tr.json`, `locales/en.json`:
+  - `months.*` namespace (12 ay kısaltması: Oca-Şub-... / Jan-Feb-...)
+  - `dashboard.allExpenses`, `dashboard.allExpensesEmpty`, `dashboard.allExpensesNoMatch`
+  - `dashboard.loadMore`, `dashboard.filterMonth`, `dashboard.filterCategory`, `dashboard.filterCurrency`, `dashboard.filterGroup`
+  - `dashboard.allGroups`, `dashboard.allCategories`, `dashboard.allCurrencies`, `dashboard.allMonths`
+  - `dashboard.tapToExpand`, `dashboard.tapToCollapse`
+
+### Kategori tip düzeltmesi (`lib/finance/categories.ts`)
+- `CATEGORY_ICONS` tipi: `Record<Category, string>` → `Record<Category, keyof typeof Ionicons.glyphMap>` (TS strict uyumlu)
+
+**Değişen dosyalar:**
+- `lib/supabase/types.ts` — `AllExpensesFilters`, `ExpenseWithGroupInfo`
+- `lib/supabase/queries.ts` — `getAllUserExpenses`, `getUserFilterOptions`, `AllExpensesResult`
+- `app/(tabs)/dashboard.tsx` — "Tüm İşlemler" bölümü (filter chips + picker + expense list + pagination + collapse)
+- `lib/finance/categories.ts` — `CATEGORY_ICONS` tip düzeltmesi
+- `locales/tr.json` — `months.*` + `dashboard.*` yeni anahtarlar
+- `locales/en.json` — `months.*` + `dashboard.*` yeni anahtarlar
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| 87/87 test geçti | ✅ |
+| Pro: Tüm İşlemler görünür | ✅ Expand/collapse + filter + list + pagination |
+| Free: blur önizleme | ✅ ProLockPlaceholder |
+| Filtreler çalışıyor | ✅ Ay, kategori, para birimi, grup |
+| Para birimleri toplanmıyor | ✅ Her masraf kendi para biriminde |
+| Sayfalama | ✅ "Daha Fazla Yükle" |
+| Boş durum | ✅ Filtreli/filtresiz mesajlar |
+| DEV Pro butonuyla test | ✅ `__DEV__` toggle
+
+---
+
+## B74-B76: Dashboard ay filtresi + aktivite expense_updated + grup silme FK (17. Tur)
+
+> Tarih: 2026-06-01
+
+### ✅ B74: Dashboard ay filtresi sıralama düzeltildi
+
+**Sorun:** Ay filtresi picker'ı ayları Ocak→Aralık sıralıyordu, bazı aylar geçen yıla atıyordu. Sıralama garipti ve hatalıydı.
+
+**Yapılan:**
+- Ay listesi artık **içinde bulunulan aydan geriye doğru** sıralanır (son 12 ay).
+- Her ay için `d.setMonth(d.getMonth() - i)` ile doğru yıl otomatik hesaplanır.
+- Key: `${year}-${monthIdx}` (mükerrer key hatası yok).
+
+**Değişen dosyalar:** `app/(tabs)/dashboard.tsx`
+
+---
+
+### ✅ B75: Aktivite "expense_updated" ve silinen masraf "?" düzeltildi
+
+**Sorun 1:** `update_expense_with_splits` RPC'si activity_log'a `expense_updated` yazıyordu ama `formatActivity` sadece `expense_edited` handle ediyordu → ham "expense_updated" gösteriliyordu.
+
+**Sorun 2:** Silinen masrafın metadata'sında `description` yoksa `"?"` gösteriliyordu.
+
+**Yapılan:**
+- `activity.tsx` + `groups/[id]/index.tsx` — `getActivityIcon`, `getActivityColor`, `formatActivity` fonksiyonlarına `expense_updated` case'i eklendi (`expense_edited` ile aynı davranış).
+- `expense_deleted` case'i: `meta.description` varsa açıklamalı mesaj, yoksa `expense_deleted_no_desc` ile açıklamasız mesaj gösterilir.
+- i18n (tr + en): `activity.expense_deleted_no_desc` anahtarı eklendi.
+
+**Değişen dosyalar:** `app/(tabs)/activity.tsx`, `app/(tabs)/groups/[id]/index.tsx`, `locales/tr.json`, `locales/en.json`
+
+---
+
+### ✅ B76: Grup silme FK constraint hatası düzeltildi
+
+**Sorun:** `delete_group` RPC'si `delete from groups` yapıyordu. PostgreSQL `group_members` cascade'ini `expense_splits`/`expenses`/`settlements`/`activity_log` FK'larından önce çalıştırınca `expense_splits_member_id_fkey` constraint violation oluşuyordu.
+
+**Kök neden:** `expense_splits.member_id → group_members(id)`, `expenses.paid_by/created_by → group_members(id)`, `settlements.from_member/to_member/marked_by → group_members(id)`, `activity_log.actor_member_id → group_members(id)` FK'larında `ON DELETE CASCADE` yok. DB cascade sırası kontrol edilemez.
+
+**Yapılan (Migration 0014):**
+- `delete_group` RPC'si sıralı silme yapacak şekilde güncellendi:
+  1. `expense_splits` (grubun tüm masraflarına ait)
+  2. `expenses`
+  3. `settlements`
+  4. `activity_log`
+  5. `iban_requests`
+  6. `group_invites`
+  7. `group_members`
+  8. `groups`
+- Yetki kontrolü (founder-only) korundu.
+- Idempotent (`CREATE OR REPLACE`).
+
+**Değişen dosyalar:** `supabase/migrations/0014_fix_delete_group_cascade.sql` (yeni)
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| 87/87 test geçti | ✅ |
+| Ay filtresi: güncel aydan geriye | ✅ Son 12 ay |
+| Aktivite: expense_updated | ✅ Formatlanıyor |
+| Aktivite: silinen masraf "?" | ✅ Fallback mesaj |
+| Grup silme: FK hatası | ✅ Sıralı silme |
+| Migration 0014 | ✅ SQL Editor'de çalıştırılmaya hazır |
+
+*Son güncelleme: 2026-06-01 — B74-B76 eklendi (ay filtresi + expense_updated + FK cascade)*
+
+---
+
+### ✅ B77: Tüm İşlemler — boş sonuç + varsayılan filtre
+
+**Sorun 1:** "Tüm İşlemler" genişletilince hiç masraf gözükmüyordu. Sadece ay seçince masraflar geliyordu.
+
+**Kök neden:** `getAllUserExpenses` query'sinde `groups!inner(...)` + `group_members!expenses_paid_by_fkey(...)` embedded select syntax'i Supabase JS client'ta sessizce başarısız oluyor, boş dizi dönüyordu.
+
+**Yapılan:**
+- Query 3 ayrı çağrıya bölündü:
+  1. `expenses` — sayfalanmış masraflar (`select('*', { count: 'exact' })`)
+  2. `groups` — batch lookup (`id, name, avatar_emoji, avatar_color`)
+  3. `group_members` — batch lookup (`id, display_name`)
+- JS tarafında `Map` ile birleştiriliyor. Hiçbir embedded join yok.
+
+**Sorun 2:** Kullanıcı her seferinde ay seçmek zorunda kalıyordu. Varsayılan filtre boştu.
+
+**Yapılan:**
+- `expenseFilters` varsayılanı: `{ month: currentMonth, year: currentYear }` — içinde bulunulan ay otomatik seçili.
+- "Tüm Aylar" seçeneği ile ay filtresi kaldırılabilir.
+- `hasActiveFilter` sadece kategori/para birimi/grup filtrelerini sayar (ay varsayılan olduğu için sayılmaz).
+
+**Değişen dosyalar:** `lib/supabase/queries.ts`, `app/(tabs)/dashboard.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| 87/87 test geçti | ✅ |
+| Varsayılan ay filtresi | ✅ İçinde bulunulan ay |
+| Embedded join kaldırıldı | ✅ 3 ayrı query + JS map |
+| Filtresiz/açık çalışıyor | ✅ Tüm masraflar geliyor |
+
+*Son güncelleme: 2026-06-01 — B77 eklendi (Tüm İşlemler boş sonuç + varsayılan ay)*
+
+---
+
+### ✅ B78: Filtre temizleme — undefined key'ler query hash'i bozuyordu
+
+**Sorun:** "Tüm Aylar" / "Tüm Kategoriler" / "Tüm Para Birimleri" / "Tüm Gruplar" seçilince masraflar gelmiyordu.
+
+**Kök neden:** Filtre temizleme `{ ...prev, month: undefined }` yapıyordu. `JSON.stringify({ month: undefined })` → `{}`. React Query `hashQueryKey` içinde `JSON.stringify` kullandığı için `{ month: undefined, year: undefined }` hash'i `{}` ile aynı çıkıyordu. Ama asıl sorun: QueryFn içinde `undefined` değerli key'lerle `filters.year !== undefined` kontrolü doğru çalışsa da, `useEffect([expenseFilters])` referans karşılaştırması her seferinde yeni obje gördüğü için flicker oluşuyordu.
+
+**Yapılan:**
+- `cleanFilters` helper: `expenseFilters`'ten sadece gerçek değeri olan key'leri alır (`undefined`'leri atlar).
+- `queryKey` ve `queryFn` artık `cleanFilters` kullanır — hash her zaman temiz.
+- Hata durumu: `allExpensesError` kontrolü + kırmızı uyarı kartı (`isError` state'i UI'da handle ediliyor).
+- `retry: 1` eklendi (gereksiz retry'leri önler).
+
+**Değişen dosyalar:** `app/(tabs)/dashboard.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| 87/87 test geçti | ✅ |
+| "Tüm Aylar" çalışıyor | ✅ cleanFilters strip |
+| "Tüm Kategoriler" çalışıyor | ✅ |
+| "Tüm Para Birimleri" çalışıyor | ✅ |
+| "Tüm Gruplar" çalışıyor | ✅ |
+| Hata durumu | ✅ Kırmızı uyarı kartı |
+| **Ek düzeltme:** Effect race condition | ✅ Tek effect + ref |
+| Count var ama liste boş gelme sorunu | ✅ Düzeltildi |
+
+**Not:** "Tüm X" filtrelerinde count=7 görünüp listenin boş gelmesinin asıl sebebi iki ayrı `useEffect` arasındaki race condition'dı. `allExpensesData` React Query cache'inden anında gelince, accumulation effect önce veriyi set ediyor, sonra reset effect siliyordu. Tek bir unified effect + `useRef` ile filtre değişimi takip edilerek düzeltildi.
+
+**2. düzeltme (aynı gün):** `filtersChanged` durumunda `return` etmek yerine reset sonrası veriyi de accumulate edecek şekilde düzeltildi. Cache'te veri anında varsa bile kaybolmuyor. Varsayılan filtreler `{}` yapıldı (tümü boş — kullanıcı daraltır).
+
+*Son güncelleme: 2026-06-01 — B78 eklendi (filtre undefined key hash düzeltmesi + effect race condition + varsayılan boş filtreler)*
+
+---
+
+### ✅ B79: Aktivite sayfası profil adı değişince güncellenmiyordu
+
+**Sorun:** Kullanıcı Hesap'tan adını değiştirince aktivite sayfasında eski ad görünmeye devam ediyordu.
+
+**Kök neden:** `updateProfile` (AuthContext) `group_members.display_name`'i de güncelliyordu, ama `account.tsx` aktivite query cache'ini invalidate etmiyordu. `['activity-all', groupIds]` query'si bayat veriyle kalıyordu.
+
+**Yapılan:**
+- `account.tsx` `handleSaveProfile`: `queryClient.invalidateQueries({ queryKey: ['activity'] })` eklendi.
+
+**Değişen dosyalar:** `app/(tabs)/account.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| 87/87 test geçti | ✅ |
+| Profil adı değişince aktivite güncelleniyor | ✅ Cache invalidate |
+
+*Son güncelleme: 2026-06-01 — B79 eklendi (aktivite profil adı cache)*

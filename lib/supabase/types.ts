@@ -137,6 +137,31 @@ export interface ExpenseFilters {
   memberId?: string;
 }
 
+export interface AllExpensesFilters {
+  month?: number;     // 0–11 (JavaScript month index)
+  year?: number;
+  category?: string;
+  currency?: string;
+  groupId?: string;
+}
+
+export interface ExpenseWithGroupInfo {
+  id: string;
+  group_id: string;
+  group_name: string;
+  group_emoji: string | null;
+  group_color: string;
+  description: string;
+  amount: number;
+  currency: string;
+  category: string;
+  split_type: SplitType;
+  paid_by: string;
+  paid_by_name: string;
+  expense_date: string;
+  created_at: string;
+}
+
 export interface AddExpenseInput {
   groupId: string;
   description: string;

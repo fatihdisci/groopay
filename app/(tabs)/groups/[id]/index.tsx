@@ -898,7 +898,7 @@ function ExpenseCard({ expense, splits, members, payerName, category, groupCurre
 
 function getActivityIcon(actionType: string): keyof typeof Ionicons.glyphMap {
   switch (actionType) {
-    case 'expense_added': case 'expense_edited': return 'cart-outline';
+    case 'expense_added': case 'expense_edited': case 'expense_updated': return 'cart-outline';
     case 'expense_deleted': return 'trash-outline';
     case 'settlement_marked': case 'settlement_confirmed': return 'checkmark-circle-outline';
     case 'settlement_rejected': return 'close-circle-outline';
@@ -912,7 +912,7 @@ function getActivityIcon(actionType: string): keyof typeof Ionicons.glyphMap {
 
 function getActivityColor(actionType: string): string {
   switch (actionType) {
-    case 'expense_added': case 'expense_edited': return Colors.primary;
+    case 'expense_added': case 'expense_edited': case 'expense_updated': return Colors.primary;
     case 'expense_deleted': return Colors.debt;
     case 'settlement_marked': return Colors.warning;
     case 'settlement_confirmed': return Colors.credit;
@@ -938,7 +938,11 @@ function formatActivity(a: ActivityLogRow, members: GroupMemberRow[], t: (k: str
       return t('activity.member_claimed', { name, target: meta.ghost_name ?? meta.display_name ?? '' });
     case 'expense_added': return t('activity.expense_added', { name, desc: meta.description ?? '', amount: meta.amount ? formatAmount(Number(meta.amount), meta.currency ?? 'TRY') : '?' });
     case 'expense_edited': return t('activity.expense_edited', { name, desc: meta.updates?.description ?? meta.description ?? '' });
-    case 'expense_deleted': return t('activity.expense_deleted', { name, desc: meta.description ?? '' });
+    case 'expense_updated': return t('activity.expense_edited', { name, desc: meta.description ?? '' });
+    case 'expense_deleted':
+      return meta.description
+        ? t('activity.expense_deleted', { name, desc: meta.description })
+        : t('activity.expense_deleted_no_desc', { name });
     case 'group_archived': return t('activity.group_archived', { name });
     case 'settlement_confirmed':
       return t('activity.settlement_confirmed', { name });

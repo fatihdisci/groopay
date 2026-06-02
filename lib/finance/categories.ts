@@ -1,3 +1,5 @@
+import type { Ionicons } from '@expo/vector-icons';
+
 // ──────────────────────────────────────
 // Expense categories — labels via i18n
 // ──────────────────────────────────────
@@ -14,7 +16,7 @@ export const CATEGORIES = [
 export type Category = (typeof CATEGORIES)[number];
 
 /** Ionicons icon name for each category */
-export const CATEGORY_ICONS: Record<Category, string> = {
+export const CATEGORY_ICONS: Record<Category, keyof typeof Ionicons.glyphMap> = {
   market: 'cart-outline',
   transport: 'car-outline',
   utilities: 'home-outline',
