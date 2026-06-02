@@ -31,7 +31,31 @@
     "demoBadge": "Demo",
     "createFab": "Yeni Grup",
     "oneLeft": "1 hakkın kaldı",
-    "proUnlimited": "Pro ile sınırsız"
+    "proUnlimited": "Pro ile sınırsız",
+    "newGroup": "Yeni Grup",
+    "newGroupDesc": "Arkadaşlarını ekle, masrafları paylaş",
+    "groupName": "GRUP ADI",
+    "nameHint": "'Tatil 2026' veya 'Ev Arkadaşları' gibi açıklayıcı bir isim seçin",
+    "createError": "Hata",
+    "createErrorDesc": "Grup oluşturulamadı",
+    "goProUnlock": "Pro ile sınırsız"
+  },
+  "join": {
+    "title": "Gruba Katıl",
+    "subtitle": "Davet kodunu girerek gruba katıl",
+    "codeLabel": "DAVET KODU",
+    "codeHint": "8 karakterlik kodu gir — büyük/küçük harf fark etmez",
+    "invalidCode": "Bu davet kodu geçerli değil veya süresi dolmuş.",
+    "findGroup": "Grubu Bul",
+    "cancel": "Vazgeç",
+    "success": "Katıldınız!",
+    "successDesc": "\"{{name}}\" grubuna katıldınız.",
+    "ok": "Tamam",
+    "error": "Gruba katılınamadı",
+    "noSession": "Oturum bulunamadı",
+    "back": "Geri",
+    "joinGroup": "Gruba Katıl",
+    "memberCount": "üye (seninle)"
   },
   "groupDetail": {
     "members": "Üyeler",

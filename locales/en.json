@@ -257,7 +257,31 @@
     "demoBadge": "Demo",
     "createFab": "New Group",
     "oneLeft": "1 left",
-    "proUnlimited": "Unlimited with Pro"
+    "proUnlimited": "Unlimited with Pro",
+    "newGroup": "New Group",
+    "newGroupDesc": "Add friends, split expenses",
+    "groupName": "GROUP NAME",
+    "nameHint": "Pick a descriptive name like 'Trip 2026' or 'Roommates'",
+    "createError": "Error",
+    "createErrorDesc": "Could not create group",
+    "goProUnlock": "Unlimited with Pro"
+  },
+  "join": {
+    "title": "Join Group",
+    "subtitle": "Enter an invite code to join",
+    "codeLabel": "INVITE CODE",
+    "codeHint": "Enter the 8-character code — case insensitive",
+    "invalidCode": "This invite code is invalid or expired.",
+    "findGroup": "Find Group",
+    "cancel": "Cancel",
+    "success": "Joined!",
+    "successDesc": "You joined \"{{name}}\".",
+    "ok": "OK",
+    "error": "Could not join group",
+    "noSession": "Session not found",
+    "back": "Back",
+    "joinGroup": "Join Group",
+    "memberCount": "members (with you)"
   },
   "demo": {
     "groupName": "Sample Group",

@@ -1931,3 +1931,40 @@ npx supabase functions deploy revenuecat-webhook
 | Geri gelebiliyor | ✅ |
 
 *Son güncelleme: 2026-06-01 — B84 eklendi (gruplar sekmesi routing acil düzeltme)*
+
+---
+
+### ✅ B85: Yeni Grup + Gruba Katıl ekranları tasarım yenilemesi
+
+**new.tsx:**
+- Gradient hero (alt köşeler 24px oval, 72px people ikonu, başlık + açıklama)
+- Form: section label + TextInput (30 karakter limit, sayaç, surfaceTinted bg, radius 12)
+- İpucu satırı (ampul ikonu + metin)
+- Gradient "Oluştur" butonu bottom-sticky (KeyboardAvoidingView, klavye üstünde)
+- autoFocus: true
+
+**join/index.tsx:**
+- Aynı gradient hero pattern (enter-outline ikonu, "Gruba Katıl" + alt metin)
+- Kod input: büyük, ortalanmış, letter-spacing 6, surfaceTinted bg
+- Kod ipucu metni
+- Hata kutusu: kırmızı arka plan, ikonlu
+- Preview kartı: ghost claim + gradient "Gruba Katıl" butonu
+- Tüm butonlar bottom-sticky (KeyboardAvoidingView)
+- Mevcut 3-adımlı akış korundu (enter → preview → joining)
+
+**i18n:** `groups.newGroup/newGroupDesc/groupName/nameHint/createError/createErrorDesc/goProUnlock` + `join.*` namespace (14 anahtar, tr + en)
+
+**Değişen dosyalar:** `app/(tabs)/groups/new.tsx`, `app/join/index.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| 87/87 test geçti | ✅ |
+| new.tsx: gradient hero | ✅ |
+| new.tsx: karakter sayacı + ipucu | ✅ |
+| new.tsx: bottom-sticky buton | ✅ KeyboardAvoidingView |
+| join: aynı hero stili | ✅ |
+| join: 3-adım akış korundu | ✅ |
+| join: bottom-sticky butonlar | ✅ |
+
+*Son güncelleme: 2026-06-01 — B85 eklendi (yeni grup + gruba katıl tasarım yenilemesi)*
