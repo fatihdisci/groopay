@@ -123,13 +123,25 @@ export default function PaywallScreen() {
   if (isUserPro) {
     return (
       <View style={styles.alreadyContainer}>
-        <TouchableOpacity style={styles.closeButton} onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          style={styles.closeButton}
+          onPress={() => router.back()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close')}
+        >
           <Ionicons name="close" size={24} color={Colors.textSecondary} />
         </TouchableOpacity>
         <Ionicons name="checkmark-circle" size={72} color={Colors.credit} />
         <Text style={styles.alreadyTitle}>{t('paywall.alreadyPro')}</Text>
         <Text style={styles.alreadySub}>{t('paywall.alreadyProSub')}</Text>
-        <TouchableOpacity style={styles.alreadyBtn} onPress={() => router.back()} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={styles.alreadyBtn}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('paywall.ok')}
+        >
           <Text style={styles.alreadyBtnText}>{t('paywall.ok')}</Text>
         </TouchableOpacity>
       </View>
@@ -140,7 +152,13 @@ export default function PaywallScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Close button */}
-      <TouchableOpacity style={styles.closeButton} onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+      <TouchableOpacity
+        style={styles.closeButton}
+        onPress={() => router.back()}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        accessibilityRole="button"
+        accessibilityLabel={t('common.close')}
+      >
         <Ionicons name="close" size={24} color="rgba(255,255,255,0.85)" />
       </TouchableOpacity>
 
@@ -203,6 +221,8 @@ export default function PaywallScreen() {
         onPress={handlePurchaseUserPro}
         disabled={isPurchaseDisabled}
         activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={t('paywall.purchaseUserPro', { price: userProPrice || '' })}
       >
         {purchasing === 'user' ? (
           <ActivityIndicator size="small" color="white" />
@@ -221,6 +241,8 @@ export default function PaywallScreen() {
         onPress={handleRestore}
         disabled={purchasing !== null}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('paywall.restore')}
       >
         {purchasing === 'restore' ? (
           <ActivityIndicator size="small" color={Colors.textTertiary} />
@@ -243,8 +265,8 @@ export default function PaywallScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  content: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 48 },
+  container: { flex: 1, backgroundColor: '#4F46E5' },
+  content: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 48, backgroundColor: Colors.background },
   closeButton: { position: 'absolute', top: 16, right: 16, padding: 8, zIndex: 10 },
 
   // Header

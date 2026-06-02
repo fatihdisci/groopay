@@ -309,6 +309,8 @@ export default function GroupDetailScreen() {
               onPress={() => router.back()}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.headerNavButton}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.back')}
             >
               <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
             </TouchableOpacity>
@@ -322,6 +324,8 @@ export default function GroupDetailScreen() {
                   onPress={() => router.push(`/groups/${id}/edit`)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={styles.headerNavButton}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('common.edit')}
                 >
                   <Ionicons name="create-outline" size={22} color="#FFFFFF" />
                 </TouchableOpacity>
@@ -373,7 +377,12 @@ export default function GroupDetailScreen() {
               </View>
             );
           })}
-          <TouchableOpacity style={styles.memberChip} onPress={() => router.push(`/groups/${id}/members`)}>
+          <TouchableOpacity
+            style={styles.memberChip}
+            onPress={() => router.push(`/groups/${id}/members`)}
+            accessibilityRole="button"
+            accessibilityLabel={t('members.title')}
+          >
             <View style={[styles.memberAvatar, styles.addAvatar]}>
               <Ionicons name="person-add-outline" size={20} color={palette.primary} />
             </View>
@@ -386,6 +395,9 @@ export default function GroupDetailScreen() {
           <TouchableOpacity
             style={[styles.tab, activeTab === 'expenses' && styles.tabActive]}
             onPress={() => setActiveTab('expenses')}
+            accessibilityRole="button"
+            accessibilityLabel={t('groupDetail.expensesTab')}
+            accessibilityState={{ selected: activeTab === 'expenses' }}
           >
             <Ionicons name="receipt-outline" size={16} color={activeTab === 'expenses' ? palette.primary : palette.muted} />
             <Text style={[styles.tabText, activeTab === 'expenses' && styles.tabTextActive]}>{t('groupDetail.expenses')}</Text>
@@ -393,6 +405,9 @@ export default function GroupDetailScreen() {
           <TouchableOpacity
             style={[styles.tab, activeTab === 'balances' && styles.tabActive]}
             onPress={() => setActiveTab('balances')}
+            accessibilityRole="button"
+            accessibilityLabel={t('groupDetail.balancesTab')}
+            accessibilityState={{ selected: activeTab === 'balances' }}
           >
             <Ionicons name="swap-horizontal-outline" size={16} color={activeTab === 'balances' ? palette.primary : palette.muted} />
             <Text style={[styles.tabText, activeTab === 'balances' && styles.tabTextActive]}>{t('groupDetail.balances')}</Text>
@@ -415,7 +430,12 @@ export default function GroupDetailScreen() {
               ))}
             </ScrollView>
 
-            <TouchableOpacity style={styles.fxToggle} onPress={() => setShowFx(!showFx)}>
+            <TouchableOpacity
+              style={styles.fxToggle}
+              onPress={() => setShowFx(!showFx)}
+              accessibilityRole="button"
+              accessibilityLabel={t('expense.fxToggle')}
+            >
               <Ionicons name="swap-horizontal-outline" size={14} color={palette.primary} />
               <Text style={styles.fxToggleText}>{showFx ? t('expense.hideTryEquivalent') : t('expense.showTryEquivalent')}</Text>
             </TouchableOpacity>
@@ -478,17 +498,34 @@ export default function GroupDetailScreen() {
                 )}
 
                 {/* WhatsApp share */}
-                <TouchableOpacity style={styles.whatsappBtn} onPress={handleShareWhatsApp}>
+                <TouchableOpacity
+                  style={styles.whatsappBtn}
+                  onPress={handleShareWhatsApp}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('balance.whatsapp')}
+                >
                   <Ionicons name="share-outline" size={14} color={palette.primary} />
                   <Text style={styles.whatsappBtnText}>{t('settle.share')}</Text>
                 </TouchableOpacity>
 
                 {/* Mode toggle */}
                 <View style={styles.modeToggle}>
-                  <TouchableOpacity style={[styles.modeBtn, balanceMode === 'simplified' && styles.modeBtnActive]} onPress={() => setBalanceMode('simplified')}>
+                  <TouchableOpacity
+                    style={[styles.modeBtn, balanceMode === 'simplified' && styles.modeBtnActive]}
+                    onPress={() => setBalanceMode('simplified')}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('balance.simplified')}
+                    accessibilityState={{ selected: balanceMode === 'simplified' }}
+                  >
                     <Text style={[styles.modeBtnText, balanceMode === 'simplified' && styles.modeBtnTextActive]}>{t('balance.simplified')}</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.modeBtn, balanceMode === 'raw' && styles.modeBtnActive]} onPress={() => setBalanceMode('raw')}>
+                  <TouchableOpacity
+                    style={[styles.modeBtn, balanceMode === 'raw' && styles.modeBtnActive]}
+                    onPress={() => setBalanceMode('raw')}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('balance.raw')}
+                    accessibilityState={{ selected: balanceMode === 'raw' }}
+                  >
                     <Text style={[styles.modeBtnText, balanceMode === 'raw' && styles.modeBtnTextActive]}>{t('balance.raw')}</Text>
                   </TouchableOpacity>
                 </View>
@@ -511,10 +548,20 @@ export default function GroupDetailScreen() {
                           </Text>
                           {isCreditor && (
                             <View style={{ flexDirection: 'row', gap: spacing.xs }}>
-                              <TouchableOpacity style={styles.confirmBtn} onPress={() => confirmSettlementMut.mutate({ settlementId: s.id, confirmedBy: actorMember.id })}>
+                              <TouchableOpacity
+                                style={styles.confirmBtn}
+                                onPress={() => confirmSettlementMut.mutate({ settlementId: s.id, confirmedBy: actorMember.id })}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('settle.confirm')}
+                              >
                                 <Text style={styles.confirmBtnText}>{t('settle.confirm')}</Text>
                               </TouchableOpacity>
-                              <TouchableOpacity style={styles.rejectBtn} onPress={() => rejectSettlementMut.mutate({ settlementId: s.id, confirmedBy: actorMember.id })}>
+                              <TouchableOpacity
+                                style={styles.rejectBtn}
+                                onPress={() => rejectSettlementMut.mutate({ settlementId: s.id, confirmedBy: actorMember.id })}
+                                accessibilityRole="button"
+                                accessibilityLabel={t('settle.reject')}
+                              >
                                 <Text style={styles.rejectBtnText}>{t('settle.reject')}</Text>
                               </TouchableOpacity>
                             </View>
@@ -536,7 +583,12 @@ export default function GroupDetailScreen() {
                           <Text style={styles.pendingText}>
                             {t('iban.requestTitle', { name: fromM?.display_name ?? '?' })}
                           </Text>
-                          <TouchableOpacity style={styles.confirmBtn} onPress={() => handleIbanEnter(r)}>
+                          <TouchableOpacity
+                            style={styles.confirmBtn}
+                            onPress={() => handleIbanEnter(r)}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('iban.enterIban')}
+                          >
                             <Text style={styles.confirmBtnText}>{t('iban.shareIban')}</Text>
                           </TouchableOpacity>
                         </View>
@@ -609,6 +661,8 @@ export default function GroupDetailScreen() {
             style={styles.fabTouchable}
             onPress={() => router.push(`/groups/${id}/add-expense`)}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={t('expense.addExpenseFab')}
           >
             <Ionicons name="add" size={22} color="white" />
             <Text style={styles.fabLabel}>{t('expense.addExpenseFab')}</Text>

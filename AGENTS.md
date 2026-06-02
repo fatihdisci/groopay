@@ -164,5 +164,5 @@ Every fix, feature, or design change must be appended to `BUGFIX-CILA.md`:
 **Test:** ...
 *Son güncelleme: YYYY-MM-DD — BXX eklendi*
 ```
-Next B number: **B93** (check BUGFIX-CILA.md for latest).  
-Commit message format: `fix: B93 short description`
+Next B number: **B96** (check BUGFIX-CILA.md for latest).  
+Commit message format: `fix: B96 short description`

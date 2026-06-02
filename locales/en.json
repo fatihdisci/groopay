@@ -10,6 +10,11 @@
     "may": "May", "jun": "Jun", "jul": "Jul", "aug": "Aug",
     "sep": "Sep", "oct": "Oct", "nov": "Nov", "dec": "Dec"
   },
+  "common": {
+    "back": "Back",
+    "close": "Close",
+    "edit": "Edit"
+  },
   "groups": {
     "empty": "No groups yet"
   },
@@ -91,9 +96,10 @@
   "groupDetail": {
     "members": "Members",
     "expenses": "Expenses",
+    "expensesTab": "Expenses",
     "expensesEmpty": "No expenses yet",
     "balances": "Balances",
-    "balancesEmpty": "Balance calculation",
+    "balancesTab": "Balances",
     "edit": "Edit",
     "addMember": "Add Member"
   },
@@ -143,6 +149,7 @@
     "showTryEquivalent": "Show TRY equivalent",
     "hideTryEquivalent": "Hide TRY equivalent",
     "fxDisclaimer": "today's rate, informational",
+    "fxToggle": "Toggle FX equivalent",
     "filter": "Filter",
     "filterCategory": "Category",
     "filterDate": "Date",
@@ -183,7 +190,8 @@
     "devNotice": "Temporary sign-in — real Google / Apple sign-in coming soon",
     "googleSignIn": "Sign in with Google",
     "appleSignIn": "Sign in with Apple",
-    "comingSoon": "Coming soon"
+    "comingSoon": "Coming soon",
+    "signOut": "Sign out"
   },
   "onboarding": {
     "skip": "Skip",
@@ -236,7 +244,8 @@
     "warning": "Warning",
     "addFailed": "Could not add member",
     "removeTitle": "Remove Member",
-    "inviteFailed": "Could not create invite"
+    "inviteFailed": "Could not create invite",
+    "leave": "Leave group"
   },
   "groups": {
     "empty": "No groups yet",
@@ -249,6 +258,7 @@
     "createBtn": "Create",
     "cancel": "Cancel",
     "join": "Join Group",
+    "joinGroup": "Join Group",
     "joinCode": "Enter invite code",
     "joinCodePlaceholder": "e.g. ABC123",
     "joinFind": "Find Group",
@@ -266,7 +276,8 @@
     "nameHint": "Pick a descriptive name like 'Trip 2026' or 'Roommates'",
     "createError": "Error",
     "createErrorDesc": "Could not create group",
-    "goProUnlock": "Unlimited with Pro"
+    "goProUnlock": "Unlimited with Pro",
+    "openGroup": "Open group {{name}}"
   },
   "join": {
     "title": "Join Group",
@@ -373,7 +384,8 @@
     "allCurrencies": "All Currencies",
     "allMonths": "All Months",
     "tapToExpand": "Tap to see details",
-    "tapToCollapse": "Tap to collapse"
+    "tapToCollapse": "Tap to collapse",
+    "selectCurrency": "Select {{currency}} currency"
   },
   "account": {
     "title": "Account",
@@ -387,6 +399,9 @@
     "language": "Language",
     "defaultCurrency": "Default Currency",
     "currencyAuto": "Auto",
+    "colorOption": "Select {{color}} color",
+    "languageOption": "Select {{lang}} language",
+    "currencyOption": "Select {{currency}} currency",
     "signOut": "Sign out",
     "signOutConfirm": "Are you sure you want to sign out?",
     "cancel": "Cancel",
@@ -526,6 +541,7 @@
     "youOwe": "you owe",
     "simplified": "Simplified",
     "raw": "Raw Balance",
+    "whatsapp": "Share via WhatsApp",
     "allSettled": "All settled ✓",
     "youAreEven": "You're even",
     "overallSummary": "all groups summary:",
@@ -569,6 +585,13 @@
       "tip1": "Ghost member: someone without the app. Founder adds them, later claimable via invite.",
       "tip2": "Share the invite link to bring real users into the group.",
       "tip3": "Only the founder can add ghost members; anyone can create an invite link."
+    },
+    "account": {
+      "title": "Account",
+      "tip1": "Your display name appears for group members, expense cards, and activity records.",
+      "tip2": "Avatar color makes you easier to recognize in group avatars and summaries.",
+      "tip3": "After saving your language preference, app text switches to the selected language.",
+      "tip4": "Default currency selects the first dashboard filter; different currencies are never converted or combined."
     }
   }
 }

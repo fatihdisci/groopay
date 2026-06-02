@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useLayoutEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
+import { useNavigation, useRouter } from 'expo-router';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 import { useAuth, AVATAR_COLORS } from '@/lib/auth';
@@ -28,6 +28,7 @@ import { palette, spacing, fontSizes, radii, minTouchTarget } from '@/constants/
 import i18n from '@/lib/i18n';
 import Toast, { ToastType } from '@/components/Toast';
 import Avatar from '@/components/Avatar';
+import TipsButton from '@/components/TipsButton';
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -42,6 +43,7 @@ export default function AccountScreen() {
   const { user, updateProfile, signOut } = useAuth();
   const { isUserPro } = usePro();
   const router = useRouter();
+  const navigation = useNavigation();
   const queryClient = useQueryClient();
 
   const [displayName, setDisplayName] = useState(user?.display_name ?? '');
@@ -53,6 +55,24 @@ export default function AccountScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const displayNameY = useRef(0);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={{ marginRight: 8 }}>
+          <TipsButton
+            title={t('tips.account.title')}
+            tips={[
+              { icon: 'person-circle-outline' as const, text: t('tips.account.tip1') },
+              { icon: 'color-palette-outline' as const, text: t('tips.account.tip2') },
+              { icon: 'language-outline' as const, text: t('tips.account.tip3') },
+              { icon: 'cash-outline' as const, text: t('tips.account.tip4') },
+            ]}
+          />
+        </View>
+      ),
+    });
+  }, [navigation, t]);
 
   const handleDisplayNameFocus = () => {
     // Scroll input into view above keyboard
@@ -332,6 +352,9 @@ export default function AccountScreen() {
               ]}
               onPress={() => setSelectedColor(color)}
               hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              accessibilityRole="radio"
+              accessibilityLabel={t('account.colorOption', { color })}
+              accessibilityState={{ selected: selectedColor === color }}
             />
           ))}
         </View>
@@ -352,6 +375,9 @@ export default function AccountScreen() {
                 language === lang && styles.languageSelected,
               ]}
               onPress={() => setLanguage(lang)}
+              accessibilityRole="radio"
+              accessibilityLabel={t('account.languageOption', { lang })}
+              accessibilityState={{ selected: language === lang }}
             >
               <Text
                 style={[
@@ -380,6 +406,9 @@ export default function AccountScreen() {
                   key="auto"
                   style={[styles.currencyChip, isAuto && styles.currencyChipSelected]}
                   onPress={() => setPreferredCurrency(null)}
+                  accessibilityRole="radio"
+                  accessibilityLabel={t('account.currencyOption', { currency: t('account.currencyAuto') })}
+                  accessibilityState={{ selected: isAuto }}
                 >
                   <Text style={[styles.currencyChipText, isAuto && styles.currencyChipTextSelected]}>
                     {t('account.currencyAuto')}
@@ -392,6 +421,9 @@ export default function AccountScreen() {
                       key={cur}
                       style={[styles.currencyChip, isSelected && styles.currencyChipSelected]}
                       onPress={() => setPreferredCurrency(cur)}
+                      accessibilityRole="radio"
+                      accessibilityLabel={t('account.currencyOption', { currency: cur })}
+                      accessibilityState={{ selected: isSelected }}
                     >
                       <Text style={[styles.currencyChipText, isSelected && styles.currencyChipTextSelected]}>
                         {cur}
@@ -406,7 +438,13 @@ export default function AccountScreen() {
       </View>
 
       {/* Save button */}
-      <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} activeOpacity={0.9}>
+      <TouchableOpacity
+        style={styles.saveButton}
+        onPress={handleSaveProfile}
+        activeOpacity={0.9}
+        accessibilityRole="button"
+        accessibilityLabel={t('account.save')}
+      >
         <LinearGradient
           colors={[Colors.gradientStart, Colors.gradientEnd]}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
@@ -439,6 +477,8 @@ export default function AccountScreen() {
               style={styles.goProButton}
               onPress={() => router.push('/paywall?context=limit')}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={t('paywall.title')}
             >
               <Text style={styles.goProButtonText}>{t('account.goPro')}</Text>
             </TouchableOpacity>
@@ -452,6 +492,8 @@ export default function AccountScreen() {
         onPress={handleRestore}
         disabled={restoring}
         activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('paywall.restore')}
       >
         <View style={styles.menuItemLeft}>
           <Ionicons name="refresh-outline" size={20} color={palette.primary} />
@@ -467,7 +509,13 @@ export default function AccountScreen() {
       <View style={{ height: 24 }} />
 
       {/* Sign Out */}
-      <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.signOutButton}
+        onPress={handleSignOut}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('auth.signOut')}
+      >
         <Ionicons name="log-out-outline" size={18} color={Colors.debt} />
         <Text style={styles.signOutText}>{t('account.signOut')}</Text>
       </TouchableOpacity>
@@ -486,13 +534,25 @@ export default function AccountScreen() {
       <Text style={styles.sectionHeader}>{t('account.sectionAccount')}</Text>
 
       {/* Export Data */}
-      <TouchableOpacity style={styles.exportButton} onPress={handleExportData} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.exportButton}
+        onPress={handleExportData}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('account.exportData')}
+      >
         <Ionicons name="download-outline" size={18} color={Colors.primary} />
         <Text style={styles.exportButtonText}>{t('account.exportData')}</Text>
       </TouchableOpacity>
 
       {/* Delete Account */}
-      <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount} activeOpacity={0.7}>
+      <TouchableOpacity
+        style={styles.deleteAccountButton}
+        onPress={handleDeleteAccount}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={t('account.deleteAccount')}
+      >
         <Ionicons name="trash-outline" size={16} color={Colors.textTertiary} />
         <Text style={styles.deleteAccountText}>{t('account.deleteAccount')}</Text>
       </TouchableOpacity>

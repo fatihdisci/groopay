@@ -298,6 +298,9 @@ export default function DashboardScreen() {
                 style={[styles.currencyChip, isActive && styles.currencyChipActive]}
                 onPress={() => setSelectedCurrency(cur)}
                 activeOpacity={0.7}
+                accessibilityRole="radio"
+                accessibilityLabel={t('dashboard.selectCurrency', { currency: cur })}
+                accessibilityState={{ selected: isActive }}
               >
                 <Text style={[styles.currencyChipText, isActive && styles.currencyChipTextActive]}>{cur}</Text>
               </TouchableOpacity>
@@ -768,12 +771,20 @@ export default function DashboardScreen() {
 }
 
 function ProLockPlaceholder({ height, onUnlock }: { height: number; onUnlock: () => void }) {
+  const { t } = useTranslation();
+
   return (
     <View style={[styles.lockContainer, { height }]}>
       <View style={styles.lockInner}>
         <Ionicons name="lock-closed" size={20} color={Colors.primary} />
-        <TouchableOpacity style={styles.lockCta} onPress={onUnlock} activeOpacity={0.7}>
-          <Text style={styles.lockCtaText}>Pro'ya Geç</Text>
+        <TouchableOpacity
+          style={styles.lockCta}
+          onPress={onUnlock}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('paywall.title')}
+        >
+          <Text style={styles.lockCtaText}>{t('paywall.title')}</Text>
         </TouchableOpacity>
       </View>
     </View>

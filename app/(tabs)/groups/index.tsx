@@ -149,6 +149,8 @@ export default function GroupsScreen() {
                 style={styles.groupCard}
                 onPress={() => router.push(`/groups/${item.group.id}`)}
                 activeOpacity={0.95}
+                accessibilityRole="button"
+                accessibilityLabel={t('groups.openGroup', { name: item.group.name })}
               >
                 <View style={styles.cardLeft}>
                   <Avatar initials={getInitials(item.group.name)} color={item.group.avatar_color} emoji={item.group.avatar_emoji} size={48} />
@@ -176,7 +178,13 @@ export default function GroupsScreen() {
           </View>
         )}
         <View style={styles.bottomRow}>
-          <TouchableOpacity style={styles.joinButton} onPress={handleJoinPress} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.joinButton}
+            onPress={handleJoinPress}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={t('groups.joinGroup')}
+          >
             <Ionicons name="enter-outline" size={18} color={Colors.primary} />
             <Text style={styles.joinButtonText}>{t('groups.join')}</Text>
           </TouchableOpacity>
@@ -186,6 +194,8 @@ export default function GroupsScreen() {
             onPress={handleCreatePress}
             activeOpacity={0.9}
             disabled={reachedLimit}
+            accessibilityRole="button"
+            accessibilityLabel={t('groups.newGroup')}
           >
             <LinearGradient
               colors={reachedLimit ? ['#9CA3AF', '#9CA3AF'] : [Colors.gradientStart, Colors.gradientEnd]}

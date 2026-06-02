@@ -2155,3 +2155,72 @@ npx supabase functions deploy revenuecat-webhook
 | Ortak LegalScreen kullanılıyor | ✅ |
 
 *Son güncelleme: 2026-06-02 — B92 eklendi (legal ekranlar)*
+
+---
+
+### ✅ B93: i18n kullanılmayan groupDetail anahtarları temizlendi
+
+> Tarih: 2026-06-02
+
+**Sorun:** Locale dosyalarında karşılığı olmayan ve kodda kullanılmayan iki `groupDetail` anahtarı vardı: TR `expensesSoon`, EN `balancesEmpty`.
+
+**Yapılan:**
+- `rg "expensesSoon|balancesEmpty" -g "*.ts" -g "*.tsx"` ile kod kullanımının olmadığı doğrulandı.
+- `locales/tr.json` içinden `groupDetail.expensesSoon` silindi.
+- `locales/en.json` içinden `groupDetail.balancesEmpty` silindi.
+
+**Değişen dosyalar:** `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| Kodda kullanım yok | ✅ |
+| TR-only anahtar silindi | ✅ |
+| EN-only anahtar silindi | ✅ |
+
+*Son güncelleme: 2026-06-02 — B93 eklendi (i18n anahtar temizliği)*
+
+---
+
+### ✅ B94: Kritik tıklanabilir elemanlara accessibility label eklendi
+
+> Tarih: 2026-06-02
+
+**Sorun:** Grup detay, hesap, üyeler, gruplar, paywall ve dashboard ekranlarındaki kritik tıklanabilir elemanların bir kısmında screen reader için açıklayıcı `accessibilityLabel` yoktu.
+
+**Yapılan:**
+- Belirlenen 6 dosyada kritik butonlara `accessibilityLabel` ve uygun yerlerde `accessibilityRole="button"` eklendi.
+- Renk, dil ve para birimi seçimlerine `accessibilityRole="radio"` ve `accessibilityState.selected` eklendi.
+- Tüm yeni label metinleri `t()` üzerinden okunacak şekilde TR/EN locale anahtarları eklendi.
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/index.tsx`, `app/(tabs)/account.tsx`, `app/(tabs)/groups/[id]/members.tsx`, `app/(tabs)/groups/index.tsx`, `app/paywall.tsx`, `app/(tabs)/dashboard.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| Kritik buton label'ları eklendi | ✅ |
+| Radio seçimlerde selected state eklendi | ✅ |
+| Yeni metinler i18n'den geliyor | ✅ |
+
+*Son güncelleme: 2026-06-02 — B94 eklendi (accessibility label'ları)*
+
+---
+
+### ✅ B95: Profil sayfasına Tips butonu eklendi
+
+> Tarih: 2026-06-02
+
+**Sorun:** Profil sayfasındaki görünen ad, avatar rengi, dil ve varsayılan para birimi tercihleri açıklama gerektiriyordu; özellikle para biriminin panel filtresi olduğu net değildi.
+
+**Yapılan:**
+- `app/(tabs)/account.tsx` header sağ alanına dashboard ile aynı `TipsButton` deseni eklendi.
+- Profil sayfasına özel 4 ipucu `tips.account.*` altında TR/EN i18n'e eklendi.
+- Varsayılan para biriminin para birimlerini çevirmediği veya toplamadığı, yalnızca panelde ilk filtreyi seçtiği belirtildi.
+
+**Değişen dosyalar:** `app/(tabs)/account.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| Profil header Tips butonu eklendi | ✅ |
+| TR/EN tips metinleri eklendi | ✅ |
+| Hardcoded görünen metin eklenmedi | ✅ |
+
+*Son güncelleme: 2026-06-02 — B95 eklendi (profil tips butonu)*

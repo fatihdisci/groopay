@@ -176,6 +176,8 @@ export default function MembersScreen() {
             style={styles.removeBtn}
             onPress={() => handleRemoveMember(item)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={t('members.remove', { name: item.display_name })}
           >
             <Ionicons name="person-remove-outline" size={20} color={Colors.debt} />
           </TouchableOpacity>
@@ -186,6 +188,8 @@ export default function MembersScreen() {
             style={styles.leaveBtn}
             onPress={handleLeaveGroup}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={t('members.leave')}
           >
             <Ionicons name="log-out-outline" size={20} color={Colors.debt} />
           </TouchableOpacity>
@@ -218,6 +222,8 @@ export default function MembersScreen() {
                   style={styles.actionOutline}
                   onPress={() => setActivePanel(activePanel === 'ghost' ? null : 'ghost')}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('members.addGhost')}
                 >
                   <Ionicons name="person-add-outline" size={18} color={Colors.primary} />
                   <Text style={styles.actionOutlineText}>{t('members.addGhost')}</Text>
@@ -240,6 +246,8 @@ export default function MembersScreen() {
                   }
                 }}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={t('members.invite')}
               >
                 <LinearGradient
                   colors={[Colors.gradientStart, Colors.gradientEnd]}

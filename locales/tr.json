@@ -10,6 +10,11 @@
     "may": "May", "jun": "Haz", "jul": "Tem", "aug": "Ağu",
     "sep": "Eyl", "oct": "Eki", "nov": "Kas", "dec": "Ara"
   },
+  "common": {
+    "back": "Geri",
+    "close": "Kapat",
+    "edit": "Düzenle"
+  },
   "groups": {
     "empty": "Henüz grup yok",
     "emptyTitle": "Henüz grubun yok",
@@ -21,6 +26,7 @@
     "createBtn": "Oluştur",
     "cancel": "Vazgeç",
     "join": "Gruba Katıl",
+    "joinGroup": "Gruba Katıl",
     "joinCode": "Davet kodunu gir",
     "joinCodePlaceholder": "ÖRN: ABC123",
     "joinFind": "Grubu Bul",
@@ -38,7 +44,8 @@
     "nameHint": "'Tatil 2026' veya 'Ev Arkadaşları' gibi açıklayıcı bir isim seçin",
     "createError": "Hata",
     "createErrorDesc": "Grup oluşturulamadı",
-    "goProUnlock": "Pro ile sınırsız"
+    "goProUnlock": "Pro ile sınırsız",
+    "openGroup": "{{name}} grubunu aç"
   },
   "join": {
     "title": "Gruba Katıl",
@@ -60,9 +67,10 @@
   "groupDetail": {
     "members": "Üyeler",
     "expenses": "Masraflar",
+    "expensesTab": "Masraflar",
     "expensesEmpty": "Henüz masraf yok",
-    "expensesSoon": "Faz 4'te eklenecek",
     "balances": "Bakiyeler",
+    "balancesTab": "Bakiyeler",
     "edit": "Düzenle",
     "addMember": "Üye Ekle"
   },
@@ -112,6 +120,7 @@
     "showTryEquivalent": "TRY karşılığını göster",
     "hideTryEquivalent": "TRY karşılığını gizle",
     "fxDisclaimer": "bugünkü kur, bilgi amaçlı",
+    "fxToggle": "Kur karşılığını göster",
     "filter": "Filtrele",
     "filterCategory": "Kategori",
     "filterDate": "Tarih",
@@ -179,7 +188,8 @@
     "warning": "Uyarı",
     "addFailed": "Üye eklenemedi",
     "removeTitle": "Üyeyi Çıkar",
-    "inviteFailed": "Davet oluşturulamadı"
+    "inviteFailed": "Davet oluşturulamadı",
+    "leave": "Gruptan Ayrıl"
   },
   "activity": {
     "empty": "Henüz hareket yok",
@@ -263,7 +273,8 @@
     "devNotice": "Geçici giriş — gerçek Google / Apple girişi yakında",
     "googleSignIn": "Google ile giriş",
     "appleSignIn": "Apple ile giriş",
-    "comingSoon": "Yakında"
+    "comingSoon": "Yakında",
+    "signOut": "Çıkış yap"
   },
   "onboarding": {
     "skip": "Atla",
@@ -370,7 +381,8 @@
     "allCurrencies": "Tüm Para Birimleri",
     "allMonths": "Tüm Aylar",
     "tapToExpand": "Detayları görmek için dokun",
-    "tapToCollapse": "Daraltmak için dokun"
+    "tapToCollapse": "Daraltmak için dokun",
+    "selectCurrency": "{{currency}} para birimini seç"
   },
   "account": {
     "title": "Hesap",
@@ -384,6 +396,9 @@
     "language": "Dil",
     "defaultCurrency": "Varsayılan Para Birimi",
     "currencyAuto": "Otomatik",
+    "colorOption": "{{color}} rengi seç",
+    "languageOption": "{{lang}} dilini seç",
+    "currencyOption": "{{currency}} para birimi seç",
     "signOut": "Çıkış yap",
     "signOutConfirm": "Çıkış yapmak istediğinize emin misiniz?",
     "cancel": "Vazgeç",
@@ -527,6 +542,7 @@
     "youOwe": "borçlusun",
     "simplified": "Sadeleştirilmiş",
     "raw": "Ham Bakiye",
+    "whatsapp": "WhatsApp ile Paylaş",
     "allSettled": "Herkes ödeşik ✓",
     "youAreEven": "Ödeşiksin",
     "overallSummary": "Tüm gruplar için özet:",
@@ -570,6 +586,13 @@
       "tip1": "Hayalet üye: uygulaması olmayan kişi. Kurucu ekler, sonra davetle gerçek hesaba bağlanabilir.",
       "tip2": "Davet linkiyle gerçek kullanıcıları gruba çağırabilirsin.",
       "tip3": "Sadece kurucu hayalet üye ekleyebilir; herkes davet linki oluşturabilir."
+    },
+    "account": {
+      "title": "Hesap",
+      "tip1": "Görünen adın grup üyeleri, masraf kartları ve hareket kayıtlarında kullanılır.",
+      "tip2": "Avatar rengi seni grup içindeki avatar ve özetlerde ayırt etmeyi kolaylaştırır.",
+      "tip3": "Dil tercihini kaydedince uygulama metinleri seçtiğin dile geçer.",
+      "tip4": "Varsayılan para birimi panelde ilk gösterilecek filtreyi seçer; farklı para birimleri birbirine çevrilip toplanmaz."
     }
   }
 }
