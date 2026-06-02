@@ -133,7 +133,10 @@ export default function GroupsScreen() {
   const activeGroups = groups ?? [];
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <FlatList
         data={activeGroups}
         keyExtractor={(g) => g.group.id}
@@ -300,7 +303,7 @@ export default function GroupsScreen() {
           </TouchableOpacity>
         </View>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
