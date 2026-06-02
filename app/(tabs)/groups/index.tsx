@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect } from 'react';
+import { useMemo, useState, useLayoutEffect } from 'react';
 import {
   StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator,
   TextInput, Platform, Modal, KeyboardAvoidingView, TouchableWithoutFeedback,
@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
 import { getInviteByToken, joinViaInvite } from '@/lib/supabase/queries';
 import { useCreateGroup } from '@/hooks/useGroups';
+import { useRealtimeAllGroups } from '@/hooks/useRealtime';
 import { usePro } from '@/hooks/usePro';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
 import { palette, spacing, fontSizes, radii } from '@/constants/theme';
@@ -38,6 +39,9 @@ export default function GroupsScreen() {
   const { data: groups, isLoading } = useGroups();
   const { isUserPro } = usePro();
   const createGroup = useCreateGroup();
+  const groupIds = useMemo(() => (groups ?? []).map((g) => g.group.id), [groups]);
+
+  useRealtimeAllGroups(groupIds);
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -54,7 +58,7 @@ export default function GroupsScreen() {
       return count ?? 0;
     },
     enabled: !!user?.id,
-    staleTime: 30_000,
+    staleTime: 0,
   });
 
   const reachedLimit = !isUserPro && (createdGroupCount ?? 0) >= MAX_FREE_GROUPS;

@@ -11,7 +11,7 @@ export function useGroups() {
   return useQuery({
     queryKey: ['groups'],
     queryFn: getMyGroups,
-    staleTime: 30_000,
+    staleTime: 0,
   });
 }
 

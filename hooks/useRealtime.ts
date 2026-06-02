@@ -44,11 +44,6 @@ export function useRealtime(groupId: string) {
         { event: '*', schema: 'public', table: 'group_members', filter: `group_id=eq.${groupId}` },
         handleChange,
       )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'iban_requests', filter: `group_id=eq.${groupId}` },
-        () => qc.invalidateQueries({ queryKey: ['iban_requests', groupId] }),
-      )
       .subscribe();
 
     return () => {
@@ -58,8 +53,8 @@ export function useRealtime(groupId: string) {
 }
 
 /**
- * Subscribe to all groups' activity changes (for the global Activity tab).
- * Uses user's member rows to filter relevant groups.
+ * Subscribe to global changes that can affect list, dashboard, and activity tabs.
+ * Caller must pass a memoized group id array to avoid needless resubscribe cycles.
  */
 export function useRealtimeAllGroups(memberGroupIds: string[]) {
   const qc = useQueryClient();
@@ -67,17 +62,55 @@ export function useRealtimeAllGroups(memberGroupIds: string[]) {
   useEffect(() => {
     if (memberGroupIds.length === 0) return;
 
-    const filters = memberGroupIds
-      .map((gid) => `group_id=eq.${gid}`)
-      .join(',');
+    const invalidateDashboard = () => {
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-hero'] });
+      qc.invalidateQueries({ queryKey: ['pro-analytics'] });
+      qc.invalidateQueries({ queryKey: ['all-user-expenses'] });
+      qc.invalidateQueries({ queryKey: ['expense-filter-options'] });
+    };
 
     const channel = supabase
-      .channel('all-activity')
+      .channel('global-changes')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'activity_log', filter: filters },
+        { event: '*', schema: 'public', table: 'expenses' },
+        () => {
+          qc.invalidateQueries({ queryKey: ['groups'] });
+          invalidateDashboard();
+          qc.invalidateQueries({ queryKey: ['activity-all'] });
+          memberGroupIds.forEach((gid) => {
+            qc.invalidateQueries({ queryKey: ['expenses', gid] });
+            qc.invalidateQueries({ queryKey: ['group', gid] });
+          });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'group_members' },
+        () => {
+          qc.invalidateQueries({ queryKey: ['groups'] });
+          invalidateDashboard();
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'activity_log' },
         () => {
           qc.invalidateQueries({ queryKey: ['activity-all'] });
+          qc.invalidateQueries({ queryKey: ['activity'] });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'settlements' },
+        () => {
+          qc.invalidateQueries({ queryKey: ['groups'] });
+          invalidateDashboard();
+          memberGroupIds.forEach((gid) => {
+            qc.invalidateQueries({ queryKey: ['settlements', gid] });
+            qc.invalidateQueries({ queryKey: ['expenses', gid] });
+          });
         },
       )
       .subscribe();

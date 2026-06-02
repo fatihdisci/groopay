@@ -2330,3 +2330,30 @@ npx supabase functions deploy revenuecat-webhook
 
 *Son güncelleme: 2026-06-02 — B99 eklendi (bakiye satırı hizalama — butonlar tutarın altına)*
 
+---
+
+### ✅ B100: Global Realtime invalidation panel, gruplar ve aktiviteye genişletildi
+
+> Tarih: 2026-06-02
+
+**Sorun:** Panel, gruplar listesi ve aktivite ekranı Supabase Realtime değişikliklerini anlık yansıtmıyordu. Global Realtime hook sadece `activity_log` dinliyordu; masraf, üye ve settlement değişiklikleri ilgili query cache'lerini tazelemiyordu.
+
+**Yapılan:**
+- `useRealtimeAllGroups` global hook'u `expenses`, `group_members`, `activity_log` ve `settlements` tablolarını dinleyecek şekilde genişletildi.
+- Panelin gerçek query key'leri (`dashboard-hero`, `pro-analytics`, `all-user-expenses`, `expense-filter-options`) Realtime invalidation kapsamına alındı.
+- Gruplar listesi ve dashboard ekranlarına memoize grup ID listesiyle `useRealtimeAllGroups` bağlandı.
+- Aktivite ekranındaki grup ID listesi `useMemo` ile stabilize edildi.
+- Gruplar, panel ve aktivite query'lerinde `staleTime` değerleri `0` yapıldı.
+- WhatsApp IBAN refaktörü sonrası gereksiz kalan `iban_requests` Realtime listener'ı kaldırıldı.
+
+**Değişen dosyalar:** `hooks/useRealtime.ts`, `hooks/useGroups.ts`, `app/(tabs)/groups/index.tsx`, `app/(tabs)/dashboard.tsx`, `app/(tabs)/activity.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| Global Realtime expenses/group_members/activity_log/settlements dinliyor | ✅ |
+| Panel query'leri invalidate ediliyor | ✅ |
+| Grup ID listeleri useMemo ile stabilize edildi | ✅ |
+| `iban_requests` listener'ı kaldırıldı | ✅ |
+| `npx tsc --noEmit` temiz | ✅ |
+
+*Son güncelleme: 2026-06-02 — B100 eklendi (global realtime invalidation)*

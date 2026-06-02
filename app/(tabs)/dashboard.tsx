@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import { useRouter, useNavigation } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 
 import { usePro } from '@/hooks/usePro';
+import { useRealtimeAllGroups } from '@/hooks/useRealtime';
 import { useAuth } from '@/lib/auth';
 import { getProDashboardAnalytics, getAllUserExpenses, getUserFilterOptions, type DashboardAnalyticsData } from '@/lib/supabase/queries';
 import type { AllExpensesFilters, ExpenseWithGroupInfo } from '@/lib/supabase/types';
@@ -20,6 +21,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
 import { palette, spacing, radii } from '@/constants/theme';
 import type { ExpenseForBalance, SplitForBalance, SettlementForBalance } from '@/lib/finance';
+
+type DashboardGroupRef = { id: string; name: string };
 
 export default function DashboardScreen() {
   const { t } = useTranslation();
@@ -44,9 +47,10 @@ export default function DashboardScreen() {
       const myMemberIds = new Set(memberRows.map((m) => m.id));
       const groupIds = [...new Set(memberRows.map((m) => m.group_id))];
 
-      if (groupIds.length === 0) return { balances: [], groupCount: 0, expenseCount: 0, topGroup: null, categories: [], dominantCurrency: 'TRY', usedCurrencies: [] };
+      if (groupIds.length === 0) return { balances: [], groupCount: 0, expenseCount: 0, topGroup: null, categories: [], dominantCurrency: 'TRY', usedCurrencies: [], groups: [] };
 
       const { data: groups } = await supabase.from('groups').select('id, name').in('id', groupIds);
+      const groupRows = (groups ?? []) as DashboardGroupRef[];
       const [{ data: expenses }, { data: allSplits }, { data: settlements }] = await Promise.all([
         supabase.from('expenses').select('*').in('group_id', groupIds).is('deleted_at', null),
         (async () => {
@@ -74,7 +78,7 @@ export default function DashboardScreen() {
       }).filter(Boolean) as { currency: string; netMinor: number; formatted: string }[];
 
       const expRows = (expenses ?? []) as any[];
-      const groupCount = (groups ?? []).length;
+      const groupCount = groupRows.length;
       const expenseCount = expRows.length;
 
       const groupExpCounts = new Map<string, number>();
@@ -82,7 +86,7 @@ export default function DashboardScreen() {
       let topGroup: { name: string; count: number } | null = null;
       for (const [gid, count] of groupExpCounts) {
         if (!topGroup || count > topGroup.count) {
-          topGroup = { name: (groups ?? []).find((g: any) => g.id === gid)?.name ?? '?', count };
+          topGroup = { name: groupRows.find((g) => g.id === gid)?.name ?? '?', count };
         }
       }
 
@@ -124,11 +128,17 @@ export default function DashboardScreen() {
 
       const usedCurrencies = [...new Set([...catCurrencyMap.values()].map((v) => v.currency))];
 
-      return { balances: balanceResult, groupCount, expenseCount, topGroup, categories: allCategories, dominantCurrency: dominantCatCurrency, usedCurrencies };
+      return { balances: balanceResult, groupCount, expenseCount, topGroup, categories: allCategories, dominantCurrency: dominantCatCurrency, usedCurrencies, groups: groupRows.map((g) => ({ id: g.id })) };
     },
     enabled: !!user?.id,
-    staleTime: 30_000,
+    staleTime: 0,
   });
+
+  const groupIds = useMemo(
+    () => (heroData?.groups ?? []).map((g) => g.id),
+    [heroData],
+  );
+  useRealtimeAllGroups(groupIds);
 
   // Sync selectedCurrency: preferred_currency wins, else auto-dominant on first load
   useEffect(() => {
@@ -167,7 +177,7 @@ export default function DashboardScreen() {
     queryKey: ['pro-analytics', user?.id, activeCurrency],
     queryFn: () => getProDashboardAnalytics(user!.id, activeCurrency),
     enabled: !!user?.id && isUserPro,
-    staleTime: 60_000,
+    staleTime: 0,
   });
 
   // Enable LayoutAnimation on Android
@@ -189,7 +199,7 @@ export default function DashboardScreen() {
     queryKey: ['expense-filter-options', user?.id],
     queryFn: () => getUserFilterOptions(user!.id),
     enabled: !!user?.id && allExpensesExpanded,
-    staleTime: 60_000,
+    staleTime: 0,
   });
 
   // All expenses query (paginated, filtered) — only when expanded + Pro
@@ -204,7 +214,7 @@ export default function DashboardScreen() {
     queryKey: ['all-user-expenses', user?.id, cleanFilters, expensePage],
     queryFn: () => getAllUserExpenses(user!.id, cleanFilters, expensePage, 20),
     enabled: !!user?.id && isUserPro && allExpensesExpanded,
-    staleTime: 30_000,
+    staleTime: 0,
     retry: 1,
   });
 

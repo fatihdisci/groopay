@@ -78,12 +78,12 @@ export default function ActivityScreen() {
     queryKey: ['my-group-ids'],
     queryFn: async () => {
       const { data } = await supabase.from('group_members').select('group_id').eq('is_active', true);
-      return [...new Set((data ?? []).map((m: any) => m.group_id))] as string[];
+      return [...new Set(((data ?? []) as { group_id: string }[]).map((m) => m.group_id))];
     },
-    staleTime: 60_000,
+    staleTime: 0,
   });
 
-  const groupIds = myGroups ?? [];
+  const groupIds = useMemo(() => myGroups ?? [], [myGroups]);
   useRealtimeAllGroups(groupIds);
 
   const { data: activityData, isLoading } = useQuery({
@@ -125,7 +125,7 @@ export default function ActivityScreen() {
       };
     },
     enabled: groupIds.length > 0,
-    staleTime: 10_000,
+    staleTime: 0,
   });
 
   const activity = activityData?.activity ?? [];
