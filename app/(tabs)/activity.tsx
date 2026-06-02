@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator } from 'react-native';
+import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TextInput, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useRealtimeAllGroups } from '@/hooks/useRealtime';
+import { usePro } from '@/hooks/usePro';
 import { formatAmount } from '@/lib/finance/money';
 import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { palette, spacing, fontSizes, radii } from '@/constants/theme';
@@ -50,6 +52,31 @@ function timeAgo(dateStr: string, t: (k: string, o?: any) => string): string {
 
 export default function ActivityScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
+  const { isUserPro } = usePro();
+
+  // Search
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSearchChange = useCallback((text: string) => {
+    setSearchQuery(text);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(text);
+    }, 300);
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+    setDebouncedQuery('');
+  }, []);
+
+  // Clean up debounce on unmount
+  useEffect(() => {
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, []);
 
   const { data: myGroups, isLoading: groupsLoading } = useQuery({
     queryKey: ['my-group-ids'],
@@ -109,10 +136,34 @@ export default function ActivityScreen() {
   const memberNames = activityData?.memberNames ?? new Map();
   const groupNames = activityData?.groupNames ?? new Map();
 
-  // Group activity by date
+  // Search filter + group by date
+  const isSearching = debouncedQuery.length > 0;
+
   const groupedByDate = useMemo(() => {
+    const filtered = isSearching
+      ? activity.filter((a) => {
+          const q = debouncedQuery.toLocaleLowerCase('tr-TR');
+          const actorName = a.actor_member_id ? (memberNames.get(a.actor_member_id) ?? '') : '';
+          const groupName = groupNames.get(a.group_id) ?? '';
+          const desc = (a.metadata as any)?.description ?? '';
+          const amount = (a.metadata as any)?.amount != null ? String((a.metadata as any).amount) : '';
+
+          // Build searchable text for this activity row
+          const searchText = [
+            actorName,
+            groupName,
+            desc,
+            amount,
+            // Also include formatted activity text for i18n matching
+            formatActivity(a, actorName || null, memberNames, t),
+          ].join(' ').toLocaleLowerCase('tr-TR');
+
+          return searchText.includes(q);
+        })
+      : activity;
+
     const groups = new Map<string, ActivityLogRow[]>();
-    for (const a of activity) {
+    for (const a of filtered) {
       const dateKey = new Date(a.created_at).toLocaleDateString('tr-TR', {
         weekday: 'long', day: 'numeric', month: 'long',
       });
@@ -121,50 +172,98 @@ export default function ActivityScreen() {
       groups.set(dateKey, list);
     }
     return groups;
-  }, [activity]);
+  }, [activity, debouncedQuery, memberNames, groupNames, t]);
+
+  const hasResults = groupedByDate.size > 0;
 
   if (groupsLoading || isLoading) {
-    return <View style={styles.centered}><ActivityIndicator size="large" color={palette.primary} /></View>;
-  }
-
-  if (activity.length === 0) {
     return (
       <View style={styles.centered}>
-        <Ionicons name="time-outline" size={64} color={palette.muted} />
-        <Text style={styles.emptyText}>{t('activity.empty')}</Text>
+        <ActivityIndicator size="large" color={palette.primary} />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {[...groupedByDate.entries()].map(([dateLabel, items]) => (
-        <View key={dateLabel} style={styles.dateGroup}>
-          <Text style={styles.dateLabel}>{dateLabel.toLocaleUpperCase('tr-TR')}</Text>
-          {items.map((a) => {
-            const actorName = a.actor_member_id ? memberNames.get(a.actor_member_id) : null;
-            const groupName = groupNames.get(a.group_id) ?? '';
-            const iconColor = getActivityColor(a.action_type);
-            return (
-              <View key={a.id} style={styles.row}>
-                <View style={[styles.activityIconDot, { backgroundColor: iconColor + '20' }]}>
-                  <Ionicons name={getActivityIcon(a.action_type)} size={12} color={iconColor} />
-                </View>
-                <View style={styles.rowContent}>
-                  <Text style={styles.rowText} numberOfLines={2}>
-                    {formatActivity(a, actorName, memberNames, t)}
-                  </Text>
-                  <View style={styles.rowMeta}>
-                    {groupName ? <Text style={styles.rowGroup}>{groupName}</Text> : null}
-                    <Text style={styles.rowTime}>{timeAgo(a.created_at, t)}</Text>
+    <View style={styles.wrapper}>
+      {/* ── Search Bar ── */}
+      {activity.length > 0 || isSearching ? (
+        isUserPro ? (
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <Ionicons name="search-outline" size={18} color={Colors.textTertiary} />
+              <TextInput
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={handleSearchChange}
+                placeholder={t('activity.searchPlaceholder')}
+                placeholderTextColor={Colors.textTertiary}
+                returnKeyType="search"
+                autoCorrect={false}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.searchContainer}
+            onPress={() => router.push('/paywall?context=feature')}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.searchBar, styles.searchBarLocked]}>
+              <Ionicons name="search-outline" size={18} color={Colors.textTertiary} />
+              <Text style={styles.searchPlaceholder}>{t('activity.searchPlaceholder')}</Text>
+              <Ionicons name="lock-closed" size={14} color={Colors.primary} />
+            </View>
+          </TouchableOpacity>
+        )
+      ) : null}
+
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {activity.length === 0 ? (
+          <View style={styles.centered}>
+            <Ionicons name="time-outline" size={64} color={palette.muted} />
+            <Text style={styles.emptyText}>{t('activity.empty')}</Text>
+          </View>
+        ) : hasResults ? (
+          [...groupedByDate.entries()].map(([dateLabel, items]) => (
+            <View key={dateLabel} style={styles.dateGroup}>
+              <Text style={styles.dateLabel}>{dateLabel.toLocaleUpperCase('tr-TR')}</Text>
+              {items.map((a) => {
+                const actorName = a.actor_member_id ? memberNames.get(a.actor_member_id) : null;
+                const groupName = groupNames.get(a.group_id) ?? '';
+                const iconColor = getActivityColor(a.action_type);
+                return (
+                  <View key={a.id} style={styles.row}>
+                    <View style={[styles.activityIconDot, { backgroundColor: iconColor + '20' }]}>
+                      <Ionicons name={getActivityIcon(a.action_type)} size={12} color={iconColor} />
+                    </View>
+                    <View style={styles.rowContent}>
+                      <Text style={styles.rowText} numberOfLines={2}>
+                        {formatActivity(a, actorName, memberNames, t)}
+                      </Text>
+                      <View style={styles.rowMeta}>
+                        {groupName ? <Text style={styles.rowGroup}>{groupName}</Text> : null}
+                        <Text style={styles.rowTime}>{timeAgo(a.created_at, t)}</Text>
+                      </View>
+                    </View>
                   </View>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-      ))}
-    </ScrollView>
+                );
+              })}
+            </View>
+          ))
+        ) : (
+          <View style={styles.centered}>
+            <Ionicons name="search-outline" size={48} color={palette.muted} />
+            <Text style={styles.emptyText}>{t('activity.noSearchResults')}</Text>
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -222,10 +321,26 @@ function formatActivity(
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
+  wrapper: { flex: 1, backgroundColor: Colors.background },
+  container: { flex: 1 },
   content: { padding: Spacing.base, paddingBottom: Spacing['4xl'] },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background, padding: Spacing.lg },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: Spacing.lg },
   emptyText: { marginTop: Spacing.md, fontFamily: Typography.fontBody, fontSize: Typography.size.base, color: Colors.textSecondary },
+
+  // Search
+  searchContainer: { paddingHorizontal: Spacing.base, paddingTop: Spacing.sm, paddingBottom: Spacing.sm, backgroundColor: Colors.background },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    height: 44,
+    gap: Spacing.sm,
+  },
+  searchBarLocked: { opacity: 0.7 },
+  searchInput: { flex: 1, fontFamily: Typography.fontBody, fontSize: 15, color: Colors.textPrimary, paddingVertical: 0 },
+  searchPlaceholder: { flex: 1, fontFamily: Typography.fontBody, fontSize: 15, color: Colors.textTertiary },
 
   // Date grouping
   dateGroup: { marginBottom: Spacing.lg },

@@ -173,7 +173,9 @@
     "settlement_rejected": "{{name}} ödemeyi reddetti",
     "member_claimed": "{{name}}, {{target}} hayalet üyesini devraldı",
     "genericActivity": "{{type}}",
-    "unknownMember": "bilinmeyen üye"
+    "unknownMember": "bilinmeyen üye",
+    "searchPlaceholder": "Aktivitede ara...",
+    "noSearchResults": "Aramanla eşleşen aktivite yok"
   },
   "balance": {
     "empty": "Henüz bakiye yok. İlk masrafı ekleyin!",

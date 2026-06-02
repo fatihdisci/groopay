@@ -1819,3 +1819,45 @@ npx supabase functions deploy revenuecat-webhook
 | DEV toggle sadece __DEV__ | ✅ |
 
 *Son güncelleme: 2026-06-01 — B80 eklendi (hesap sayfası reorganizasyon + klavye)*
+
+---
+
+### ✅ B81: Panel varsayılan açılış sekmesi yapıldı
+
+**Sorun:** Uygulama her açıldığında Gruplar sekmesi geliyordu, Panel ana sayfa olması gerekirken.
+
+**Kök neden:** `app/index.tsx` auth gate `/(tabs)/groups`'a redirect ediyordu.
+
+**Yapılan:**
+- `Redirect href="/(tabs)/dashboard"` olarak değiştirildi.
+
+**Değişen dosyalar:** `app/index.tsx`
+
+---
+
+### ✅ B82: Aktivite sayfasına metin arama eklendi
+
+**Sorun:** Aktivite akışı uzayınca belirli bir olayı bulmak zordu.
+
+**Yapılan:**
+- **Arama çubuğu:** Sayfa üstünde `search-outline` ikonlu, `close-circle` temizle butonlu.
+- **Debounce:** 300ms — her tuş vuruşunda filtreleme yapılmaz.
+- **Arama kapsamı:** Aktör adı, grup adı, masraf açıklaması, tutar, formatlanmış aktivite metni. Hepsi `toLocaleLowerCase('tr-TR')` ile normalize.
+- **Boş arama:** Tüm aktiviteler gösterilir.
+- **Sonuç yok:** "Aramanla eşleşen aktivite yok".
+- **Pro gating:** Pro değilse arama çubuğu görünür ama kilit ikonu + paywall'a yönlendirme (mevcut pattern).
+
+**Değişen dosyalar:** `app/(tabs)/activity.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| 87/87 test geçti | ✅ |
+| Panel varsayılan sekme | ✅ `/(tabs)/dashboard` |
+| Aktivite arama: Pro | ✅ Çalışıyor |
+| Aktivite arama: Free | ✅ Kilit + paywall |
+| Türkçe karakter (İ/ı, Ş/ş) | ✅ `toLocaleLowerCase('tr-TR')` |
+| Debounce 300ms | ✅ |
+| Temizle butonu | ✅ X ikonu |
+
+*Son güncelleme: 2026-06-01 — B81-B82 eklendi (Panel varsayılan sekme + aktivite arama)*

@@ -35,7 +35,9 @@
     "settlement_rejected": "{{name}} rejected the payment",
     "member_claimed": "{{name}} claimed ghost member {{target}}",
     "genericActivity": "{{type}}",
-    "unknownMember": "unknown member"
+    "unknownMember": "unknown member",
+    "searchPlaceholder": "Search activity...",
+    "noSearchResults": "No matching activities found"
   },
   "balance": {
     "empty": "No balances yet. Add your first expense!",
