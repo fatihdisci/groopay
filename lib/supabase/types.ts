@@ -40,6 +40,7 @@ export interface GroupMemberRow {
   group_id: string;
   user_id: string | null; // NULL = ghost
   display_name: string;
+  avatar_color?: string;
   role: MemberRole;
   is_active: boolean;
   created_at: string;

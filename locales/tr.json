@@ -228,7 +228,8 @@
     "reject": "Reddet",
     "payTitle": "{{to}} kişisine ödeme",
     "paySub": "En fazla: {{max}}",
-    "markPaid": "Ödedim İşaretle",
+    "markPaid": "Öde",
+    "markPaidLabel": "Ödeme işaretle",
     "invalidAmount": "Geçerli bir tutar girin",
     "overpay": "En fazla {{max}} ödeyebilirsiniz",
     "awaitingApproval": "Onay Bekleniyor",
@@ -237,7 +238,8 @@
     "memberNotFound": "Üyelik bulunamadı"
   },
   "iban": {
-    "request": "IBAN İste",
+    "request": "IBAN iste",
+    "requestLabel": "IBAN isteği gönder",
     "requestTitle": "{{name}} kişisinden IBAN iste",
     "requestConfirm": "{{name}} kişisine IBAN isteği gönderilsin mi? IBAN'ı girdikten sonra sana iletecek.",
     "requestSent": "IBAN isteği gönderildi",

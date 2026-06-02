@@ -2054,3 +2054,77 @@ npx supabase functions deploy revenuecat-webhook
 | i18n tr/en | ✅ |
 
 *Son güncelleme: 2026-06-02 — B88 eklendi (paywall gradient header + fiyat timeout)*
+
+---
+
+### ✅ B89: Masraf önizleme split noktaları gradient avatar oldu
+
+> Tarih: 2026-06-02
+
+**Sorun:** Masraf kartı genişletilince görünen önizleme listesinde üyeler küçük kategori rengi noktayla temsil ediliyordu. Bu, üye kimliğini hızlı taramayı zorlaştırıyordu.
+
+**Yapılan:**
+- Split önizleme satırındaki nokta, üyenin baş harfini gösteren küçük `LinearGradient` avatara çevrildi.
+- Avatar rengi `member.avatar_color` varsa onu, yoksa `Colors.primary` fallback'ini kullanır.
+- `splitDetailDot` stili korunarak sadece ilgili JSX değiştirildi.
+- `GroupMemberRow` tipine opsiyonel `avatar_color` alanı eklendi.
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/index.tsx`, `lib/supabase/types.ts`
+
+| Kontrol | Durum |
+|---|---|
+| Split önizleme avatar gösterir | ✅ |
+| `splitDetailDot` korunur | ✅ |
+| `LinearGradient` mevcut import kullanılır | ✅ |
+| Tip alanı eklendi | ✅ |
+
+*Son güncelleme: 2026-06-02 — B89 eklendi (split önizleme avatarları)*
+
+---
+
+### ✅ B90: Split önizleme avatarları gerçek profil rengini kullanıyor
+
+> Tarih: 2026-06-02
+
+**Sorun:** Masraf kartı genişletilince split önizleme avatarları her üyede mavi fallback renge düşüyordu. `getGroupDetail` profil avatar renklerini `memberAvatarColors` map'i olarak çekiyor ama `members` satırlarına `avatar_color` alanını eklemiyordu.
+
+**Yapılan:**
+- `getGroupDetail` dönüşünde gerçek kullanıcı üyeleri `profile.avatar_color` ile zenginleştirildi.
+- `members` içindeki her gerçek üye artık `avatar_color` alanını taşır.
+- Hayalet üyelerde alan boş kalır ve UI fallback rengi kullanır.
+
+**Değişen dosyalar:** `lib/supabase/queries.ts`
+
+| Kontrol | Durum |
+|---|---|
+| Gerçek üyeler profil avatar rengini taşır | ✅ |
+| Hayalet üyeler fallback kullanır | ✅ |
+| Masraf kartı split avatarları gerçek renge döner | ✅ |
+
+*Son güncelleme: 2026-06-02 — B90 eklendi (split avatar renkleri)*
+
+---
+
+### ✅ B91: Sadeleştirilmiş bakiye aksiyon ikonlarına etiket eklendi
+
+> Tarih: 2026-06-02
+
+**Sorun:** Sadeleştirilmiş bakiye satırında borçlu kullanıcının gördüğü iki küçük ikon butonun anlamı yeterince açık değildi.
+
+**Yapılan:**
+- Ödeme işaretleme ve IBAN isteme butonları dikey ikon + kısa etiket düzenine taşındı.
+- Butonlara `accessibilityLabel` eklendi.
+- Mevcut `actionIconBtn` stili korunarak yeni `actionIconBtnWrap`, `actionIconLabel`, `actionIconLabelBlue` stilleri eklendi.
+- `settle.markPaid`, `settle.markPaidLabel`, `iban.request`, `iban.requestLabel` i18n anahtarları tr/en güncellendi.
+
+**Değişen dosyalar:** `app/(tabs)/groups/[id]/index.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| Ödeme butonu ikon + etiket gösterir | ✅ |
+| IBAN butonu ikon + etiket gösterir | ✅ |
+| `hitSlop` korundu | ✅ |
+| `actionIconBtn` stili korundu | ✅ |
+| i18n tr/en | ✅ |
+
+*Son güncelleme: 2026-06-02 — B91 eklendi (bakiye aksiyon etiketleri)*

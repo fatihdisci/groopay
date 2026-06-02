@@ -117,9 +117,14 @@ export async function getGroupDetail(groupId: string): Promise<GroupWithMembers>
   const { data: expenses } = await supabase
     .from('expenses').select('*').eq('group_id', groupId).is('deleted_at', null).order('created_at', { ascending: false });
 
+  const membersWithAvatarColors = ((members ?? []) as GroupMemberRow[]).map((member) => ({
+    ...member,
+    avatar_color: member.user_id ? memberAvatarColors[member.user_id] : undefined,
+  }));
+
   return {
     group: group as GroupRow,
-    members: (members ?? []) as GroupMemberRow[],
+    members: membersWithAvatarColors,
     expenses: (expenses ?? []) as ExpenseRow[],
     memberAvatarColors,
   };

@@ -772,11 +772,23 @@ function SimplifiedBalanceList({ txs, members, currency, actorMember, onSettle, 
                 )}
                 {isDebtor && !hasPendingSettle && (
                   <>
-                    <TouchableOpacity style={styles.actionIconBtn} onPress={() => onSettle(tx.to, toM?.display_name ?? '?', currency, tx.amountMinor)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <TouchableOpacity
+                      style={styles.actionIconBtnWrap}
+                      onPress={() => onSettle(tx.to, toM?.display_name ?? '?', currency, tx.amountMinor)}
+                      accessibilityLabel={t('settle.markPaidLabel')}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
                       <Ionicons name="checkmark" size={16} color={Colors.credit} />
+                      <Text style={styles.actionIconLabel}>{t('settle.markPaid')}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.actionIconBtn} onPress={() => onIbanRequest(toM!, currency)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <TouchableOpacity
+                      style={styles.actionIconBtnWrap}
+                      onPress={() => onIbanRequest(toM!, currency)}
+                      accessibilityLabel={t('iban.requestLabel')}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
                       <Ionicons name="card-outline" size={15} color={Colors.primary} />
+                      <Text style={styles.actionIconLabelBlue}>{t('iban.request')}</Text>
                     </TouchableOpacity>
                   </>
                 )}
@@ -873,7 +885,14 @@ function ExpenseCard({ expense, splits, members, payerName, category, groupCurre
                 return (
                   <View key={s.id} style={styles.splitDetailRow}>
                     <View style={styles.splitDetailMember}>
-                      <View style={[styles.splitDetailDot, { backgroundColor: CATEGORY_COLORS[category] }]} />
+                      <LinearGradient
+                        colors={[m?.avatar_color ?? Colors.primary, `${m?.avatar_color ?? Colors.primary}BB`]}
+                        style={styles.splitDetailAvatar}
+                      >
+                        <Text style={styles.splitDetailAvatarText}>
+                          {(m?.display_name ?? '?').charAt(0).toLocaleUpperCase('tr-TR')}
+                        </Text>
+                      </LinearGradient>
                       <Text style={styles.splitDetailName}>{m?.display_name ?? '?'}</Text>
                     </View>
                     <Text style={styles.splitDetailAmount}>{formatAmount(Number(s.share_amount), expense.currency)}</Text>
@@ -1024,6 +1043,8 @@ const styles = StyleSheet.create({
   splitDetailRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.xs },
   splitDetailMember: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs },
   splitDetailDot: { width: 8, height: 8, borderRadius: 4 },
+  splitDetailAvatar: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  splitDetailAvatarText: { fontFamily: Typography.fontBodyBold, fontSize: 10, color: 'white' },
   splitDetailName: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textPrimary },
   splitDetailAmount: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, color: Colors.textPrimary },
   collapseHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingTop: Spacing.sm },
@@ -1055,6 +1076,9 @@ const styles = StyleSheet.create({
   simplifiedTo: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, color: Colors.credit },
   simplifiedAmount: { fontFamily: Typography.fontDisplayMedium, fontSize: Typography.size.sm, color: Colors.textPrimary },
   actionIconBtn: { width: 30, height: 30, borderRadius: Radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.background },
+  actionIconBtnWrap: { alignItems: 'center', justifyContent: 'center', gap: 2, minWidth: 36, minHeight: 44 },
+  actionIconLabel: { fontFamily: Typography.fontBody, fontSize: 9, color: Colors.credit, textAlign: 'center' },
+  actionIconLabelBlue: { fontFamily: Typography.fontBody, fontSize: 9, color: Colors.primary, textAlign: 'center' },
   noDebts: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textTertiary, fontStyle: 'italic', textAlign: 'center', paddingVertical: Spacing.sm },
   // Activity
   activitySectionTitle: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.xs, color: Colors.textSecondary, letterSpacing: Typography.letterSpacing.wider, marginBottom: Spacing.sm, marginTop: Spacing.lg },
