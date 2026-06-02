@@ -341,6 +341,10 @@
   },
   "account": {
     "title": "Account",
+    "sectionProfile": "PROFILE",
+    "sectionPreferences": "PREFERENCES",
+    "sectionMembership": "MEMBERSHIP",
+    "sectionAccount": "ACCOUNT",
     "displayName": "Display name",
     "displayNamePlaceholder": "Enter your name",
     "avatarColor": "Avatar color",

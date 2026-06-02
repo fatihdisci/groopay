@@ -1777,3 +1777,45 @@ npx supabase functions deploy revenuecat-webhook
 **Değişen dosyalar:** `app/(tabs)/account.tsx`, `lib/auth/AuthContext.tsx`
 
 *Son güncelleme: 2026-06-01 — B79 eklendi (aktivite profil adı cache + predicate fix)*
+
+---
+
+### ✅ B80: Hesap sayfası yeniden düzenlendi + klavye düzeltmesi
+
+**Sorun 1:** Element sıralaması mantıksızdı — Pro durumu en üstte, kaydet butonu ayarların altında değil en alttaydı.
+
+**Yapılan — yeni sıralama:**
+1. Avatar hero (ad + Pro/Free badge)
+2. **PROFİL** bölümü: Görünen Ad → Avatar Rengi
+3. **TERCİHLER** bölümü: Dil → Varsayılan Para Birimi
+4. Kaydet butonu (gradient)
+5. **ÜYELİK** bölümü: Pro durumu kartı → Satın alımları geri yükle
+6. Ayırıcı → Çıkış yap
+7. [DEV] Pro toggle (`__DEV__` guard)
+8. **HESAP** bölümü: Verilerimi İndir → Hesabımı Sil
+
+**Yapılan — bölüm başlıkları:**
+- `sectionHeader` stili: 11px, bold, `textTertiary`, 1.5 letter-spacing
+- 4 başlık: PROFİL, TERCİHLER, ÜYELİK, HESAP
+- i18n: `account.sectionProfile/sectionPreferences/sectionMembership/sectionAccount` (tr + en)
+
+**Sorun 2:** Görünen Ad TextInput'una tıklayınca klavye input'u gizliyordu.
+
+**Yapılan:**
+- `KeyboardAvoidingView` (iOS `behavior="padding"`)
+- `ScrollView` → `keyboardShouldPersistTaps="handled"` + `ref`
+- `onLayout` ile input y konumu yakalanır, `onFocus`'ta 350ms sonra `scrollTo`
+- `displayNameY.current` + `scrollRef.current?.scrollTo()`
+
+**Değişen dosyalar:** `app/(tabs)/account.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| 87/87 test geçti | ✅ |
+| Sıralama: profil → tercihler → üyelik → hesap | ✅ |
+| Bölüm başlıkları | ✅ 4 başlık |
+| Klavye input'u gizlemiyor | ✅ KeyboardAvoidingView + scrollTo |
+| DEV toggle sadece __DEV__ | ✅ |
+
+*Son güncelleme: 2026-06-01 — B80 eklendi (hesap sayfası reorganizasyon + klavye)*

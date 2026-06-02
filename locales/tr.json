@@ -339,6 +339,10 @@
   },
   "account": {
     "title": "Hesap",
+    "sectionProfile": "PROFİL",
+    "sectionPreferences": "TERCİHLER",
+    "sectionMembership": "ÜYELİK",
+    "sectionAccount": "HESAP",
     "displayName": "Görünen ad",
     "displayNamePlaceholder": "Adınızı girin",
     "avatarColor": "Avatar rengi",

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,6 +8,8 @@ import {
   ScrollView,
   Alert,
   Share,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -48,6 +50,16 @@ export default function AccountScreen() {
   const [preferredCurrency, setPreferredCurrency] = useState<string | null>(user?.preferred_currency ?? null);
   const [restoring, setRestoring] = useState(false);
   const [toast, setToast] = useState<{ visible: boolean; message: string; type: ToastType }>({ visible: false, message: '', type: 'success' });
+
+  const scrollRef = useRef<ScrollView>(null);
+  const displayNameY = useRef(0);
+
+  const handleDisplayNameFocus = () => {
+    // Scroll input into view above keyboard
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: Math.max(0, displayNameY.current - 40), animated: true });
+    }, 350);
+  };
 
   const showToast = useCallback((message: string, type: ToastType = 'success') => {
     setToast({ visible: true, message, type });
@@ -260,9 +272,18 @@ export default function AccountScreen() {
   const initials = getInitials(displayName || user.display_name);
 
   return (
-    <View style={styles.wrapper}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Gradient mini-header */}
+    <KeyboardAvoidingView
+      style={styles.wrapper}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
+    <ScrollView
+      ref={scrollRef}
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      keyboardShouldPersistTaps="handled"
+    >
+      {/* ── AVATAR HERO ── */}
       <LinearGradient
         colors={getAvatarHeaderGradient(selectedColor) as [string, string]}
         start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
@@ -277,9 +298,129 @@ export default function AccountScreen() {
         </View>
       </LinearGradient>
 
-      {/* Pro Status Section */}
-      <View style={styles.proSection}>
-        <Text style={styles.sectionLabel}>{t('account.proStatus').toLocaleUpperCase('tr-TR')}</Text>
+      {/* ── PROFİL ── */}
+      <Text style={styles.sectionHeader}>{t('account.sectionProfile')}</Text>
+
+      {/* Display Name */}
+      <View
+        style={styles.section}
+        onLayout={(e) => { displayNameY.current = e.nativeEvent.layout.y; }}
+      >
+        <Text style={styles.label}>{t('account.displayName')}</Text>
+        <TextInput
+          style={styles.input}
+          value={displayName}
+          onChangeText={setDisplayName}
+          onFocus={handleDisplayNameFocus}
+          placeholder={t('account.displayNamePlaceholder')}
+          placeholderTextColor={palette.muted}
+          maxLength={40}
+        />
+      </View>
+
+      {/* Avatar Color */}
+      <View style={styles.section}>
+        <Text style={styles.label}>{t('account.avatarColor')}</Text>
+        <View style={styles.colorRow}>
+          {AVATAR_COLORS.map((color) => (
+            <TouchableOpacity
+              key={color}
+              style={[
+                styles.colorCircle,
+                { backgroundColor: color },
+                selectedColor === color && styles.colorSelected,
+              ]}
+              onPress={() => setSelectedColor(color)}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            />
+          ))}
+        </View>
+      </View>
+
+      {/* ── TERCİHLER ── */}
+      <Text style={styles.sectionHeader}>{t('account.sectionPreferences')}</Text>
+
+      {/* Language */}
+      <View style={styles.section}>
+        <Text style={styles.label}>{t('account.language')}</Text>
+        <View style={styles.languageRow}>
+          {(['tr', 'en'] as const).map((lang) => (
+            <TouchableOpacity
+              key={lang}
+              style={[
+                styles.languageButton,
+                language === lang && styles.languageSelected,
+              ]}
+              onPress={() => setLanguage(lang)}
+            >
+              <Text
+                style={[
+                  styles.languageText,
+                  language === lang && styles.languageTextSelected,
+                ]}
+              >
+                {lang === 'tr' ? 'Türkçe' : 'English'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Default Currency */}
+      <View style={styles.section}>
+        <Text style={styles.label}>{t('account.defaultCurrency')}</Text>
+        <View style={styles.currencyRow}>
+          {(() => {
+            const baseOptions = ['TRY', 'USD', 'EUR'];
+            const allOptions = [...new Set([...(userCurrencies ?? []), ...baseOptions])];
+            const isAuto = preferredCurrency === null;
+            return (
+              <>
+                <TouchableOpacity
+                  key="auto"
+                  style={[styles.currencyChip, isAuto && styles.currencyChipSelected]}
+                  onPress={() => setPreferredCurrency(null)}
+                >
+                  <Text style={[styles.currencyChipText, isAuto && styles.currencyChipTextSelected]}>
+                    {t('account.currencyAuto')}
+                  </Text>
+                </TouchableOpacity>
+                {allOptions.map((cur) => {
+                  const isSelected = cur === preferredCurrency;
+                  return (
+                    <TouchableOpacity
+                      key={cur}
+                      style={[styles.currencyChip, isSelected && styles.currencyChipSelected]}
+                      onPress={() => setPreferredCurrency(cur)}
+                    >
+                      <Text style={[styles.currencyChipText, isSelected && styles.currencyChipTextSelected]}>
+                        {cur}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </>
+            );
+          })()}
+        </View>
+      </View>
+
+      {/* Save button */}
+      <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} activeOpacity={0.9}>
+        <LinearGradient
+          colors={[Colors.gradientStart, Colors.gradientEnd]}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={styles.saveButtonGradient}
+        >
+          <Text style={styles.saveButtonText}>{t('account.save')}</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* ── ÜYELİK ── */}
+      <Text style={styles.sectionHeader}>{t('account.sectionMembership')}</Text>
+
+      {/* Pro Status */}
+      <View style={styles.membershipCard}>
         {isUserPro ? (
           <View style={styles.proActiveCard}>
             <Ionicons name="checkmark-circle" size={20} color={palette.success} />
@@ -322,115 +463,8 @@ export default function AccountScreen() {
         <Ionicons name="chevron-forward" size={18} color={palette.muted} />
       </TouchableOpacity>
 
-      {/* Display Name */}
-      <View style={styles.section}>
-        <Text style={styles.label}>{t('account.displayName').toLocaleUpperCase('tr-TR')}</Text>
-        <TextInput
-          style={styles.input}
-          value={displayName}
-          onChangeText={setDisplayName}
-          placeholder={t('account.displayNamePlaceholder')}
-          placeholderTextColor={palette.muted}
-          maxLength={40}
-        />
-      </View>
-
-      {/* Avatar Color */}
-      <View style={styles.section}>
-        <Text style={styles.label}>{t('account.avatarColor').toLocaleUpperCase('tr-TR')}</Text>
-        <View style={styles.colorRow}>
-          {AVATAR_COLORS.map((color) => (
-            <TouchableOpacity
-              key={color}
-              style={[
-                styles.colorCircle,
-                { backgroundColor: color },
-                selectedColor === color && styles.colorSelected,
-              ]}
-              onPress={() => setSelectedColor(color)}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-            />
-          ))}
-        </View>
-      </View>
-
-      {/* Language */}
-      <View style={styles.section}>
-        <Text style={styles.label}>{t('account.language').toLocaleUpperCase('tr-TR')}</Text>
-        <View style={styles.languageRow}>
-          {(['tr', 'en'] as const).map((lang) => (
-            <TouchableOpacity
-              key={lang}
-              style={[
-                styles.languageButton,
-                language === lang && styles.languageSelected,
-              ]}
-              onPress={() => setLanguage(lang)}
-            >
-              <Text
-                style={[
-                  styles.languageText,
-                  language === lang && styles.languageTextSelected,
-                ]}
-              >
-                {lang === 'tr' ? 'Türkçe' : 'English'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Default Currency */}
-      <View style={styles.section}>
-        <Text style={styles.label}>{t('account.defaultCurrency').toLocaleUpperCase('tr-TR')}</Text>
-        <View style={styles.currencyRow}>
-          {(() => {
-            const baseOptions = ['TRY', 'USD', 'EUR'];
-            const allOptions = [...new Set([...(userCurrencies ?? []), ...baseOptions])];
-            const isAuto = preferredCurrency === null;
-            return (
-              <>
-                {/* Auto option */}
-                <TouchableOpacity
-                  key="auto"
-                  style={[styles.currencyChip, isAuto && styles.currencyChipSelected]}
-                  onPress={() => setPreferredCurrency(null)}
-                >
-                  <Text style={[styles.currencyChipText, isAuto && styles.currencyChipTextSelected]}>
-                    {t('account.currencyAuto')}
-                  </Text>
-                </TouchableOpacity>
-                {/* Currency options */}
-                {allOptions.map((cur) => {
-                  const isSelected = cur === preferredCurrency;
-                  return (
-                    <TouchableOpacity
-                      key={cur}
-                      style={[styles.currencyChip, isSelected && styles.currencyChipSelected]}
-                      onPress={() => setPreferredCurrency(cur)}
-                    >
-                      <Text style={[styles.currencyChipText, isSelected && styles.currencyChipTextSelected]}>
-                        {cur}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </>
-            );
-          })()}
-        </View>
-      </View>
-
-      {/* Save button */}
-      <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile} activeOpacity={0.9}>
-        <LinearGradient
-          colors={[Colors.gradientStart, Colors.gradientEnd]}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={styles.saveButtonGradient}
-        >
-          <Text style={styles.saveButtonText}>{t('account.save')}</Text>
-        </LinearGradient>
-      </TouchableOpacity>
+      {/* Spacer */}
+      <View style={{ height: 24 }} />
 
       {/* Sign Out */}
       <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut} activeOpacity={0.7}>
@@ -448,13 +482,16 @@ export default function AccountScreen() {
         </TouchableOpacity>
       )}
 
-      {/* ── Export Data ── */}
+      {/* ── HESAP ── */}
+      <Text style={styles.sectionHeader}>{t('account.sectionAccount')}</Text>
+
+      {/* Export Data */}
       <TouchableOpacity style={styles.exportButton} onPress={handleExportData} activeOpacity={0.7}>
         <Ionicons name="download-outline" size={18} color={Colors.primary} />
         <Text style={styles.exportButtonText}>{t('account.exportData')}</Text>
       </TouchableOpacity>
 
-      {/* ── Delete Account ── */}
+      {/* Delete Account */}
       <TouchableOpacity style={styles.deleteAccountButton} onPress={handleDeleteAccount} activeOpacity={0.7}>
         <Ionicons name="trash-outline" size={16} color={Colors.textTertiary} />
         <Text style={styles.deleteAccountText}>{t('account.deleteAccount')}</Text>
@@ -518,7 +555,7 @@ export default function AccountScreen() {
       visible={toast.visible}
       onHide={hideToast}
     />
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -535,7 +572,19 @@ const styles = StyleSheet.create({
   proPillTextActive: { color: '#FFFFFF' },
   proPillTextFree: { color: 'rgba(255,255,255,0.85)' },
 
-  // Pro section
+  // Section headers (PROFİL / TERCİHLER / ÜYELİK / HESAP)
+  sectionHeader: {
+    fontFamily: Typography.fontBodyBold,
+    fontSize: 11,
+    color: Colors.textTertiary,
+    letterSpacing: 1.5,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  // Membership card wrapper
+  membershipCard: { marginBottom: Spacing.sm },
+
+  // Pro section (old — keep for compatibility)
   proSection: { marginBottom: spacing.lg },
   sectionLabel: {
     fontSize: fontSizes.sm, fontWeight: '600', color: palette.textSecondary,
@@ -581,10 +630,12 @@ const styles = StyleSheet.create({
   menuItemTitle: { fontSize: fontSizes.md, fontWeight: '600', color: palette.text },
   menuItemDesc: { fontSize: fontSizes.xs, color: palette.textSecondary, marginTop: 2 },
 
-  section: { marginBottom: spacing.lg },
+  section: { marginBottom: spacing.md },
   label: {
-    fontSize: fontSizes.sm, fontWeight: '600', color: palette.textSecondary,
-    marginBottom: spacing.sm, letterSpacing: 0.5,
+    fontFamily: Typography.fontBody,
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginBottom: 6,
   },
   input: {
     borderWidth: 1, borderColor: palette.border, borderRadius: radii.md,
