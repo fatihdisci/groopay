@@ -411,7 +411,113 @@
     "deleteError": "Could not delete account. Please try again.",
     "founderGroupsBlockTitle": "Groups You Founded",
     "founderGroupsBlock": "Before deleting your account, you must transfer ownership of: {{groups}}",
+    "sectionLegal": "LEGAL",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
     "ok": "OK"
+  },
+  "legal": {
+    "lastUpdatedLabel": "Last updated: {{date}}",
+    "privacy": {
+      "title": "Privacy Policy",
+      "lastUpdated": "June 2, 2026",
+      "sections": [
+        {
+          "heading": "1. Introduction",
+          "body": "Groopay (“app”, “we”, “us”) respects the privacy of its users. This Privacy Policy explains what personal data is collected when you use the app, how it is used, and how it is protected."
+        },
+        {
+          "heading": "2. Data We Collect",
+          "body": "Account and Profile Information\nYou sign in to the app with your Google or Apple account. Your email address and name are imported into the system for authentication purposes. We do not store passwords.\n\nGroup and Expense Data\nGroups you create, expenses you add, split details, and payment history are stored linked to your account. This data is shared only with the members of the relevant group.\n\nPreferences\nYour language preference, default currency, and profile display information (name, avatar color) are stored.\n\nSubscription Information\nThe status of your Pro subscription (active/inactive) is stored in our database. Payment details (card number, billing address, etc.) are processed exclusively by Apple App Store or Google Play; we do not have access to this data.\n\nDevice and Notification Data\nIf you grant notification permission, your device push token is stored to send push notifications. You can revoke notification permission at any time from your device settings."
+        },
+        {
+          "heading": "3. Data We Do Not Collect",
+          "body": "- IBAN and bank account information is never stored in our app. IBAN sharing occurs in real time and is not saved to the database.\n- We do not collect location data.\n- We do not build advertising profiles.\n- We do not use third-party analytics or advertising SDKs."
+        },
+        {
+          "heading": "4. How We Use Your Data",
+          "body": "The data we collect is used solely for the following purposes:\n\n- Providing the core functions of the app (group management, expense splitting, balance calculation)\n- Identifying your account and ensuring its security\n- Verifying your Pro subscription status\n- Sending notifications to group members (only if permission has been granted)"
+        },
+        {
+          "heading": "5. Data Sharing",
+          "body": "Your personal data is never sold or shared for advertising, marketing, or third-party analytics purposes.\n\nYour data is shared only with the following parties:\n\n- Supabase: Database and authentication infrastructure provider (compliant with EU data protection standards)\n- RevenueCat: Subscription management (subscription status only; payment information is not transferred)\n- Apple / Google: Operating system-level authentication and payment processing\n- Legal obligation: Upon request from competent authorities within the framework of applicable law"
+        },
+        {
+          "heading": "6. Data Security",
+          "body": "- All data is transmitted encrypted over HTTPS/TLS.\n- The Supabase infrastructure is protected by Row Level Security; a user can only access data belonging to groups they are a member of.\n- Sensitive write operations are performed with server-side authorization checks."
+        },
+        {
+          "heading": "7. Data Retention and Deletion",
+          "body": "Your data is retained for as long as your account is active. If you wish to delete your account, you can use the “Delete My Account” option on the Account screen. This action permanently deletes all your personal data, group memberships, and expense history.\n\nIn accordance with Apple App Store policy, in-app account deletion is mandatory and this feature is available in the app."
+        },
+        {
+          "heading": "8. Children's Privacy",
+          "body": "Groopay is not intended for individuals under the age of 13. We do not knowingly collect data from users under 13."
+        },
+        {
+          "heading": "9. Policy Changes",
+          "body": "When this policy is updated, a notification will be provided within the app and the “Last updated” date will be changed. For significant changes, a push notification or email may also be sent."
+        },
+        {
+          "heading": "10. Contact",
+          "body": "For privacy-related questions: privacy@groopay.app"
+        }
+      ]
+    },
+    "terms": {
+      "title": "Terms of Service",
+      "lastUpdated": "June 1, 2026",
+      "sections": [
+        {
+          "heading": "1. Acceptance",
+          "body": "By downloading or using the Groopay app, you agree to these Terms of Service. If you do not agree, please do not use the app."
+        },
+        {
+          "heading": "2. Scope of Service",
+          "body": "Groopay is a mobile application designed to track and split shared expenses among small groups.\n\nGroopay does:\n- Group creation and member management\n- Adding, splitting, and tracking expenses\n- Calculating and simplifying debt/credit balances\n- Marking and confirming payments\n- Multi-currency support (for tracking purposes only)\n\nGroopay does not:\n- Process real money transfers or act as a payment intermediary\n- Provide banking or financial institution services\n- Issue legally binding debt instruments"
+        },
+        {
+          "heading": "3. Account and Membership",
+          "body": "- You must create an account to use the app.\n- You are responsible for the accuracy of your account information.\n- You are responsible for maintaining the security of your account.\n- Persons under the age of 13 may not use the app."
+        },
+        {
+          "heading": "4. Free and Pro Membership",
+          "body": "Free plan:\n- You may create up to 5 groups (excluding demo groups).\n- All core features are available (adding expenses, viewing balances, marking payments).\n- Groups may have unlimited members; only group creation is limited.\n\nPro membership (monthly subscription):\n- Unlimited group creation\n- Advanced dashboard and analytics features\n- Subscription is managed through Apple App Store or Google Play.\n- Upon cancellation, access continues until the end of the billing period; you then revert to the free plan.\n- Subscription fees are non-refundable except as required by App Store/Play Store policies."
+        },
+        {
+          "heading": "5. User Content",
+          "body": "- Data you enter into the app (expense information, group names, etc.) belongs to you.\n- You grant us the right to store and process this data for the purpose of providing the service.\n- You agree not to enter false, misleading, or harmful content."
+        },
+        {
+          "heading": "6. Prohibited Uses",
+          "body": "You may not use the app for:\n\n- Defrauding or misleading others\n- Money laundering\n- Attempting to circumvent the app's security systems\n- Unauthorized access to other users' data\n- Any illegal activity"
+        },
+        {
+          "heading": "7. Service Availability",
+          "body": "- Groopay does not guarantee that the service will be uninterrupted or error-free.\n- The service may be temporarily unavailable due to maintenance, updates, or unexpected issues.\n- Users will be notified in advance of significant changes."
+        },
+        {
+          "heading": "8. Limitation of Liability",
+          "body": "- Groopay is not a financial advisor or intermediary. Balances and calculations within the app serve only as an agreement tool between users and have no legal binding force.\n- Groopay is not responsible for disputes between users.\n- Groopay's liability for damages arising from data loss, service interruption, or calculation errors is limited to the maximum extent permitted by applicable law."
+        },
+        {
+          "heading": "9. Account Deletion",
+          "body": "You may delete your account at any time: Account → Delete My Account. Deletion is irreversible; all your data will be permanently deleted."
+        },
+        {
+          "heading": "10. Changes",
+          "body": "We may update these terms. For significant changes, an in-app notification will be provided. The current terms are always available on this page. Continued use of the app after changes constitutes acceptance of the new terms."
+        },
+        {
+          "heading": "11. Governing Law",
+          "body": "These terms are governed by the laws of the Republic of Turkey. The courts of İzmir shall have jurisdiction over any disputes."
+        },
+        {
+          "heading": "12. Contact",
+          "body": "For questions: av.fatihdisci@gmail.com"
+        }
+      ]
+    }
   },
   "balance": {
     "empty": "No balances yet. Add your first expense!",

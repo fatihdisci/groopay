@@ -2128,3 +2128,30 @@ npx supabase functions deploy revenuecat-webhook
 | i18n tr/en | ✅ |
 
 *Son güncelleme: 2026-06-02 — B91 eklendi (bakiye aksiyon etiketleri)*
+
+---
+
+### ✅ B92: Gizlilik + Kullanım Koşulları ekranları
+
+> Tarih: 2026-06-02
+
+**Sorun:** Uygulama içinde App Store / Play Store hazırlığı için erişilebilir Gizlilik Politikası ve Kullanım Koşulları ekranları yoktu.
+
+**Yapılan:**
+- `app/legal/privacy.tsx` ve `app/legal/terms.tsx` statik legal ekranları eklendi.
+- `app/legal/_layout.tsx` ile legal ekranlar için Stack header yapılandırıldı.
+- `components/LegalScreen.tsx` ortak legal metin layout'u eklendi.
+- Hesap ekranına "YASAL" section'ı, Gizlilik Politikası ve Kullanım Koşulları satırları eklendi.
+- Root stack'e `legal` route grubu tanıtıldı.
+- Gizlilik ve kullanım koşulları içerikleri tr/en i18n altında `legal.*` namespace'ine taşındı.
+
+**Değişen dosyalar:** `app/legal/_layout.tsx`, `app/legal/privacy.tsx`, `app/legal/terms.tsx`, `components/LegalScreen.tsx`, `app/(tabs)/account.tsx`, `app/_layout.tsx`, `locales/tr.json`, `locales/en.json`
+
+| Kontrol | Durum |
+|---|---|
+| Legal ekran route'ları eklendi | ✅ |
+| Hesap ekranı linkleri eklendi | ✅ |
+| Tüm metinler i18n'den geliyor | ✅ |
+| Ortak LegalScreen kullanılıyor | ✅ |
+
+*Son güncelleme: 2026-06-02 — B92 eklendi (legal ekranlar)*

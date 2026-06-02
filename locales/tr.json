@@ -412,7 +412,113 @@
     "deleteError": "Hesap silinemedi. Lütfen tekrar deneyin.",
     "founderGroupsBlockTitle": "Kurucu Olduğunuz Gruplar",
     "founderGroupsBlock": "Hesabınızı silmeden önce şu gruplarda kuruculuğu devretmeniz gerekiyor: {{groups}}",
+    "sectionLegal": "YASAL",
+    "privacyPolicy": "Gizlilik Politikası",
+    "termsOfService": "Kullanım Koşulları",
     "ok": "Tamam"
+  },
+  "legal": {
+    "lastUpdatedLabel": "Son güncelleme: {{date}}",
+    "privacy": {
+      "title": "Gizlilik Politikası",
+      "lastUpdated": "2 Haziran 2026",
+      "sections": [
+        {
+          "heading": "1. Giriş",
+          "body": "Groopay (“uygulama”, “biz”), kullanıcılarının gizliliğine saygı duyar. Bu Gizlilik Politikası, uygulamayı kullandığınızda hangi kişisel verilerin toplandığını, nasıl kullanıldığını ve nasıl korunduğunu açıklamaktadır."
+        },
+        {
+          "heading": "2. Topladığımız Veriler",
+          "body": "Hesap ve Profil Bilgileri\nUygulamaya Google veya Apple hesabınızla giriş yaparsınız. E-posta adresiniz ve adınız kimlik doğrulama amacıyla sistemimize aktarılır. Şifre saklamayız.\n\nGrup ve Masraf Verileri\nOluşturduğunuz gruplar, eklediğiniz masraflar, bölüşüm bilgileri ve ödeme geçmişi hesabınıza bağlı olarak saklanır. Bu veriler yalnızca ilgili grubun üyeleriyle paylaşılır.\n\nTercihler\nDil tercihiniz, varsayılan para biriminiz ve profil görüntü bilgileri (ad, avatar rengi) saklanır.\n\nAbonelik Bilgileri\nPro aboneliğinizin durumu (aktif/pasif) uygulamamızın veritabanında tutulur. Ödeme bilgileri (kart numarası, fatura adresi vb.) yalnızca Apple App Store veya Google Play tarafından işlenir; bu verilere erişimimiz bulunmamaktadır.\n\nCihaz ve Bildirim Verileri\nBildirim izni vermeniz durumunda push bildirimleri göndermek amacıyla cihaz token'ınız saklanır. Bildirim iznini istediğiniz zaman cihaz ayarlarından iptal edebilirsiniz."
+        },
+        {
+          "heading": "3. Toplamadığımız Veriler",
+          "body": "- IBAN ve banka hesap bilgisi uygulamamızda hiçbir zaman saklanmaz. IBAN paylaşımı anlık olarak gerçekleşir ve veritabanına kaydedilmez.\n- Konum verisi toplamayız.\n- Reklam amaçlı profil oluşturmayız.\n- Üçüncü taraf analitik veya reklam SDK'sı kullanmayız."
+        },
+        {
+          "heading": "4. Verilerin Kullanımı",
+          "body": "Topladığımız veriler yalnızca şu amaçlarla kullanılır:\n\n- Uygulamanın temel işlevlerini sağlamak (grup yönetimi, masraf bölüşme, bakiye hesaplama)\n- Hesabınızı tanımlamak ve güvenliğini sağlamak\n- Pro abonelik durumunuzu doğrulamak\n- Grup üyelerine bildirim göndermek (yalnızca izin verilmişse)"
+        },
+        {
+          "heading": "5. Verilerin Paylaşımı",
+          "body": "Kişisel verileriniz hiçbir zaman reklam, pazarlama veya üçüncü taraf analitik amacıyla satılmaz veya paylaşılmaz.\n\nVerileriniz yalnızca şu taraflarla paylaşılır:\n\n- Supabase: Veritabanı ve kimlik doğrulama altyapısı sağlayıcısı (AB Veri Koruma standartlarına uygundur)\n- RevenueCat: Abonelik yönetimi (yalnızca abonelik durumu; ödeme bilgisi aktarılmaz)\n- Apple / Google: İşletim sistemi düzeyinde kimlik doğrulama ve ödeme işlemleri\n- Yasal zorunluluk: Yürürlükteki mevzuat çerçevesinde yetkili makamların talebi halinde"
+        },
+        {
+          "heading": "6. Veri Güvenliği",
+          "body": "- Tüm veriler HTTPS/TLS üzerinden şifreli iletilir.\n- Supabase altyapısı satır düzeyinde erişim kontrolü (Row Level Security) ile korunmaktadır; bir kullanıcı yalnızca üyesi olduğu gruplara ait verilere erişebilir.\n- Hassas yazma işlemleri sunucu tarafında yetkilendirme denetimiyle gerçekleştirilir."
+        },
+        {
+          "heading": "7. Veri Saklama ve Silme",
+          "body": "Verileriniz hesabınız aktif olduğu sürece saklanır. Hesabınızı silmek istediğinizde Hesap ekranındaki “Hesabımı Sil” seçeneğini kullanabilirsiniz. Bu işlem tüm kişisel verilerinizi, grup üyeliklerinizi ve masraf geçmişinizi kalıcı olarak siler.\n\nApple App Store politikası gereği uygulama içi hesap silme zorunludur ve bu işlev uygulamada mevcuttur."
+        },
+        {
+          "heading": "8. Çocukların Gizliliği",
+          "body": "Groopay 13 yaşın altındaki bireylere yönelik değildir. Bilerek 13 yaş altı kullanıcıdan veri toplamayız."
+        },
+        {
+          "heading": "9. Politika Değişiklikleri",
+          "body": "Bu politika güncellendiğinde uygulama içinde bildirim yapılır ve “Son güncelleme” tarihi değiştirilir. Önemli değişiklikler için ayrıca push bildirimi veya e-posta gönderilebilir."
+        },
+        {
+          "heading": "10. İletişim",
+          "body": "Gizlilik ile ilgili sorularınız için: privacy@groopay.app"
+        }
+      ]
+    },
+    "terms": {
+      "title": "Kullanım Koşulları",
+      "lastUpdated": "1 Haziran 2026",
+      "sections": [
+        {
+          "heading": "1. Kabul",
+          "body": "Groopay uygulamasını indirerek veya kullanarak bu Kullanım Şartlarını kabul etmiş sayılırsınız. Kabul etmiyorsanız uygulamayı kullanmayınız."
+        },
+        {
+          "heading": "2. Hizmetin Kapsamı",
+          "body": "Groopay, küçük gruplar arasında ortak masrafları takip etmek ve bölüşmek için tasarlanmış bir mobil uygulamadır.\n\nGroopay şunları yapar:\n- Grup oluşturma ve üye yönetimi\n- Masraf ekleme, bölüşme ve takip\n- Borç/alacak bakiyesi hesaplama ve sadeleştirme\n- Ödeme işaretleme ve onaylama\n- Çoklu para birimi desteği (yalnızca takip amaçlı)\n\nGroopay şunları yapmaz:\n- Gerçek para transferi veya ödeme aracılığı\n- Banka veya finans kuruluşu hizmetleri\n- Hukuki bağlayıcı borç belgesi düzenleme"
+        },
+        {
+          "heading": "3. Hesap ve Üyelik",
+          "body": "- Uygulamayı kullanmak için bir hesap oluşturmanız gerekir.\n- Hesap bilgilerinizin doğruluğundan siz sorumlusunuz.\n- Hesabınızın güvenliğini korumak sizin sorumluluğunuzdadır.\n- 13 yaşın altındaki kişiler uygulamayı kullanamaz."
+        },
+        {
+          "heading": "4. Ücretsiz ve Pro Üyelik",
+          "body": "Ücretsiz plan:\n- En fazla 5 grup oluşturabilirsiniz (demo grup hariç).\n- Tüm temel özellikler (masraf ekleme, bakiye görme, ödeme işaretleme) kullanılabilir.\n- Gruplar sınırsız üye alabilir; grup oluşturma sınırlıdır.\n\nPro üyelik (aylık abonelik):\n- Sınırsız grup oluşturma\n- Gelişmiş panel ve analiz özellikleri\n- Abonelik Apple App Store veya Google Play üzerinden yönetilir.\n- İptal ettiğinizde erişim dönem sonuna kadar devam eder; sonrasında ücretsiz plana geçilir.\n- Abonelik ücretleri iade edilmez; aksi App Store/Play Store politikaları geçerlidir."
+        },
+        {
+          "heading": "5. Kullanıcı İçeriği",
+          "body": "- Uygulamaya girdiğiniz veriler (masraf bilgileri, grup adları vb.) size aittir.\n- Bu verileri hizmet sunmak amacıyla saklama ve işleme hakkını bize vermiş sayılırsınız.\n- Gerçek dışı, yanıltıcı veya başkalarına zarar verecek içerik girmeyi kabul etmiyorsunuz."
+        },
+        {
+          "heading": "6. Yasak Kullanımlar",
+          "body": "Aşağıdaki amaçlarla uygulamayı kullanamazsınız:\n\n- Başkalarını dolandırma veya yanıltma\n- Kara para aklamanın aracı olarak kullanma\n- Uygulamanın güvenlik sistemlerini atlatmaya çalışma\n- Diğer kullanıcıların verilerine izinsiz erişme\n- Uygulamayı yasadışı faaliyetler için kullanma"
+        },
+        {
+          "heading": "7. Hizmetin Sürekliliği",
+          "body": "- Groopay, hizmetin kesintisiz veya hatasız olacağını garanti etmez.\n- Teknik bakım, güncelleme veya beklenmedik sorunlar nedeniyle hizmet geçici olarak kesintiye uğrayabilir.\n- Önemli değişiklikler öncesinde kullanıcılar bilgilendirilir."
+        },
+        {
+          "heading": "8. Sorumluluk Sınırlaması",
+          "body": "- Groopay bir finans danışmanı veya aracı değildir. Uygulama içindeki bakiye ve hesaplamalar yalnızca kullanıcılar arasında anlaşma aracıdır; hukuki bağlayıcılığı yoktur.\n- Kullanıcılar arasındaki anlaşmazlıklardan Groopay sorumlu tutulamaz.\n- Veri kaybı, sistem kesintisi veya yanlış hesaplama nedeniyle oluşabilecek zararlardan Groopay'in sorumluluğu, yasaların izin verdiği azami ölçüde sınırlandırılmıştır."
+        },
+        {
+          "heading": "9. Hesap Silme",
+          "body": "Hesabınızı istediğiniz zaman silebilirsiniz: Hesap → Hesabımı Sil. Silme işlemi geri alınamaz; tüm verileriniz kalıcı olarak silinir."
+        },
+        {
+          "heading": "10. Değişiklikler",
+          "body": "Bu şartları güncelleyebiliriz. Önemli değişikliklerde uygulama içinde bildirim yapılır. Güncel şartlar her zaman bu sayfada yayınlanır. Değişikliklerden sonra uygulamayı kullanmaya devam ederseniz yeni şartları kabul etmiş sayılırsınız."
+        },
+        {
+          "heading": "11. Uygulanacak Hukuk",
+          "body": "Bu şartlar Türkiye Cumhuriyeti hukukuna tabidir. Uyuşmazlıklarda İzmir mahkemeleri yetkilidir."
+        },
+        {
+          "heading": "12. İletişim",
+          "body": "Sorularınız için: av.fatihdisci@gmail.com"
+        }
+      ]
+    }
   },
   "balance": {
     "empty": "Henüz bakiye yok. İlk masrafı ekleyin!",

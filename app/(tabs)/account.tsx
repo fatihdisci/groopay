@@ -497,6 +497,29 @@ export default function AccountScreen() {
         <Text style={styles.deleteAccountText}>{t('account.deleteAccount')}</Text>
       </TouchableOpacity>
 
+      {/* ── YASAL ── */}
+      <Text style={styles.sectionHeader}>{t('account.sectionLegal')}</Text>
+
+      <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/legal/privacy')} activeOpacity={0.7}>
+        <View style={styles.menuItemLeft}>
+          <Ionicons name="shield-checkmark-outline" size={20} color={Colors.primary} />
+          <View style={styles.menuItemInfo}>
+            <Text style={styles.menuItemTitle}>{t('account.privacyPolicy')}</Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward-outline" size={18} color={Colors.textTertiary} />
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/legal/terms')} activeOpacity={0.7}>
+        <View style={styles.menuItemLeft}>
+          <Ionicons name="document-text-outline" size={20} color={Colors.primary} />
+          <View style={styles.menuItemInfo}>
+            <Text style={styles.menuItemTitle}>{t('account.termsOfService')}</Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward-outline" size={18} color={Colors.textTertiary} />
+      </TouchableOpacity>
+
     </ScrollView>
 
     {/* ── Delete Account Confirmation Modals ── */}
