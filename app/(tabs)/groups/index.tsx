@@ -1,13 +1,15 @@
 import { useState, useLayoutEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useRouter, useNavigation } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useGroups } from '@/hooks/useGroups';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase/client';
+import { getInviteByToken, joinViaInvite } from '@/lib/supabase/queries';
+import { useCreateGroup } from '@/hooks/useGroups';
 import { usePro } from '@/hooks/usePro';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
 import { palette, spacing, fontSizes, radii } from '@/constants/theme';
@@ -16,6 +18,7 @@ import { FadeInUp } from '@/components/Animations';
 import type { GroupWithMembers } from '@/lib/supabase/types';
 
 const MAX_FREE_GROUPS = 5;
+const MAX_NAME_LENGTH = 30;
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -27,9 +30,11 @@ export default function GroupsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const navigation = useNavigation();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const { data: groups, isLoading } = useGroups();
   const { isUserPro } = usePro();
+  const createGroup = useCreateGroup();
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
@@ -52,16 +57,69 @@ export default function GroupsScreen() {
   const reachedLimit = !isUserPro && (createdGroupCount ?? 0) >= MAX_FREE_GROUPS;
   const nearLimit = !isUserPro && (createdGroupCount ?? 0) === MAX_FREE_GROUPS - 1;
 
+  // Panel state: only one open at a time
+  const [activePanel, setActivePanel] = useState<'create' | 'join' | null>(null);
+  const [groupName, setGroupName] = useState('');
+  const [joinCode, setJoinCode] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [joinError, setJoinError] = useState<string | null>(null);
+
   const handleCreatePress = () => {
     if (reachedLimit) {
       router.push('/paywall?context=limit');
       return;
     }
-    router.push('/groups/new');
+    setActivePanel(activePanel === 'create' ? null : 'create');
+    setGroupName('');
   };
 
   const handleJoinPress = () => {
-    router.push('/join');
+    setActivePanel(activePanel === 'join' ? null : 'join');
+    setJoinCode('');
+    setJoinError(null);
+  };
+
+  const handleCreateGroup = async () => {
+    if (!groupName.trim() || !user) return;
+    setCreating(true);
+    try {
+      await createGroup.mutateAsync({
+        name: groupName.trim(),
+        currency: 'TRY',
+        userId: user.id,
+        displayName: user.display_name,
+      });
+      setActivePanel(null);
+      setGroupName('');
+    } catch (e: any) {
+      Alert.alert(t('groups.createError'), e?.message ?? t('groups.createErrorDesc'));
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleJoinGroup = async () => {
+    if (!joinCode.trim() || !user) return;
+    setJoinError(null);
+    const invite = await getInviteByToken(joinCode.trim());
+    if (!invite) {
+      setJoinError(t('join.invalidCode'));
+      return;
+    }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error(t('join.noSession'));
+
+      await joinViaInvite(invite.token, token, { displayName: user.display_name });
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      queryClient.invalidateQueries({ queryKey: ['group'] });
+      setActivePanel(null);
+      setJoinCode('');
+      Alert.alert(t('join.success'), t('join.successDesc', { name: invite.group_name }), [{ text: t('join.ok') }]);
+    } catch (e: any) {
+      setJoinError(e?.message ?? t('join.error'));
+    }
   };
 
   if (isLoading) {
@@ -117,6 +175,90 @@ export default function GroupsScreen() {
           );
         }}
       />
+
+      {/* ── Inline create group panel ── */}
+      {activePanel === 'create' && (
+        <View style={styles.panelCard}>
+          <Text style={styles.panelLabel}>{t('groups.newGroup')}</Text>
+          <View style={styles.panelInputWrapper}>
+            <TextInput
+              style={styles.panelInput}
+              value={groupName}
+              onChangeText={setGroupName}
+              placeholder={t('groups.createNamePlaceholder')}
+              placeholderTextColor={Colors.textTertiary}
+              maxLength={MAX_NAME_LENGTH}
+              autoFocus
+            />
+            <Text style={styles.panelCharCount}>{groupName.length}/{MAX_NAME_LENGTH}</Text>
+          </View>
+          <View style={styles.panelActions}>
+            <TouchableOpacity onPress={() => setActivePanel(null)}>
+              <Text style={styles.panelClose}>{t('groups.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.panelBtn, (!groupName.trim() || creating) && styles.btnDisabled]}
+              onPress={handleCreateGroup}
+              disabled={!groupName.trim() || creating}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={groupName.trim() ? [Colors.gradientStart, Colors.gradientEnd] : [Colors.border, Colors.border]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={styles.panelBtnGradient}
+              >
+                {creating ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.panelBtnText}>{t('groups.createBtn')}</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* ── Inline join group panel ── */}
+      {activePanel === 'join' && (
+        <View style={styles.panelCard}>
+          <Text style={styles.panelLabel}>{t('join.title')}</Text>
+          <TextInput
+            style={[styles.panelInput, styles.panelCodeInput]}
+            value={joinCode}
+            onChangeText={(t) => setJoinCode(t.toUpperCase())}
+            placeholder="ABC123"
+            placeholderTextColor={Colors.textTertiary}
+            maxLength={8}
+            autoCapitalize="characters"
+            autoFocus
+          />
+          {joinError && (
+            <View style={styles.panelError}>
+              <Ionicons name="alert-circle-outline" size={14} color={Colors.debt} />
+              <Text style={styles.panelErrorText}>{joinError}</Text>
+            </View>
+          )}
+          <View style={styles.panelActions}>
+            <TouchableOpacity onPress={() => setActivePanel(null)}>
+              <Text style={styles.panelClose}>{t('groups.cancel')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.panelBtn, !joinCode.trim() && styles.btnDisabled]}
+              onPress={handleJoinGroup}
+              disabled={!joinCode.trim()}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={joinCode.trim() ? [Colors.gradientStart, Colors.gradientEnd] : [Colors.border, Colors.border]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                style={styles.panelBtnGradient}
+              >
+                <Text style={styles.panelBtnText}>{t('join.findGroup')}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       {/* Bottom bar — two side-by-side buttons */}
       <View style={styles.bottomBar}>
@@ -215,4 +357,89 @@ const styles = StyleSheet.create({
     gap: 6, height: 52,
   },
   createButtonText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.base, color: 'white' },
+
+  // ── Panel cards (create/join inline) ──
+  panelCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    ...Shadows.sm,
+  },
+  panelLabel: {
+    fontFamily: Typography.fontBodyBold,
+    fontSize: Typography.size.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+  },
+  panelInputWrapper: { position: 'relative', marginBottom: Spacing.md },
+  panelInput: {
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    fontFamily: Typography.fontBody,
+    fontSize: Typography.size.base,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.backgroundSecondary,
+  },
+  panelCodeInput: {
+    textAlign: 'center',
+    letterSpacing: 6,
+    fontFamily: Typography.fontDisplayMedium,
+    fontSize: 22,
+    marginBottom: 0,
+  },
+  panelCharCount: {
+    position: 'absolute',
+    right: Spacing.md,
+    bottom: Spacing.md,
+    fontFamily: Typography.fontBody,
+    fontSize: 12,
+    color: Colors.textTertiary,
+    backgroundColor: Colors.backgroundSecondary,
+    paddingLeft: 8,
+  },
+  panelActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  panelClose: {
+    fontFamily: Typography.fontBody,
+    fontSize: Typography.size.sm,
+    color: Colors.textTertiary,
+    paddingVertical: Spacing.sm,
+  },
+  panelBtn: { borderRadius: Radius.md, overflow: 'hidden' },
+  panelBtnGradient: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  panelBtnText: {
+    fontFamily: Typography.fontBodyBold,
+    fontSize: Typography.size.sm,
+    color: '#FFFFFF',
+  },
+  btnDisabled: { opacity: 0.5 },
+  panelError: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.debt + '10',
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  panelErrorText: {
+    fontFamily: Typography.fontBody,
+    fontSize: Typography.size.sm,
+    color: Colors.debt,
+    flex: 1,
+  },
 });
