@@ -1905,5 +1905,29 @@ npx supabase functions deploy revenuecat-webhook
 | Hayalet ekle sadece kurucu | ✅ |
 | Modal tasarım | ✅ Gradient buton + ikon + açıklama |
 | **Ek:** Modal → inline form | ✅ Davet kutusu gibi açılır |
+| **Ek 2:** Panel toggle + unified card | ✅ `activePanel` state + `panelCard` stili |
 
-*Son güncelleme: 2026-06-01 — B83 eklendi (üye yönetimi tasarım yenilemesi + inline ghost form)*
+*Son güncelleme: 2026-06-01 — B83 güncellendi (üye yönetimi: panel toggle + unified card)*
+
+---
+
+### 🔥 B84: ACİL — Gruplar sekmesi yeni grup ekranına atlıyordu
+
+**Sorun:** Uygulama yeniden açılınca Panel'de başlıyor ama Gruplar sekmesine basınca "Yeni Grup" ekranı açılıyor, geri gelinemiyordu.
+
+**Kök neden:** `app/(tabs)/groups/_layout.tsx` Stack'ten `index` screen tanımı kaldırılmıştı (`<Stack.Screen name="index" ... />`). Expo Router Stack navigator'ı ilk screen olarak `new`'i kullanıyor, Gruplar sekmesine her basışta `new` screen'ine yönlendiriyordu.
+
+**Yapılan:**
+- `_layout.tsx`'e `Stack.Screen name="index" options={{ headerShown: false }}` geri eklendi.
+- Tab header "Gruplar" gösterir, Stack header gizlenir (çift başlık yok).
+
+**Değişen dosyalar:** `app/(tabs)/groups/_layout.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz |
+| Gruplar sekmesi liste gösteriyor | ✅ |
+| Yeni Grup sadece butona basınca | ✅ |
+| Geri gelebiliyor | ✅ |
+
+*Son güncelleme: 2026-06-01 — B84 eklendi (gruplar sekmesi routing acil düzeltme)*

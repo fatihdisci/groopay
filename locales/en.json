@@ -210,6 +210,7 @@
     "inviteHint": "Share the invite code to let people join the group.",
     "inactive": "Former Member",
     "addGhost": "Add Ghost",
+    "addGhostTitle": "Add Ghost Member",
     "addGhostDesc": "Add someone who doesn't use the app",
     "addGhostName": "Member name",
     "addGhostPlaceholder": "e.g. John",

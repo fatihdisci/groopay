@@ -46,7 +46,7 @@ export default function MembersScreen() {
   const removeMember = useRemoveMember(id!);
   const createInvite = useCreateInvite(id!);
 
-  const [showAdd, setShowAdd] = useState(false);
+  const [activePanel, setActivePanel] = useState<'ghost' | 'invite' | null>(null);
   const [ghostName, setGhostName] = useState('');
   const [inviteCode, setInviteCode] = useState<string | null>(null);
 
@@ -66,7 +66,7 @@ export default function MembersScreen() {
     try {
       await addGhost.mutateAsync({ displayName: ghostName.trim(), actorMemberId: myMember.id });
       setGhostName('');
-      setShowAdd(false);
+      setActivePanel(null);
     } catch (e: any) {
       Alert.alert(t('members.errorTitle'), e?.message ?? t('members.addFailed'));
     }
@@ -116,6 +116,7 @@ export default function MembersScreen() {
     try {
       const invite = await createInvite.mutateAsync(user.id);
       setInviteCode(invite.token);
+      setActivePanel('invite');
     } catch (e: any) {
       Alert.alert(t('members.errorTitle'), e?.message ?? t('members.inviteFailed'));
     }
@@ -215,7 +216,7 @@ export default function MembersScreen() {
               {isFounder ? (
                 <TouchableOpacity
                   style={styles.actionOutline}
-                  onPress={() => setShowAdd(true)}
+                  onPress={() => setActivePanel(activePanel === 'ghost' ? null : 'ghost')}
                   activeOpacity={0.7}
                 >
                   <Ionicons name="person-add-outline" size={18} color={Colors.primary} />
@@ -231,7 +232,13 @@ export default function MembersScreen() {
               {/* Invite link — all members */}
               <TouchableOpacity
                 style={styles.actionGradient}
-                onPress={handleCreateInvite}
+                onPress={() => {
+                  if (activePanel === 'invite') {
+                    setActivePanel(null);
+                  } else {
+                    handleCreateInvite();
+                  }
+                }}
                 activeOpacity={0.8}
               >
                 <LinearGradient
@@ -246,23 +253,23 @@ export default function MembersScreen() {
             </View>
 
             {/* ── Inline ghost add form ── */}
-            {showAdd && (
-              <View style={styles.inlineBox}>
-                <Text style={styles.inlineLabel}>{t('members.addGhostName')}</Text>
+            {activePanel === 'ghost' && (
+              <View style={styles.panelCard}>
+                <Text style={styles.panelLabel}>{t('members.addGhostTitle')}</Text>
                 <TextInput
-                  style={styles.inlineInput}
+                  style={styles.panelInput}
                   value={ghostName}
                   onChangeText={setGhostName}
                   placeholder={t('members.addGhostPlaceholder')}
                   placeholderTextColor={Colors.textTertiary}
                   autoFocus
                 />
-                <View style={styles.inlineActions}>
-                  <TouchableOpacity onPress={() => { setShowAdd(false); setGhostName(''); }}>
-                    <Text style={styles.inlineClose}>{t('groups.cancel')}</Text>
+                <View style={styles.panelActions}>
+                  <TouchableOpacity onPress={() => { setActivePanel(null); setGhostName(''); }}>
+                    <Text style={styles.panelClose}>{t('groups.cancel')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.inlineAddBtn, !ghostName.trim() && styles.btnDisabled]}
+                    style={[styles.panelBtn, !ghostName.trim() && styles.btnDisabled]}
                     onPress={handleAddGhost}
                     disabled={!ghostName.trim() || addGhost.isPending}
                     activeOpacity={0.85}
@@ -270,12 +277,12 @@ export default function MembersScreen() {
                     <LinearGradient
                       colors={ghostName.trim() ? [Colors.gradientStart, Colors.gradientEnd] : [Colors.border, Colors.border]}
                       start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                      style={styles.inlineAddGradient}
+                      style={styles.panelBtnGradient}
                     >
                       {addGhost.isPending ? (
                         <ActivityIndicator size="small" color="#FFFFFF" />
                       ) : (
-                        <Text style={styles.inlineAddText}>{t('members.addGhostBtn')}</Text>
+                        <Text style={styles.panelBtnText}>{t('members.addGhostBtn')}</Text>
                       )}
                     </LinearGradient>
                   </TouchableOpacity>
@@ -284,11 +291,11 @@ export default function MembersScreen() {
             )}
 
             {/* ── Invite code box ── */}
-            {inviteCode && (
-              <View style={styles.inviteBox}>
-                <Text style={styles.inviteLabel}>{t('members.inviteCode')}</Text>
+            {activePanel === 'invite' && inviteCode && (
+              <View style={styles.panelCard}>
+                <Text style={styles.panelLabel}>{t('members.inviteCode')}</Text>
                 <Text style={styles.inviteCode}>{inviteCode}</Text>
-                <View style={styles.inviteActions}>
+                <View style={styles.panelActions}>
                   <TouchableOpacity style={styles.shareBtn} onPress={() => handleShare(inviteCode)}>
                     <LinearGradient
                       colors={[Colors.gradientStart, Colors.gradientEnd]}
@@ -299,8 +306,8 @@ export default function MembersScreen() {
                       <Text style={styles.shareText}>{t('members.inviteShare')}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setInviteCode(null)}>
-                    <Text style={styles.closeInvite}>{t('members.inviteClose')}</Text>
+                  <TouchableOpacity onPress={() => { setActivePanel(null); setInviteCode(null); }}>
+                    <Text style={styles.panelClose}>{t('members.inviteClose')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -414,28 +421,68 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
 
-  // ── Invite ──
-  inviteBox: {
+  // ── Expandable panel cards (ghost + invite share same style) ──
+  panelCard: {
     backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.xl,
     padding: Spacing.lg,
     borderWidth: 1.5,
     borderColor: Colors.primary,
-    marginBottom: Spacing.lg,
+    marginBottom: Spacing.sm,
+    ...Shadows.sm,
   },
-  inviteLabel: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textSecondary, marginBottom: Spacing.xs },
+  panelLabel: {
+    fontFamily: Typography.fontBodyBold,
+    fontSize: Typography.size.sm,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.md,
+  },
+  panelInput: {
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
+    fontFamily: Typography.fontBody,
+    fontSize: Typography.size.base,
+    color: Colors.textPrimary,
+    backgroundColor: Colors.backgroundSecondary,
+    marginBottom: Spacing.md,
+  },
+  panelActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  panelClose: {
+    fontFamily: Typography.fontBody,
+    fontSize: Typography.size.sm,
+    color: Colors.textTertiary,
+    paddingVertical: Spacing.sm,
+  },
+  panelBtn: { borderRadius: Radius.md, overflow: 'hidden' },
+  panelBtnGradient: {
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  panelBtnText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, color: '#FFFFFF' },
+  btnDisabled: { opacity: 0.5 },
+
+  // ── Invite code (inside panel) ──
   inviteCode: {
     fontFamily: Typography.fontDisplayBold,
     fontSize: Typography.size['2xl'],
     color: Colors.primary,
     letterSpacing: 4,
     textAlign: 'center',
+    marginBottom: Spacing.md,
   },
-  inviteActions: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: Spacing.md, marginTop: Spacing.md },
   shareBtn: { borderRadius: Radius.md, overflow: 'hidden' },
   shareBtnGradient: { flexDirection: 'row', alignItems: 'center', gap: Spacing.xs, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
   shareText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, color: '#FFFFFF' },
-  closeInvite: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textTertiary, paddingVertical: Spacing.sm },
 
   // ── Member list ──
   separator: { height: StyleSheet.hairlineWidth, backgroundColor: Colors.border, marginLeft: 60 },
@@ -492,32 +539,4 @@ const styles = StyleSheet.create({
   emptyList: { paddingVertical: 40, alignItems: 'center' },
   emptyText: { fontFamily: Typography.fontBody, fontSize: Typography.size.base, color: Colors.textSecondary },
 
-  // ── Inline form (ghost add) ──
-  inlineBox: {
-    backgroundColor: Colors.surface,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    borderWidth: 1,
-    borderColor: Colors.primary + '40',
-    marginBottom: Spacing.sm,
-  },
-  inlineLabel: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textSecondary, marginBottom: Spacing.sm },
-  inlineInput: {
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    fontFamily: Typography.fontBody,
-    fontSize: Typography.size.base,
-    color: Colors.textPrimary,
-    backgroundColor: Colors.background,
-    marginBottom: Spacing.md,
-  },
-  inlineActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: Spacing.md },
-  inlineClose: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textTertiary, paddingVertical: Spacing.sm },
-  inlineAddBtn: { borderRadius: Radius.md, overflow: 'hidden' },
-  inlineAddGradient: { paddingHorizontal: Spacing.lg, paddingVertical: Spacing.sm, alignItems: 'center', justifyContent: 'center' },
-  inlineAddText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, color: '#FFFFFF' },
-  btnDisabled: { opacity: 0.5 },
 });
