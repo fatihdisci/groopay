@@ -203,3 +203,25 @@ groopay/
 - Font: Plus Jakarta Sans (display), Inter (body)
 - Shadows: purple-tinted (`#4F46E5`)
 - No opacity string concatenation — use `Colors.primaryGhost` etc.
+
+### Join / Create Flows (June 2026)
+- **Yeni Grup** ve **Gruba Katıl** butonları groups sayfasında bottom bar'da
+- Butonlara basınca **Modal bottom sheet** açılır (sayfa navigasyonu değil)
+- Sheet: `Colors.surface`, `borderTopLeftRadius/borderTopRightRadius: 24`, drag handle (4×40px), `Shadows.lg`
+- `Modal transparent animationType="slide"` + `KeyboardAvoidingView` + `TouchableWithoutFeedback` backdrop
+- Backdrop'a basınca kapanır, Vazgeç butonu da kapatır
+- Aynı pattern başka bottom sheet'ler için de kullanılabilir
+
+### Inline Panel Pattern (Members screen)
+- Üye yönetimi: Hayalet Ekle / Davet Et butonları inline panel açar
+- `activePanel: 'ghost' | 'invite' | null` — tek panel açık (toggle)
+- Panel kart stili: `panelCard` — `Colors.surface`, `borderWidth: 1.5`, `borderColor: Colors.primary`, `Radius.xl`, `Shadows.sm`
+- Panel kartları FlatList `ListHeaderComponent` içinde, butonların hemen altında
+
+### Default Tab
+- Uygulama açılışta **Panel (dashboard)** sekmesine gider: `app/index.tsx` → `<Redirect href="/(tabs)/dashboard" />`
+- Gruplar sekmesine geçişte `_layout.tsx`'te `Stack.Screen name="index"` TANIMLI OLMALI (B84)
+
+### Migration 0014
+- `delete_group` RPC: child tabloları sırayla siler (FK cascade hatasını önler)
+- Sıra: expense_splits → expenses → settlements → activity_log → iban_requests → group_invites → group_members → groups

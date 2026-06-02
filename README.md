@@ -34,7 +34,7 @@
 
 <br />
 
-[![Phase](https://img.shields.io/badge/Faz-0→7_tamam,_Faz_8_devam-10B981?style=flat-square&labelColor=1B1B1F)](.)
+[![Phase](https://img.shields.io/badge/Faz-0→7_tamam,_B1→B86_cila-10B981?style=flat-square&labelColor=1B1B1F)](.)
 [![i18n](https://img.shields.io/badge/i18n-TR_|_EN-4F46E5?style=flat-square&labelColor=1B1B1F)](.)
 [![Strict](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&labelColor=1B1B1F)](.)
 [![License](https://img.shields.io/badge/License-MIT-F43F5E?style=flat-square&labelColor=1B1B1F)](LICENSE)
@@ -85,7 +85,8 @@
 | 🔐 | **IBAN Saklanmaz** — Sunucuda ASLA. Realtime broadcast ile anlık iletilir, uçar. |
 | 👻 | **Hayalet Üyeler** — Gruba ekle, sonradan hesap açınca geçmişi devralsın. |
 | 🔒 | **Server-Side Auth** — Tüm yazma işlemleri SECURITY DEFINER RPC + auth.uid() kontrolü. RLS daraltıldı. |
-| 💎 | **Panel & Pro** — 4. sekme genel bakiye + kategori analizi. Pro ile sınırsız grup. |
+| 💎 | **Panel & Pro** — 4. sekme genel bakiye + kategori analizi + Tüm İşlemler. Pro ile sınırsız grup. |
+| 🔍 | **Aktivite Arama** — Pro-gated metin araması, tr-TR karakter duyarlı, 300ms debounce. |
 
 </div>
 
@@ -544,7 +545,7 @@ cp .env.example .env
 # 4. Supabase migration'ları çalıştır
 # supabase CLI ile: supabase migration up
 # VEYA SQL dosyalarını supabase dashboard → SQL Editor'da sırayla çalıştır
-# (supabase/migrations/0001..0013)
+# (supabase/migrations/0001..0014)
 
 # 5. Başlat! 🚀
 npx expo start --tunnel --clear
@@ -1005,7 +1006,7 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 ## 🐛 Bugfix Günlüğü
 
 <details open>
-<summary><b>64 bugfix, 15 tur — hepsi kapandı ✅</b></summary>
+<summary><b>86 bugfix, 16 tur — hepsi kapandı ✅</b></summary>
 
 | Tur | ID'ler | Konular |
 |:---:|:-------|:--------|
@@ -1022,8 +1023,9 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 | 11 | B54-B56 | Dashboard para birimi karışması (trend, kategori, çapraz çevrim) |
 | 12 | B57 | Dashboard para birimi seçici + profil varsayılan para birimi |
 | 13 | B58-B62 | Detaylı analiz (topPayer, settlementSummary), header butonları, tab bar |
-| 14 | B63 | Para formatı tutarsızlığı — `formatAmount()` ile tr-TR formatı her yerde |
-| 15 | B64 | Masraf kartı layout: 3 satır, tutar sağda sabit, uzun metin taşmaz |
+| 14 | B63-B64 | Para formatı + masraf kartı layout |
+| 15 | B65-B72 | **P0 güvenlik:** RPC auth, RLS, RevenueCat revoke, atomik mutation, Pro limiti, invite token |
+| 16 | B73-B86 | **Cila:** Tüm İşlemler, aktivite arama, hesap reorganizasyonu, üye yönetimi, Modal bottom sheet, panel varsayılan, profil cache fix |
 
 </details>
 
@@ -1032,7 +1034,7 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 ## 🎨 Tasarım Revizyonu
 
 <details open>
-<summary><b>9 tur, modern fintech estetiği ✅</b></summary>
+<summary><b>10 tur, modern fintech estetiği ✅</b></summary>
 
 | Tur | Kapsam | Durum |
 |:---:|:-------|:-----:|
@@ -1045,6 +1047,7 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 | 7 | Tab bar animasyonu + header tutarlılığı | ✅ |
 | 8 | Paywall modern fintech + X kapatma + fiyat gösterme | ✅ |
 | 9 | Masraf kartı 3-satır layout + para formatı tr-TR standardı | ✅ |
+| 10 | Yeni Grup + Gruba Katıl (Modal bottom sheet) + Üye yönetimi + Aktivite arama + Hesap reorganizasyonu | ✅ |
 
 </details>
 

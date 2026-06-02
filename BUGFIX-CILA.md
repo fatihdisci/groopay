@@ -1967,4 +1967,33 @@ npx supabase functions deploy revenuecat-webhook
 | join: 3-adım akış korundu | ✅ |
 | join: bottom-sticky butonlar | ✅ |
 
-*Son güncelleme: 2026-06-01 — B85 eklendi (yeni grup + gruba katıl tasarım yenilemesi)*
+*Son güncelleme: 2026-06-02 — B85 eklendi (yeni grup + gruba katıl tasarım yenilemesi)*
+
+---
+
+### ✅ B86: İnline paneller → Modal bottom sheet (Yeni Grup + Gruba Katıl)
+
+**Sorun:** FlatList içinde inline panel — klavye + zIndex + scroll çakışıyordu. Temelden yanlış pattern.
+
+**Yapılan:**
+- İnline paneller kaldırıldı, yerine **Modal tabanlı bottom sheet**:
+  - `transparent` + `animationType="slide"`
+  - `KeyboardAvoidingView` (iOS padding, Android height)
+  - `TouchableWithoutFeedback` backdrop → basınca kapanır
+- **Sheet stili:** `Colors.surface`, üst köşeler 24px oval, drag handle (4×40px gri çubuk), `Shadows.lg`
+- **İçerik yapısı:** Başlık → TextInput → Vazgeç + Gradient buton
+- `closeModal()`: tüm state'leri sıfırlar (groupName, joinCode, joinError)
+- FlatList artık sadece grup kartlarını gösterir (ListFooterComponent yok)
+- Input letter-spacing: `-0.2` (hafif sıkılaştırılmış)
+
+**Değişen dosyalar:** `app/(tabs)/groups/index.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| Klavye sheet'i kaplamıyor | ✅ KeyboardAvoidingView |
+| Backdrop'a basınca kapanır | ✅ TouchableWithoutFeedback |
+| Grup listesi arkada görünür | ✅ transparent modal |
+| Pro limiti korundu | ✅ reachedLimit |
+| tsc temiz, 87 test | ✅ |
+
+*Son güncelleme: 2026-06-02 — B86 eklendi (Modal bottom sheet)*

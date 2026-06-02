@@ -277,3 +277,45 @@
 ---
 
 *Son güncelleme: 2026-05-31 — Tur 1-5 tamamlandı*
+
+---
+
+## Tur 6: Gruplar Ekranı + Yeni Grup/Gruba Katıl ✅
+
+> Tarih: 2026-06-02
+> Kapsam: `app/(tabs)/groups/index.tsx`, `app/(tabs)/groups/new.tsx`, `app/join/index.tsx`
+
+### 6.1 Yeni Grup Ekranı (`new.tsx`)
+- **Gradient hero:** 72px people ikonu daire, "Yeni Grup" başlık, açıklama alt metin. Alt köşeler 24px oval
+- **Form:** section label ("GRUP ADI"), TextInput (surfaceTinted bg, radius 12), 0/30 karakter sayacı, ipucu satırı
+- **Buton:** Gradient "Oluştur" bottom-sticky (KeyboardAvoidingView), klavye üstünde kalır
+
+### 6.2 Gruba Katıl Ekranı (`join/index.tsx`)
+- **Aynı gradient hero:** enter-outline ikonu, "Gruba Katıl" + "Davet kodunu gir"
+- **Kod input:** büyük, ortalanmış, letter-spacing 4, fontDisplayMedium, surfaceTinted bg
+- **3-adım akış korundu:** enter → preview (ghost claim) → joining
+- **Bottom-sticky butonlar:** KeyboardAvoidingView ile
+
+### 6.3 Gruplar Ana Ekranı (`index.tsx`)
+- **Modal bottom sheet pattern** — inline panel'lerin yerini aldı:
+  - `Modal transparent animationType="slide"`
+  - `KeyboardAvoidingView` + `TouchableWithoutFeedback` backdrop
+  - Sheet: `Colors.surface`, üst köşeler 24px oval, drag handle, `Shadows.lg`
+- **Yeni Grup modal:** Başlık → TextInput (karakter sayacı) → Vazgeç + Gradient Oluştur
+- **Gruba Katıl modal:** Başlık → Kod input (letter-spacing 4, centered) → Vazgeç + Gradient Grubu Bul
+- **Butonlar:** Alt bar'da yan yana — "Gruba Katıl" outline + "Yeni Grup" gradient
+- Pro limiti: reachedLimit ise buton gri + kilit, paywall'a yönlendirir
+
+### 6.4 Değişen Dosyalar
+- `app/(tabs)/groups/index.tsx` — Modal bottom sheet + butonlar
+- `app/(tabs)/groups/new.tsx` — Gradient hero + bottom-sticky buton
+- `app/join/index.tsx` — Gradient hero + bottom-sticky butonlar
+- `locales/tr.json`, `locales/en.json` — `groups.*` + `join.*` anahtarları
+
+### 6.5 Diğer Tasarım Değişiklikleri
+- **Üye yönetimi (`members.tsx`):** Panel toggle (`activePanel`), unified `panelCard` stili, inline ghost form, zengin üye satırları, modal yerine inline form
+- **Hesap (`account.tsx`):** 4 bölüm başlığı (PROFİL/TERCİHLER/ÜYELİK/HESAP), KeyboardAvoidingView + scrollTo onFocus
+- **Dashboard (`dashboard.tsx`):** Tüm İşlemler expandable bölüm, ay filtresi, unified effect fix, Modal bottom sheet groups
+- **Aktivite (`activity.tsx`):** Metin arama (Pro-gated, tr-TR debounce 300ms)
+- **Panel varsayılan sekme:** `app/index.tsx` → `/dashboard` redirect
+- **Input letter-spacing:** Tüm form input'larında `-0.2` (hafif sıkılaştırılmış)

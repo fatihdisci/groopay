@@ -1,13 +1,13 @@
 # Groopay — Oturum Özeti
 
-> Son oturum: 2026-06-01
-> Durum: Faz 0-7 tamam ✅, P0 güvenlik turu tamam (B65-B72) ✅, Faz 8'e hazır ✅
+> Son oturum: 2026-06-02
+> Durum: Faz 0-7 tamam ✅, P0 güvenlik turu tamam (B65-B72) ✅, Cila turu tamam (B73-B86) ✅
 
 ---
 
 ## Şu an neredeyiz?
 
-Faz 0-7 tamam. 15 tur bugfix (B1-B64) tamamlandı. **P0 güvenlik turu (B65-B72) tamam:** tüm RPC'ler auth.uid() korumalı, RLS daraltıldı, atomik mutation'lar, RevenueCat revoke handling, para birimi 2-ondalık sınırı, server-side Pro limiti, kriptografik invite token. Uygulama Expo Go'da çalışır durumda.
+Faz 0-7 tamam. 16 tur bugfix (B1-B86) tamamlandı. **P0 güvenlik turu (B65-B72):** tüm RPC'ler auth.uid() korumalı, RLS daraltıldı, atomik mutation'lar, RevenueCat revoke handling. **Cila turu (B73-B86):** Dashboard Tüm İşlemler, aktivite arama, hesap reorganizasyonu, üye yönetimi yenileme, yeni grup/gruba katıl Modal bottom sheet, panel varsayılan sekme, profil adı cache fix. Uygulama Expo Go'da çalışır durumda.
 
 ---
 
@@ -33,6 +33,10 @@ Detaylar için: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
 | 14 | Dashboard detaylı analiz, kurucu ayrılma, TipsButton, header butonları | B58-B62 |
 | 15 | Para formatı tutarsızlığı, masraf kartı layout | B63-B64 |
 | 16 | **P0 güvenlik:** RPC auth, RLS daraltma, RevenueCat revoke, atomik mutation, para birimi, Pro limiti, invite token | B65-B72 |
+| 17 | Dashboard Tüm İşlemler, ay filtresi, aktivite fix, FK cascade | B73-B79 |
+| 18 | Hesap reorganizasyonu, panel varsayılan sekme, aktivite arama | B80-B82 |
+| 19 | Üye yönetimi yenileme, groups routing fix | B83-B84 |
+| 20 | Yeni Grup + Gruba Katıl ekranları, inline → Modal bottom sheet | B85-B86 |
 
 ---
 
@@ -139,6 +143,7 @@ C:\Users\fatih\groopay\
 11. `0011_update_delete_expense_rpc.sql` — **P0-4:** update_expense_with_splits + delete_expense atomik RPC (SECURITY DEFINER)
 12. `0012_fix_expense_splits_rls.sql` — RLS fix: 0011'de kaldırılan 4 politika geri eklendi
 13. `0013_group_invite_rpc.sql` — **P1-1/P1-9:** create_group_with_limit (Pro limiti) + create_invite (kriptografik token) RPC
+14. `0014_fix_delete_group_cascade.sql` — **B76:** delete_group sıralı silme (FK cascade fix)
 
 ---
 
@@ -197,6 +202,13 @@ npx expo start --tunnel --clear
 | Alt bar: 4 sekme | ✅ Gruplar · Panel · Aktivite · Hesap |
 | Hesap silme | ✅ 3 adımlı |
 | Veri dışa aktarma | ✅ JSON Share |
+| Dashboard Tüm İşlemler | ✅ Pro: liste + filtre, Free: blur |
+| Aktivite arama | ✅ Pro-gated, tr-TR debounce 300ms |
+| Panel varsayılan sekme | ✅ `/dashboard` redirect |
+| Hesap reorganizasyonu | ✅ 4 bölüm başlığı + klavye |
+| Üye yönetimi | ✅ Inline panel + toggle |
+| Yeni Grup / Gruba Katıl | ✅ Modal bottom sheet |
+| Grup silme FK | ✅ Migration 0014 |
 
 ---
 
@@ -216,4 +228,4 @@ npx expo start --tunnel --clear
 
 ---
 
-*Son güncelleme: 2026-06-01 — P0 güvenlik turu tamam (B65-B72)*
+*Son güncelleme: 2026-06-02 — Cila turu tamam (B73-B86), Modal bottom sheet, tsc temiz, 87 test*
