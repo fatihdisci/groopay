@@ -1,12 +1,10 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TextInput, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase/client';
 import { useRealtimeAllGroups } from '@/hooks/useRealtime';
-import { usePro } from '@/hooks/usePro';
 import { formatAmount } from '@/lib/finance/money';
 import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 import { palette, spacing, fontSizes, radii } from '@/constants/theme';
@@ -52,8 +50,6 @@ function timeAgo(dateStr: string, t: (k: string, o?: any) => string): string {
 
 export default function ActivityScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
-  const { isUserPro } = usePro();
 
   // Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -188,39 +184,25 @@ export default function ActivityScreen() {
     <View style={styles.wrapper}>
       {/* ── Search Bar ── */}
       {activity.length > 0 || isSearching ? (
-        isUserPro ? (
-          <View style={styles.searchContainer}>
-            <View style={styles.searchBar}>
-              <Ionicons name="search-outline" size={18} color={Colors.textTertiary} />
-              <TextInput
-                style={styles.searchInput}
-                value={searchQuery}
-                onChangeText={handleSearchChange}
-                placeholder={t('activity.searchPlaceholder')}
-                placeholderTextColor={Colors.textTertiary}
-                returnKeyType="search"
-                autoCorrect={false}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
-                </TouchableOpacity>
-              )}
-            </View>
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search-outline" size={18} color={Colors.textTertiary} />
+            <TextInput
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={handleSearchChange}
+              placeholder={t('activity.searchPlaceholder')}
+              placeholderTextColor={Colors.textTertiary}
+              returnKeyType="search"
+              autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={clearSearch} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={18} color={Colors.textTertiary} />
+              </TouchableOpacity>
+            )}
           </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.searchContainer}
-            onPress={() => router.push('/paywall?context=feature')}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.searchBar, styles.searchBarLocked]}>
-              <Ionicons name="search-outline" size={18} color={Colors.textTertiary} />
-              <Text style={styles.searchPlaceholder}>{t('activity.searchPlaceholder')}</Text>
-              <Ionicons name="lock-closed" size={14} color={Colors.primary} />
-            </View>
-          </TouchableOpacity>
-        )
+        </View>
       ) : null}
 
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -338,9 +320,7 @@ const styles = StyleSheet.create({
     height: 44,
     gap: Spacing.sm,
   },
-  searchBarLocked: { opacity: 0.7 },
   searchInput: { flex: 1, fontFamily: Typography.fontBody, fontSize: 15, color: Colors.textPrimary, paddingVertical: 0 },
-  searchPlaceholder: { flex: 1, fontFamily: Typography.fontBody, fontSize: 15, color: Colors.textTertiary },
 
   // Date grouping
   dateGroup: { marginBottom: Spacing.lg },

@@ -1,0 +1,21 @@
+id,name,photo_url,base_currency,created_by,is_pro,pro_purchased_by,pro_purchased_at,is_demo,archived,created_at
+05302a19-a62f-4d46-bc5c-a75d4b2d8828,Örnek Grup,,TRY,f828e527-7d2a-46b4-8b2c-4e208bfd50cd,false,,,true,false,2026-05-30 08:07:15.163783+00
+11b2de84-dd74-4283-88b7-11dbd5242a97,Örnek Grup,,TRY,61322201-6046-4585-a8fc-602abc415dfa,false,,,true,false,2026-05-30 08:12:41.62715+00
+184bef67-ede7-4861-a12e-f44574306077,Örnek Grup,,TRY,cc3e5a5e-8664-4d88-9e5d-2709761ef48f,false,,,true,false,2026-05-30 08:13:49.951369+00
+1f514773-303c-45ad-b674-61a4784a64c8,Ttt,,TRY,f404cb29-b290-4f95-bdf7-f63003c72ac1,false,,,false,false,2026-05-30 07:37:13.772601+00
+460dbfb4-3a40-4e29-87a2-d7b0ebf65cd6,Hhh,,TRY,957414ca-7efa-4855-a1ae-c5cf346373f6,false,,,false,false,2026-05-30 07:47:40.036211+00
+49bd092f-bdb7-485a-b634-a86d619fd250,Test,,TRY,bc70ee67-46da-425b-974a-80e5faf923d3,false,,,false,false,2026-05-30 07:29:59.947832+00
+5820c4a8-ca31-462e-bd1f-06356c15474f,Ttss,,TRY,55e0c4f9-9286-4f9c-a2b2-858cdd341147,false,,,false,false,2026-05-30 08:04:25.093692+00
+77f4cf44-6e55-424f-9f1a-39f28d447722,Örnek Grup,,TRY,9ce07fdc-8b84-4e3d-a28b-c7b96fe9a30b,false,,,true,false,2026-05-30 05:25:02.146135+00
+9186bf60-1a47-4f85-a3d2-eed84e312ab3,Örnek Grup,,TRY,fc8c8161-07ba-4ca3-9777-741d2a400f73,false,,,true,false,2026-05-30 07:48:14.306226+00
+97dadf7e-b78b-4609-ae03-b65cf7e6e54c,Jjj,,TRY,fc8c8161-07ba-4ca3-9777-741d2a400f73,false,,,false,false,2026-05-30 07:56:45.905453+00
+b2975f2a-ab71-4c1a-affb-e89b050d996b,Ödeme test,,TRY,9f4ecfad-2e0c-487e-8907-e4ea270d40a4,false,,,false,false,2026-05-30 12:37:24.898446+00
+b2cdfaf0-76f3-4043-b868-9baff9b4ff31,Örnek Grup,,TRY,bc70ee67-46da-425b-974a-80e5faf923d3,false,,,true,false,2026-05-30 05:37:22.015564+00
+b9179ee3-191f-4422-88ec-fd2b54d0fa60,Tty,,TRY,61322201-6046-4585-a8fc-602abc415dfa,false,,,false,false,2026-05-30 08:13:18.254425+00
+c06a397a-70f4-4301-9c60-3e5b912c23f5,Örnek Grup,,TRY,f404cb29-b290-4f95-bdf7-f63003c72ac1,false,,,true,false,2026-05-30 07:37:00.979873+00
+c34626df-e3b0-43d9-b834-66762aa07201,Örnek Grup,,TRY,9f4ecfad-2e0c-487e-8907-e4ea270d40a4,false,,,true,false,2026-05-30 12:37:01.452436+00
+cfda0eba-9698-4e9c-834c-20b15da45eb8,Örnek Grup,,TRY,5ed8f1c9-b322-4edb-825a-f7a5a19cfe74,false,,,true,false,2026-05-30 07:31:10.470481+00
+d12de269-b706-4fbd-832e-9ddab515408a,Örnek Grup,,TRY,025cf152-91b8-4b7c-862f-a08fb600e2bb,false,,,true,false,2026-05-30 07:57:07.591172+00
+d39ecd6a-fe40-405f-99e1-b84b97f4b336,Örnek Grup,,TRY,55e0c4f9-9286-4f9c-a2b2-858cdd341147,false,,,true,false,2026-05-30 08:04:14.988356+00
+eec5f76c-9602-4d7c-bbfb-8ec53f17f1bf,Örnek Grup,,TRY,bf7c656b-479e-4ed7-a845-6bdef875bde7,false,,,true,false,2026-05-30 05:37:13.642319+00
+fb2d8c18-ea79-4313-8187-e0321be0ed6d,Örnek Grup,,TRY,957414ca-7efa-4855-a1ae-c5cf346373f6,false,,,true,false,2026-05-30 07:37:55.329124+00

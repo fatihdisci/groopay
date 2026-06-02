@@ -1997,3 +1997,28 @@ npx supabase functions deploy revenuecat-webhook
 | tsc temiz, 87 test | ✅ |
 
 *Son güncelleme: 2026-06-02 — B86 eklendi (Modal bottom sheet)*
+
+---
+
+### ✅ B87: Aktivite araması tüm kullanıcılara açıldı
+
+> Tarih: 2026-06-02
+
+**Sorun:** Aktivite sayfasındaki metin arama Pro kapısına bağlıydı. Free kullanıcı arama input'u yerine kilitli satır görüyor ve tıklayınca paywall'a gidiyordu.
+
+**Yapılan:**
+- Aktivite arama çubuğundaki `isUserPro` koşulu kaldırıldı.
+- Free ve Pro tüm kullanıcılar aynı arama input'unu görür.
+- Arama debounce, temizle butonu, tr-TR normalize filtreleme ve boş sonuç mesajı aynen korundu.
+- Artık aktivite araması paywall'a yönlendirme yapmaz.
+
+**Değişen dosyalar:** `app/(tabs)/activity.tsx`
+
+| Kontrol | Durum |
+|---|---|
+| Arama input'u tüm kullanıcılara açık | ✅ |
+| Pro hook/import kullanılmıyor | ✅ |
+| Paywall yönlendirmesi kaldırıldı | ✅ |
+| Mevcut arama davranışı korundu | ✅ |
+
+*Son güncelleme: 2026-06-02 — B87 eklendi (aktivite araması herkese açık)*

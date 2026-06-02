@@ -58,9 +58,9 @@ export function useDeleteGroup() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (groupId: string) => deleteGroupRpc(groupId),
-    onSuccess: () => {
+    onSuccess: (_data, groupId) => {
       qc.invalidateQueries({ queryKey: ['groups'] });
-      qc.invalidateQueries({ queryKey: ['group'] });
+      qc.invalidateQueries({ queryKey: ['group', groupId] });
     },
   });
 }
