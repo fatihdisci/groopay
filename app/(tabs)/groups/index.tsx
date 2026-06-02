@@ -1,5 +1,8 @@
 import { useState, useLayoutEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator,
+  TextInput, Platform, Modal, KeyboardAvoidingView, TouchableWithoutFeedback,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
@@ -57,26 +60,27 @@ export default function GroupsScreen() {
   const reachedLimit = !isUserPro && (createdGroupCount ?? 0) >= MAX_FREE_GROUPS;
   const nearLimit = !isUserPro && (createdGroupCount ?? 0) === MAX_FREE_GROUPS - 1;
 
-  // Panel state: only one open at a time
-  const [activePanel, setActivePanel] = useState<'create' | 'join' | null>(null);
+  // Modal state
+  const [activeModal, setActiveModal] = useState<'new' | 'join' | null>(null);
   const [groupName, setGroupName] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [creating, setCreating] = useState(false);
   const [joinError, setJoinError] = useState<string | null>(null);
 
-  const handleCreatePress = () => {
-    if (reachedLimit) {
-      router.push('/paywall?context=limit');
-      return;
-    }
-    setActivePanel(activePanel === 'create' ? null : 'create');
+  const closeModal = () => {
+    setActiveModal(null);
     setGroupName('');
+    setJoinCode('');
+    setJoinError(null);
+  };
+
+  const handleCreatePress = () => {
+    if (reachedLimit) { router.push('/paywall?context=limit'); return; }
+    setActiveModal('new');
   };
 
   const handleJoinPress = () => {
-    setActivePanel(activePanel === 'join' ? null : 'join');
-    setJoinCode('');
-    setJoinError(null);
+    setActiveModal('join');
   };
 
   const handleCreateGroup = async () => {
@@ -84,13 +88,10 @@ export default function GroupsScreen() {
     setCreating(true);
     try {
       await createGroup.mutateAsync({
-        name: groupName.trim(),
-        currency: 'TRY',
-        userId: user.id,
-        displayName: user.display_name,
+        name: groupName.trim(), currency: 'TRY',
+        userId: user.id, displayName: user.display_name,
       });
-      setActivePanel(null);
-      setGroupName('');
+      closeModal();
     } catch (e: any) {
       Alert.alert(t('groups.createError'), e?.message ?? t('groups.createErrorDesc'));
     } finally {
@@ -102,20 +103,15 @@ export default function GroupsScreen() {
     if (!joinCode.trim() || !user) return;
     setJoinError(null);
     const invite = await getInviteByToken(joinCode.trim());
-    if (!invite) {
-      setJoinError(t('join.invalidCode'));
-      return;
-    }
+    if (!invite) { setJoinError(t('join.invalidCode')); return; }
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
       if (!token) throw new Error(t('join.noSession'));
-
       await joinViaInvite(invite.token, token, { displayName: user.display_name });
       queryClient.invalidateQueries({ queryKey: ['groups'] });
       queryClient.invalidateQueries({ queryKey: ['group'] });
-      setActivePanel(null);
-      setJoinCode('');
+      closeModal();
       Alert.alert(t('join.success'), t('join.successDesc', { name: invite.group_name }), [{ text: t('join.ok') }]);
     } catch (e: any) {
       setJoinError(e?.message ?? t('join.error'));
@@ -133,10 +129,7 @@ export default function GroupsScreen() {
   const activeGroups = groups ?? [];
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <View style={styles.container}>
       <FlatList
         data={activeGroups}
         keyExtractor={(g) => g.group.id}
@@ -162,12 +155,8 @@ export default function GroupsScreen() {
                   <View style={styles.cardInfo}>
                     <View style={styles.cardNameRow}>
                       <Text style={styles.cardName}>{item.group.name}</Text>
-                      {item.group.is_pro && (
-                        <View style={styles.proBadge}><Text style={styles.proBadgeText}>{t('pro.badge')}</Text></View>
-                      )}
-                      {item.group.is_demo && (
-                        <View style={styles.demoBadge}><Text style={styles.demoBadgeText}>{t('groups.demoBadge')}</Text></View>
-                      )}
+                      {item.group.is_pro && <View style={styles.proBadge}><Text style={styles.proBadgeText}>{t('pro.badge')}</Text></View>}
+                      {item.group.is_demo && <View style={styles.demoBadge}><Text style={styles.demoBadgeText}>{t('groups.demoBadge')}</Text></View>}
                     </View>
                     <Text style={styles.cardMeta}>{activeMemberCount} {t('groups.members')}</Text>
                   </View>
@@ -179,91 +168,7 @@ export default function GroupsScreen() {
         }}
       />
 
-      {/* ── Inline create group panel ── */}
-      {activePanel === 'create' && (
-        <View style={styles.panelCard}>
-          <Text style={styles.panelLabel}>{t('groups.newGroup')}</Text>
-          <View style={styles.panelInputWrapper}>
-            <TextInput
-              style={styles.panelInput}
-              value={groupName}
-              onChangeText={setGroupName}
-              placeholder={t('groups.createNamePlaceholder')}
-              placeholderTextColor={Colors.textTertiary}
-              maxLength={MAX_NAME_LENGTH}
-              autoFocus
-            />
-            <Text style={styles.panelCharCount}>{groupName.length}/{MAX_NAME_LENGTH}</Text>
-          </View>
-          <View style={styles.panelActions}>
-            <TouchableOpacity onPress={() => setActivePanel(null)}>
-              <Text style={styles.panelClose}>{t('groups.cancel')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.panelBtn, (!groupName.trim() || creating) && styles.btnDisabled]}
-              onPress={handleCreateGroup}
-              disabled={!groupName.trim() || creating}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={groupName.trim() ? [Colors.gradientStart, Colors.gradientEnd] : [Colors.border, Colors.border]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.panelBtnGradient}
-              >
-                {creating ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.panelBtnText}>{t('groups.createBtn')}</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {/* ── Inline join group panel ── */}
-      {activePanel === 'join' && (
-        <View style={styles.panelCard}>
-          <Text style={styles.panelLabel}>{t('join.title')}</Text>
-          <TextInput
-            style={[styles.panelInput, styles.panelCodeInput]}
-            value={joinCode}
-            onChangeText={(t) => setJoinCode(t.toUpperCase())}
-            placeholder="ABC123"
-            placeholderTextColor={Colors.textTertiary}
-            maxLength={8}
-            autoCapitalize="characters"
-            autoFocus
-          />
-          {joinError && (
-            <View style={styles.panelError}>
-              <Ionicons name="alert-circle-outline" size={14} color={Colors.debt} />
-              <Text style={styles.panelErrorText}>{joinError}</Text>
-            </View>
-          )}
-          <View style={styles.panelActions}>
-            <TouchableOpacity onPress={() => setActivePanel(null)}>
-              <Text style={styles.panelClose}>{t('groups.cancel')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.panelBtn, !joinCode.trim() && styles.btnDisabled]}
-              onPress={handleJoinGroup}
-              disabled={!joinCode.trim()}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={joinCode.trim() ? [Colors.gradientStart, Colors.gradientEnd] : [Colors.border, Colors.border]}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                style={styles.panelBtnGradient}
-              >
-                <Text style={styles.panelBtnText}>{t('join.findGroup')}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {/* Bottom bar — two side-by-side buttons */}
+      {/* Bottom bar */}
       <View style={styles.bottomBar}>
         {nearLimit && !reachedLimit && (
           <View style={styles.limitBadge}>
@@ -271,11 +176,7 @@ export default function GroupsScreen() {
           </View>
         )}
         <View style={styles.bottomRow}>
-          <TouchableOpacity
-            style={styles.joinButton}
-            onPress={handleJoinPress}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.joinButton} onPress={handleJoinPress} activeOpacity={0.7}>
             <Ionicons name="enter-outline" size={18} color={Colors.primary} />
             <Text style={styles.joinButtonText}>{t('groups.join')}</Text>
           </TouchableOpacity>
@@ -303,7 +204,99 @@ export default function GroupsScreen() {
           </TouchableOpacity>
         </View>
       </View>
-    </KeyboardAvoidingView>
+
+      {/* ── NEW GROUP MODAL ── */}
+      <Modal visible={activeModal === 'new'} transparent animationType="slide" onRequestClose={closeModal}>
+        <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <TouchableWithoutFeedback onPress={closeModal}>
+            <View style={styles.modalBackdrop} />
+          </TouchableWithoutFeedback>
+          <View style={styles.sheet}>
+            <View style={styles.dragHandle} />
+            <Text style={styles.sheetTitle}>{t('groups.newGroup')}</Text>
+            <View style={styles.sheetInputWrapper}>
+              <TextInput
+                style={styles.sheetInput}
+                value={groupName}
+                onChangeText={setGroupName}
+                placeholder={t('groups.createNamePlaceholder')}
+                placeholderTextColor={Colors.textTertiary}
+                maxLength={MAX_NAME_LENGTH}
+                autoFocus
+              />
+              <Text style={styles.charCounter}>{groupName.length}/{MAX_NAME_LENGTH}</Text>
+            </View>
+            <View style={styles.sheetActions}>
+              <TouchableOpacity style={styles.sheetCancel} onPress={closeModal}>
+                <Text style={styles.sheetCancelText}>{t('groups.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sheetBtn, !groupName.trim() && styles.btnDisabled]}
+                onPress={handleCreateGroup}
+                disabled={!groupName.trim() || creating}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={groupName.trim() ? [Colors.gradientStart, Colors.gradientEnd] : [Colors.border, Colors.border]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={styles.sheetBtnGradient}
+                >
+                  {creating ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.sheetBtnText}>{t('groups.createBtn')}</Text>}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── JOIN GROUP MODAL ── */}
+      <Modal visible={activeModal === 'join'} transparent animationType="slide" onRequestClose={closeModal}>
+        <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <TouchableWithoutFeedback onPress={closeModal}>
+            <View style={styles.modalBackdrop} />
+          </TouchableWithoutFeedback>
+          <View style={styles.sheet}>
+            <View style={styles.dragHandle} />
+            <Text style={styles.sheetTitle}>{t('join.title')}</Text>
+            <TextInput
+              style={[styles.sheetInput, styles.sheetCodeInput, { marginBottom: Spacing.md }]}
+              value={joinCode}
+              onChangeText={(val) => setJoinCode(val.toLocaleUpperCase('tr-TR'))}
+              placeholder="ABC123"
+              placeholderTextColor={Colors.textTertiary}
+              maxLength={8}
+              autoCapitalize="characters"
+              autoFocus
+            />
+            {joinError && (
+              <View style={styles.sheetError}>
+                <Ionicons name="alert-circle-outline" size={14} color={Colors.debt} />
+                <Text style={styles.sheetErrorText}>{joinError}</Text>
+              </View>
+            )}
+            <View style={styles.sheetActions}>
+              <TouchableOpacity style={styles.sheetCancel} onPress={closeModal}>
+                <Text style={styles.sheetCancelText}>{t('groups.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sheetBtn, !joinCode.trim() && styles.btnDisabled]}
+                onPress={handleJoinGroup}
+                disabled={!joinCode.trim()}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={joinCode.trim() ? [Colors.gradientStart, Colors.gradientEnd] : [Colors.border, Colors.border]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={styles.sheetBtnGradient}
+                >
+                  <Text style={styles.sheetBtnText}>{t('join.findGroup')}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
   );
 }
 
@@ -329,120 +322,56 @@ const styles = StyleSheet.create({
   demoBadgeText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.xs - 1, color: Colors.demo },
 
   // Bottom bar
-  bottomBar: {
-    backgroundColor: Colors.background,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
+  bottomBar: { backgroundColor: Colors.background, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12 },
   bottomRow: { flexDirection: 'row', gap: 10 },
-  limitBadge: {
-    position: 'absolute', top: -10, right: 16,
-    backgroundColor: Colors.warning,
-    paddingHorizontal: Spacing.sm, paddingVertical: 3,
-    borderRadius: Radius.sm, zIndex: 2,
-  },
+  limitBadge: { position: 'absolute', top: -10, right: 16, backgroundColor: Colors.warning, paddingHorizontal: Spacing.sm, paddingVertical: 3, borderRadius: Radius.sm, zIndex: 2 },
   limitBadgeText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.xs, color: 'white' },
-
-  // Join button (outline)
-  joinButton: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, height: 52, borderRadius: 14,
-    borderWidth: 1.5, borderColor: Colors.primary,
-    backgroundColor: 'transparent',
-  },
+  joinButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 52, borderRadius: 14, borderWidth: 1.5, borderColor: Colors.primary, backgroundColor: 'transparent' },
   joinButtonText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.base, color: Colors.primary },
-
-  // Create button (gradient)
   createButton: { flex: 1, borderRadius: 14, overflow: 'hidden' },
-  createButtonGradient: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, height: 52,
-  },
+  createButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, height: 52 },
   createButtonText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.base, color: 'white' },
 
-  // ── Panel cards (create/join inline) ──
-  panelCard: {
+  // ── Modal / Bottom Sheet ──
+  modalWrapper: { flex: 1 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheet: {
     backgroundColor: Colors.surface,
-    borderRadius: Radius.xl,
-    padding: Spacing.lg,
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    ...Shadows.sm,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    ...Shadows.lg,
   },
-  panelLabel: {
-    fontFamily: Typography.fontBodyBold,
-    fontSize: Typography.size.sm,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.md,
+  dragHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: Colors.border,
+    alignSelf: 'center',
+    marginBottom: 16,
   },
-  panelInputWrapper: { position: 'relative', marginBottom: Spacing.md },
-  panelInput: {
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    fontFamily: Typography.fontBody,
-    fontSize: Typography.size.base,
-    color: Colors.textPrimary,
+  sheetTitle: { fontFamily: Typography.fontDisplayBold, fontSize: Typography.size.lg, color: Colors.textPrimary, marginBottom: Spacing.lg },
+  sheetInputWrapper: { position: 'relative', marginBottom: Spacing.lg },
+  sheetInput: {
+    borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.md + 2,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.md + 2, paddingRight: 56,
+    fontFamily: Typography.fontBody, fontSize: Typography.size.base, color: Colors.textPrimary,
     backgroundColor: Colors.backgroundSecondary,
+    letterSpacing: -0.2,
   },
-  panelCodeInput: {
-    textAlign: 'center',
-    letterSpacing: 6,
-    fontFamily: Typography.fontDisplayMedium,
-    fontSize: 22,
-    marginBottom: 0,
+  sheetCodeInput: { textAlign: 'center', letterSpacing: 4, fontFamily: Typography.fontDisplayMedium, fontSize: 22, paddingRight: Spacing.md },
+  charCounter: {
+    position: 'absolute', right: Spacing.md, bottom: Spacing.md + 2,
+    fontFamily: Typography.fontBody, fontSize: 12, color: Colors.textTertiary,
+    backgroundColor: Colors.backgroundSecondary, paddingLeft: 8,
   },
-  panelCharCount: {
-    position: 'absolute',
-    right: Spacing.md,
-    bottom: Spacing.md,
-    fontFamily: Typography.fontBody,
-    fontSize: 12,
-    color: Colors.textTertiary,
-    backgroundColor: Colors.backgroundSecondary,
-    paddingLeft: 8,
-  },
-  panelActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    gap: Spacing.md,
-  },
-  panelClose: {
-    fontFamily: Typography.fontBody,
-    fontSize: Typography.size.sm,
-    color: Colors.textTertiary,
-    paddingVertical: Spacing.sm,
-  },
-  panelBtn: { borderRadius: Radius.md, overflow: 'hidden' },
-  panelBtnGradient: {
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  panelBtnText: {
-    fontFamily: Typography.fontBodyBold,
-    fontSize: Typography.size.sm,
-    color: '#FFFFFF',
-  },
+  sheetActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: Spacing.md },
+  sheetCancel: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.sm },
+  sheetCancelText: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.textSecondary },
+  sheetBtn: { borderRadius: 10, overflow: 'hidden' },
+  sheetBtnGradient: { paddingHorizontal: Spacing.lg, paddingVertical: 10, alignItems: 'center', justifyContent: 'center' },
+  sheetBtnText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, color: '#FFFFFF' },
   btnDisabled: { opacity: 0.5 },
-  panelError: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.debt + '10',
-    borderRadius: Radius.md,
-    padding: Spacing.sm,
-    marginBottom: Spacing.md,
-  },
-  panelErrorText: {
-    fontFamily: Typography.fontBody,
-    fontSize: Typography.size.sm,
-    color: Colors.debt,
-    flex: 1,
-  },
+  sheetError: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.debt + '10', borderRadius: Radius.md, padding: Spacing.sm, marginBottom: Spacing.md },
+  sheetErrorText: { fontFamily: Typography.fontBody, fontSize: Typography.size.sm, color: Colors.debt, flex: 1 },
 });
