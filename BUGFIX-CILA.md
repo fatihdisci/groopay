@@ -1772,4 +1772,8 @@ npx supabase functions deploy revenuecat-webhook
 | 87/87 test geçti | ✅ |
 | Profil adı değişince aktivite güncelleniyor | ✅ Cache invalidate |
 
-*Son güncelleme: 2026-06-01 — B79 eklendi (aktivite profil adı cache)*
+**2. düzeltme (aynı gün):** `invalidateQueries({ queryKey: ['activity'] })` React Query prefix match'inde `'activity' !== 'activity-all'` olduğu için çalışmıyordu. `predicate` ile `startsWith('activity')` kullanılarak düzeltildi. Ayrıca AuthContext'te `group_members` güncellemesine hata loglaması eklendi.
+
+**Değişen dosyalar:** `app/(tabs)/account.tsx`, `lib/auth/AuthContext.tsx`
+
+*Son güncelleme: 2026-06-01 — B79 eklendi (aktivite profil adı cache + predicate fix)*

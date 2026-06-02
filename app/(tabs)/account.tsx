@@ -78,7 +78,7 @@ export default function AccountScreen() {
       // Invalidate group + activity queries so name/color changes propagate
       queryClient.invalidateQueries({ queryKey: ['group'] });
       queryClient.invalidateQueries({ queryKey: ['groups'] });
-      queryClient.invalidateQueries({ queryKey: ['activity'] });
+      queryClient.invalidateQueries({ predicate: (q) => (q.queryKey[0] as string)?.startsWith('activity') });
       showToast(t('account.profileSaved'), 'success');
     } catch (e: any) {
       showToast(t('account.profileSaveError'), 'error');

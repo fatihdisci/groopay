@@ -182,10 +182,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Also update display_name in all group memberships
       if (updates.display_name) {
-        await supabase
+        const { error: gmError } = await supabase
           .from('group_members')
           .update({ display_name: updates.display_name })
           .eq('user_id', user.id);
+        if (gmError) {
+          console.warn('[auth] Failed to sync display_name to group_members:', gmError.message);
+        }
       }
 
       const updated = { ...user, ...updates };
