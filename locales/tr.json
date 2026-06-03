@@ -259,12 +259,15 @@
   "auth": {
     "appName": "Groopay",
     "tagline": "Masrafları böl, hesaplar netleşsin",
-    "devSignIn": "Test kullanıcısı olarak gir",
-    "devNotice": "Geçici giriş — gerçek Google / Apple girişi yakında",
     "googleSignIn": "Google ile giriş",
     "appleSignIn": "Apple ile giriş",
-    "comingSoon": "Yakında",
-    "signOut": "Çıkış yap"
+    "oauthNotice": "OAuth girişi dev build'de çalışır. Expo Go'da aşağıdaki test butonunu kullan.",
+    "devSection": "Geliştirme",
+    "devSignIn": "Test kullanıcısı olarak gir",
+    "devNotice": "Anonim test hesabı — sadece geliştirme amaçlı",
+    "signOut": "Çıkış yap",
+    "error": "Hata",
+    "unknownError": "Giriş yapılamadı. Lütfen tekrar deneyin."
   },
   "onboarding": {
     "skip": "Atla",

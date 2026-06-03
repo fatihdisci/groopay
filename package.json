@@ -48,7 +48,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "eas:build:ios": "eas build --platform ios --profile development",
+    "eas:build:android": "eas build --platform android --profile development",
+    "eas:submit:ios": "eas submit --platform ios",
+    "eas:submit:android": "eas submit --platform android"
   },
   "private": true
 }

@@ -176,12 +176,15 @@
   "auth": {
     "appName": "Groopay",
     "tagline": "Split expenses, settle up",
-    "devSignIn": "Sign in as test user",
-    "devNotice": "Temporary sign-in — real Google / Apple sign-in coming soon",
     "googleSignIn": "Sign in with Google",
     "appleSignIn": "Sign in with Apple",
-    "comingSoon": "Coming soon",
-    "signOut": "Sign out"
+    "oauthNotice": "OAuth sign-in works in dev builds. Use the test button below when running in Expo Go.",
+    "devSection": "Development",
+    "devSignIn": "Sign in as test user",
+    "devNotice": "Anonymous test account — development only",
+    "signOut": "Sign out",
+    "error": "Error",
+    "unknownError": "Sign in failed. Please try again."
   },
   "onboarding": {
     "skip": "Skip",

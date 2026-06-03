@@ -12,3 +12,5 @@ export interface AuthState {
   user: Profile | null;
   isLoading: boolean;
 }
+
+export type OAuthProvider = 'google' | 'apple';

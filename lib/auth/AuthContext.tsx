@@ -1,14 +1,16 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase/client';
 import { AVATAR_COLORS } from '@/constants/avatarColors';
 import type { ProfileRow } from '@/lib/supabase/types';
-import type { Profile } from './types';
+import type { Profile, OAuthProvider } from './types';
 
 // ──────────────────────────────────────
-// TODO Phase 1B: link this anonymous user to real Google/Apple identity
-// via supabase.auth.linkIdentity(). The screens only use useAuth(),
-// so Phase 1B only touches THIS file.
+// Faz 8: Anonymous auth replaced with Google + Apple OAuth.
+// signInAnonymously() kept as fallback for Expo Go / dev builds.
+// signInWithProvider() uses supabase.auth.signInWithOAuth().
+// Anonymous → real: linkIdentity() upgrades existing session.
 // ──────────────────────────────────────
 
 const STORAGE_KEY_ONBOARDED = 'groopay:onboarded';
@@ -18,7 +20,8 @@ interface AuthContextValue {
   user: Profile | null;
   isLoading: boolean;
   isOnboarded: boolean;
-  signIn: () => Promise<void>;
+  signIn: () => Promise<void>; // legacy anonymous, dev fallback
+  signInWithProvider: (provider: OAuthProvider) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Pick<Profile, 'display_name' | 'avatar_color' | 'locale' | 'preferred_currency'>>) => Promise<void>;
   setOnboarded: () => Promise<void>;
@@ -113,7 +116,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // ── ANONYMOUS SIGN-IN (TODO Phase 1B: linkIdentity to Google/Apple) ──
+  // ── GOOGLE / APPLE OAuth (Faz 8) ──
+  const signInWithProvider = useCallback(async (provider: OAuthProvider) => {
+    // Attempt to link identity if user is currently anonymous.
+    // This upgrades the existing anonymous session to a real one,
+    // preserving all data (groups, memberships, expenses).
+    const { data: { session } } = await supabase.auth.getSession();
+    const isAnonymous = session?.user?.is_anonymous ?? false;
+
+    if (isAnonymous) {
+      // Link the anonymous user to a real identity
+      const { error: linkError } = await supabase.auth.linkIdentity({ provider });
+
+      if (!linkError) {
+        // Successfully linked — refresh profile (same user.id)
+        await new Promise((r) => setTimeout(r, 300));
+        const profile = await fetchProfile(session!.user.id);
+        if (profile) {
+          setUser(profileRowToProfile(profile));
+        }
+        return;
+      }
+
+      // linkIdentity can fail if the provider identity is already linked
+      // to another account. Fall through to sign-in as a new user.
+      console.log('[auth] linkIdentity failed, signing in as new user:', linkError.message);
+    }
+
+    // Standard OAuth sign-in (new or existing real account)
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        // On native, the redirect happens via expo-web-browser which opens
+        // the system browser. Supabase handles the deep-link callback.
+        skipBrowserRedirect: false,
+      },
+    });
+
+    if (error) {
+      console.error(`[auth] ${provider} sign-in failed:`, error.message);
+      throw error;
+    }
+
+    // On web this returns immediately with a URL to redirect to.
+    // On native, expo-web-browser opens the OAuth provider and the
+    // redirect brings the user back to the app → onAuthStateChange fires.
+    // We don't set profile here — onAuthStateChange handles it.
+    if (data?.url) {
+      // Web path: the caller should redirect to data.url
+      console.log('[auth] OAuth URL returned (web path)');
+    }
+  }, []);
+
+  // ── ANONYMOUS SIGN-IN (dev fallback, Expo Go) ──
   const signIn = useCallback(async () => {
     const { data, error } = await supabase.auth.signInAnonymously();
 
@@ -204,7 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, isLoading, isOnboarded, signIn, signOut, updateProfile, setOnboarded }}
+      value={{ user, isLoading, isOnboarded, signIn, signInWithProvider, signOut, updateProfile, setOnboarded }}
     >
       {children}
     </AuthContext.Provider>
