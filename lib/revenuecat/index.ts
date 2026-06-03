@@ -9,10 +9,17 @@
 // ──────────────────────────────────────
 
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 // react-native-purchases native calls fail gracefully in Expo Go;
 // the import itself works fine (JS bundle), only native methods throw.
 import Purchases from 'react-native-purchases';
 import type { CustomerInfo, PurchasesOfferings, PurchasesPackage } from 'react-native-purchases';
+
+// ── RevenueCat API key validation ──
+// Apple keys start with 'appl_', Google keys start with 'goog_'.
+// Anything else is a placeholder and should not be passed to Purchases.configure().
+const RC_APPLE_KEY_PREFIX = 'appl_';
+const RC_GOOGLE_KEY_PREFIX = 'goog_';
 
 // ── Module-level state ──
 
@@ -44,10 +51,30 @@ export async function initRevenueCat(appUserId: string): Promise<void> {
     default: undefined,
   });
 
+  // ── Guard 1: key must be present ──
   if (!apiKey || apiKey.length === 0) {
     _initError = 'RevenueCat API key not configured. Set EXPO_PUBLIC_REVENUECAT_APPLE_KEY / EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY in .env';
     console.log('[rc]', _initError);
     return;
+  }
+
+  // ── Guard 2: key must look like a real RevenueCat key (appl_… or goog_…) ──
+  const isValidApple = Platform.OS === 'ios' && apiKey.startsWith(RC_APPLE_KEY_PREFIX);
+  const isValidGoogle = Platform.OS === 'android' && apiKey.startsWith(RC_GOOGLE_KEY_PREFIX);
+  if (!isValidApple && !isValidGoogle) {
+    _initError = `RevenueCat key doesn't look valid (expected '${Platform.OS === 'ios' ? RC_APPLE_KEY_PREFIX : RC_GOOGLE_KEY_PREFIX}…' prefix). Skipping Purchases.configure().`;
+    console.log('[rc]', _initError);
+    return;
+  }
+
+  // ── Guard 3: skip in Expo Go (native modules unavailable) ──
+  if (Constants.expoConfig?.extra?.eas?.projectId) {
+    // Has EAS project ID — likely a dev build or standalone app.
+    // Proceed.
+  } else {
+    // No EAS project ID — likely Expo Go.
+    // Still try (it won't crash), but log clearly.
+    console.log('[rc] Running in Expo Go — Purchases will use test store or fail gracefully.');
   }
 
   try {
@@ -61,7 +88,7 @@ export async function initRevenueCat(appUserId: string): Promise<void> {
   } catch (e: any) {
     _nativeAvailable = false;
     _initError = e?.message ?? 'RevenueCat init failed';
-    console.log('[rc] Init failed (likely Expo Go):', _initError);
+    console.log('[rc] Init failed (likely Expo Go — no native module):', _initError);
   }
 }
 
