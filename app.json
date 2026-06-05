@@ -4,7 +4,7 @@
     "slug": "groopay",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./icon.png",
     "scheme": "groopay",
     "userInterfaceStyle": "automatic",
     "owner": "fatihdisci",
@@ -14,9 +14,6 @@
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      },
-      "entitlements": {
-        "aps-environment": "development"
       }
     },
     "android": {
@@ -46,23 +43,17 @@
         }
       ],
       "expo-localization",
-      "expo-font",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/notification-icon.png",
-          "color": "#4F46E5",
-          "defaultChannel": "default"
-        }
-      ]
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": false
     },
     "extra": {
       "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID"
-      }
+        "projectId": "514dc8d4-d0a3-4ffb-a307-96e4d9eb6475"
+      },
+      "router": {},
+      "privacyPolicyUrl": "https://groopay.vercel.app/privacy"
     }
   }
 }
