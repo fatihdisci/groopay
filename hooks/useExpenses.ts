@@ -26,8 +26,14 @@ export function useAddExpense() {
     mutationFn: (input: AddExpenseInput) => addExpense(input),
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: ['expenses', variables.groupId] });
+      qc.invalidateQueries({ queryKey: ['balances', variables.groupId] });
       qc.invalidateQueries({ queryKey: ['groups'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-hero'] });
+      qc.invalidateQueries({ queryKey: ['pro-analytics'] });
+      qc.invalidateQueries({ queryKey: ['all-user-expenses'] });
+      qc.invalidateQueries({ queryKey: ['expense-filter-options'] });
     },
   });
 }
@@ -65,8 +71,14 @@ export function useUpdateExpense() {
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses'] });
+      qc.invalidateQueries({ queryKey: ['balances'] });
       qc.invalidateQueries({ queryKey: ['groups'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-hero'] });
+      qc.invalidateQueries({ queryKey: ['pro-analytics'] });
+      qc.invalidateQueries({ queryKey: ['all-user-expenses'] });
+      qc.invalidateQueries({ queryKey: ['expense-filter-options'] });
     },
   });
 }
@@ -83,8 +95,14 @@ export function useDeleteExpense() {
     }) => deleteExpense(expenseId, actorMemberId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['expenses'] });
+      qc.invalidateQueries({ queryKey: ['balances'] });
       qc.invalidateQueries({ queryKey: ['groups'] });
       qc.invalidateQueries({ queryKey: ['activity'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['dashboard-hero'] });
+      qc.invalidateQueries({ queryKey: ['pro-analytics'] });
+      qc.invalidateQueries({ queryKey: ['all-user-expenses'] });
+      qc.invalidateQueries({ queryKey: ['expense-filter-options'] });
     },
   });
 }
