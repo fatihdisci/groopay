@@ -176,8 +176,11 @@
   "auth": {
     "appName": "Groopay",
     "tagline": "Split expenses, settle up",
-    "googleSignIn": "Sign in with Google",
-    "appleSignIn": "Sign in with Apple",
+    "googleSignIn": "Continue with Google",
+    "appleSignIn": "Continue with Apple",
+    "legalDisclaimer": "By continuing, you agree to our {terms} and {privacy}",
+    "termsLink": "Terms of Service",
+    "privacyLink": "Privacy Policy",
     "oauthNotice": "OAuth sign-in works in dev builds. Use the test button below when running in Expo Go.",
     "devSection": "Development",
     "devSignIn": "Sign in as test user",

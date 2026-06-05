@@ -259,8 +259,11 @@
   "auth": {
     "appName": "Groopay",
     "tagline": "Masrafları böl, hesaplar netleşsin",
-    "googleSignIn": "Google ile giriş",
-    "appleSignIn": "Apple ile giriş",
+    "googleSignIn": "Google ile devam et",
+    "appleSignIn": "Apple ile devam et",
+    "legalDisclaimer": "Devam ederek {terms} ve {privacy}'i kabul etmiş olursunuz",
+    "termsLink": "Kullanım Koşulları",
+    "privacyLink": "Gizlilik Politikası",
     "oauthNotice": "OAuth girişi dev build'de çalışır. Expo Go'da aşağıdaki test butonunu kullan.",
     "devSection": "Geliştirme",
     "devSignIn": "Test kullanıcısı olarak gir",

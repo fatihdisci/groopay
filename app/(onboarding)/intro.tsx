@@ -12,19 +12,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/lib/auth';
 import { createDemoGroup } from '@/lib/supabase/queries';
 import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
-import { palette, spacing, fontSizes, radii, minTouchTarget } from '@/constants/theme';
-
-const SLIDE_GRADIENTS: readonly [string, string][] = [
-  ['#4F46E5', '#7C3AED'],   // indigo → violet
-  ['#7C3AED', '#A855F7'],   // violet → purple
-  ['#A855F7', '#6366F1'],   // purple → indigo
-];
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -64,11 +58,9 @@ export default function IntroScreen() {
     if (!user || isCreating) return;
     setIsCreating(true);
     try {
-      // Write demo group to Supabase (idempotent — won't duplicate)
       await createDemoGroup(user.id);
     } catch (e) {
       console.warn('[onboarding] Failed to create demo group:', e);
-      // Continue anyway — demo group is not critical
     }
     await setOnboarded();
     router.replace('/(tabs)/groups');
@@ -86,28 +78,32 @@ export default function IntroScreen() {
 
   const isLastSlide = currentIndex === STEPS.length - 1;
 
-  const renderItem = ({ item, index }: { item: OnboardingStep; index: number }) => (
-    <LinearGradient
-      colors={[SLIDE_GRADIENTS[index]![0], SLIDE_GRADIENTS[index]![1]]}
-      start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-      style={styles.slide}
-    >
+  const renderItem = ({ item }: { item: OnboardingStep }) => (
+    <View style={styles.slide}>
       <View style={styles.iconCircle}>
         <Ionicons name={item.icon} size={48} color="#FFFFFF" />
       </View>
       <Text style={styles.slideTitle}>{t(item.titleKey)}</Text>
       <Text style={styles.slideDescription}>{t(item.descriptionKey)}</Text>
-    </LinearGradient>
+    </View>
   );
 
   return (
-    <View style={styles.container}>
+    <LinearGradient
+      colors={['#4F46E5', '#7C3AED']}
+      start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
+      style={styles.container}
+    >
+      <StatusBar style="light" />
+
       {/* Skip button */}
       {!isCreating && (
         <TouchableOpacity
           style={styles.skipButton}
           onPress={handleSkip}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('onboarding.skip')}
         >
           <Text style={styles.skipText}>{t('onboarding.skip')}</Text>
         </TouchableOpacity>
@@ -143,46 +139,71 @@ export default function IntroScreen() {
       {/* Bottom button */}
       <View style={styles.bottom}>
         <TouchableOpacity
-          style={[styles.getStartedButton, isCreating && styles.buttonDisabled]}
+          style={[styles.button, isCreating && styles.buttonDisabled]}
           onPress={isLastSlide ? handleGetStarted : () => {
             flatListRef.current?.scrollToIndex({ index: currentIndex + 1 });
           }}
           activeOpacity={0.7}
           disabled={isCreating}
+          accessibilityRole="button"
+          accessibilityLabel={isLastSlide ? t('onboarding.getStarted') : t('onboarding.next')}
         >
           {isCreating ? (
             <ActivityIndicator size="small" color={Colors.primary} />
           ) : (
-            <Text style={styles.getStartedText}>
+            <Text style={styles.buttonText}>
               {isLastSlide ? t('onboarding.getStarted') : t('onboarding.next')}
             </Text>
           )}
         </TouchableOpacity>
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.primary },
+  container: { flex: 1 },
   skipButton: { position: 'absolute', top: 60, right: Spacing.lg, zIndex: 10 },
   skipText: { fontFamily: Typography.fontBodyMedium, fontSize: Typography.size.base, color: 'rgba(255,255,255,0.7)' },
-  slide: { width: SCREEN_WIDTH, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: Spacing['2xl'] },
+  slide: {
+    width: SCREEN_WIDTH,
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing['2xl'],
+  },
   iconCircle: {
     width: 100, height: 100, borderRadius: Radius.full,
     backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center', justifyContent: 'center',
     marginBottom: Spacing['2xl'],
   },
-  slideTitle: { fontFamily: Typography.fontDisplayBold, fontSize: Typography.size.xl, color: '#FFFFFF', textAlign: 'center', letterSpacing: Typography.letterSpacing.tight, marginBottom: Spacing.md },
-  slideDescription: { fontFamily: Typography.fontBody, fontSize: Typography.size.base, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: Typography.size.base * 1.6 },
+  slideTitle: {
+    fontFamily: Typography.fontDisplayBold,
+    fontSize: Typography.size.xl,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    letterSpacing: Typography.letterSpacing.tight,
+    marginBottom: Spacing.md,
+  },
+  slideDescription: {
+    fontFamily: Typography.fontBody,
+    fontSize: Typography.size.base,
+    color: 'rgba(255,255,255,0.85)',
+    textAlign: 'center',
+    lineHeight: Typography.size.base * 1.6,
+  },
   pagination: { flexDirection: 'row', justifyContent: 'center', gap: Spacing.sm, paddingBottom: Spacing.lg },
   dot: { width: 8, height: 8, borderRadius: 4 },
   bottom: { paddingHorizontal: Spacing.xl, paddingBottom: Spacing['4xl'] },
-  getStartedButton: {
-    backgroundColor: '#FFFFFF', borderRadius: Radius.md + 2,
-    paddingVertical: Spacing.md, alignItems: 'center', justifyContent: 'center', minHeight: 52,
+  button: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.md + 2,
+    paddingVertical: Spacing.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
   },
-  getStartedText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.base, color: Colors.primary },
+  buttonText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.base, color: Colors.primary },
   buttonDisabled: { opacity: 0.6 },
 });
