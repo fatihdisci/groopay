@@ -34,7 +34,7 @@
 
 <br />
 
-[![Phase](https://img.shields.io/badge/Faz-0→7_tamam,_B1→B86_cila-10B981?style=flat-square&labelColor=1B1B1F)](.)
+[![Phase](https://img.shields.io/badge/Faz-0→7_tamam,_B1→B112_cila-10B981?style=flat-square&labelColor=1B1B1F)](.)
 [![i18n](https://img.shields.io/badge/i18n-TR_|_EN-4F46E5?style=flat-square&labelColor=1B1B1F)](.)
 [![Strict](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&labelColor=1B1B1F)](.)
 [![License](https://img.shields.io/badge/License-MIT-F43F5E?style=flat-square&labelColor=1B1B1F)](LICENSE)
@@ -1006,7 +1006,7 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 ## 🐛 Bugfix Günlüğü
 
 <details open>
-<summary><b>86 bugfix, 16 tur — hepsi kapandı ✅</b></summary>
+<summary><b>112 bugfix, 17 tur — hepsi kapandı ✅</b></summary>
 
 | Tur | ID'ler | Konular |
 |:---:|:-------|:--------|
@@ -1026,6 +1026,7 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 | 14 | B63-B64 | Para formatı + masraf kartı layout |
 | 15 | B65-B72 | **P0 güvenlik:** RPC auth, RLS, RevenueCat revoke, atomik mutation, Pro limiti, invite token |
 | 16 | B73-B86 | **Cila:** Tüm İşlemler, aktivite arama, hesap reorganizasyonu, üye yönetimi, Modal bottom sheet, panel varsayılan, profil cache fix |
+| 17 | B87-B112 | **Faz 8 store hazırlık + cila:** Paywall gradient, split avatarları, bakiye aksiyonları, legal ekranlar, accessibility, IBAN WhatsApp, Realtime, numpad, app.json temizliği, route fix, privacy/terms HTML + Vercel, sign-in redesign, onboarding renk, dashboard invalidation, app icon |
 
 </details>
 

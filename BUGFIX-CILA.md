@@ -2426,3 +2426,160 @@ npx supabase functions deploy revenuecat-webhook
 | `npx tsc --noEmit` temiz | ✅ |
 
 *Son güncelleme: 2026-06-02 — B103 eklendi (masraf numpad detay paneli + anayasa güncellemeleri)*
+
+---
+
+## Faz 8 Store Hazırlık + Cila (16. Tur — B104-B112)
+
+> Tarih: 2026-06-05
+> Bağlam: app.json temizliği, route düzeltmeleri, privacy/terms sayfaları, sign-in redesign, onboarding renk tutarlılığı, dashboard invalidation
+
+### ✅ B104: app.json — entitlements + expo-notifications plugin kaldırıldı
+
+**Sorun:** iOS `entitlements.aps-environment: development` push notification yetkisi istiyordu (henüz kullanılmıyor). `expo-notifications` plugin'i app.json'da tanımlıydı ama push henüz aktif değil.
+
+**Yapılan:**
+- `ios.entitlements` bloğu tamamen kaldırıldı
+- `plugins` dizisinden `expo-notifications` bloğu kaldırıldı
+- JSON geçerli, virgül temizliği yapıldı
+
+**Değişen dosyalar:** `app.json`
+
+---
+
+### ✅ B105: Route warnings — groups/[id] ve groups/new root layout'tan kaldırıldı
+
+**Sorun:** `WARN [Layout children]: No route named "groups/[id]" exists in nested children` ve `No route named "groups/new"` — bu route'lar `(tabs)/groups/` altında olmasına rağmen root `_layout.tsx`'te direkt children olarak tanımlanmıştı.
+
+**Yapılan:**
+- `app/_layout.tsx` → `Stack.Screen name="groups/[id]"` ve `Stack.Screen name="groups/new"` kaldırıldı
+- Route'lar zaten `(tabs)` → `groups/_layout.tsx` içinde doğru tanımlı
+
+**Değişen dosyalar:** `app/_layout.tsx`
+
+---
+
+### ✅ B106: Gizlilik Politikası + Kullanım Koşulları HTML sayfaları + vercel.json
+
+**Sorun:** App Store ve Google Play başvurusu için privacy policy ve terms of service URL'leri zorunlu. Projede bu sayfalar yoktu.
+
+**Yapılan:**
+- `privacy.html` ve `terms.html` — proje kökünde statik HTML sayfaları
+- Tasarım: `#F7F6FF` arka plan, `#4F46E5` başlıklar, `#1E1B4B` metin, system-ui font
+- Responsive, mobile-friendly, Groopay marka başlığı
+- `vercel.json` — `/privacy` → `/privacy.html`, `/terms` → `/terms.html` rewrite kuralları
+- URL'ler: `https://groopay.vercel.app/privacy` ve `https://groopay.vercel.app/terms`
+- `app.json`'a `privacyPolicyUrl` eklendi
+
+**Değişen dosyalar:** `privacy.html` (yeni), `terms.html` (yeni), `vercel.json` (yeni), `app.json`
+
+---
+
+### ✅ B107: account.tsx — privacy/terms linkleri Linking.openURL ile bağlandı
+
+**Sorun:** Hesap sayfasında Gizlilik Politikası ve Kullanım Koşulları butonları `router.push('/legal/...')` ile dahili sayfalara yönleniyordu. Vercel'deki HTML sayfalarına yönlenmeliydi.
+
+**Yapılan:**
+- `Linking` import'u eklendi
+- Gizlilik Politikası → `Linking.openURL('https://groopay.vercel.app/privacy')`
+- Kullanım Koşulları → `Linking.openURL('https://groopay.vercel.app/terms')`
+
+**Değişen dosyalar:** `app/(tabs)/account.tsx`
+
+---
+
+### ✅ B108: Sign-in ekranı yenileme
+
+**Sorun:** Mevcut sign-in ekranı düz beyaz arka plan, cüzdan ikonu, sade butonlar — yavan tasarım.
+
+**Yapılan:**
+- Tam ekran gradient: `#4F46E5 → #7C3AED`
+- Hero: `icon.png` Image (yuvarlak container, gölgeli), "Groopay" 32px bold beyaz, tagline %80 opacity
+- Alt card: beyaz, `borderTopRadius: 24`
+- Google butonu: beyaz + hafif gölge + Google "G" ikonu
+- Apple butonu: siyah + Apple ikonu beyaz
+- Buton: height 54px, borderRadius 14px
+- Yasal metin: tıklanabilir Kullanım Koşulları + Gizlilik Politikası linkleri
+- `__DEV__` guard korundu
+- i18n: `googleSignIn`/`appleSignIn` → "devam et" formatı, yeni `legalDisclaimer`/`termsLink`/`privacyLink` anahtarları
+
+**Değişen dosyalar:** `app/(auth)/sign-in.tsx`, `locales/tr.json`, `locales/en.json`
+
+---
+
+### ✅ B109: Onboarding ekranları renk tutarsızlığı düzeltildi
+
+**Sorun:** Her onboarding slide'ı farklı gradient kullanıyordu. StatusBar ve safe area renkleri farklıydı. Alt buton alanı gradient'ten kopuk beyaz görünüyordu.
+
+**Yapılan:**
+- Tüm onboarding tek gradient: `#4F46E5 → #7C3AED` (slide başına farklı renk yok)
+- `StatusBar style="light"` eklendi
+- Slide'lar `LinearGradient` wrapper yerine şeffaf arka plan
+- Alt buton gradient ile aynı zeminde, ayrı beyaz alan yok
+- `SLIDE_GRADIENTS` sabiti kaldırıldı
+
+**Değişen dosyalar:** `app/(onboarding)/intro.tsx`
+
+---
+
+### ✅ B110: Dashboard masraf sonrası otomatik güncellenmeme sorunu
+
+**Sorun:** Masraf eklendikten/düzenlendikten/silindikten sonra Panel (dashboard) sekmesi otomatik güncellenmiyordu. Sayfayı manuel yenilemek gerekiyordu.
+
+**Kök neden:** `useAddExpense`, `useUpdateExpense`, `useDeleteExpense` mutation'ları sadece `['expenses']`, `['groups']`, `['activity']` key'lerini invalidate ediyordu. Dashboard `['dashboard-hero']`, `['pro-analytics']`, `['all-user-expenses']`, `['expense-filter-options']` key'lerini kullanıyordu ama bunlar hiç invalidate edilmiyordu.
+
+**Yapılan:**
+- Üç mutation'ın `onSuccess` callback'ine eklendi:
+  - `['balances', groupId]` (veya `['balances']`)
+  - `['dashboard']`
+  - `['dashboard-hero']`
+  - `['pro-analytics']`
+  - `['all-user-expenses']`
+  - `['expense-filter-options']`
+- `staleTime` zaten 0 olduğu için ek değişiklik gerekmedi
+
+**Değişen dosyalar:** `hooks/useExpenses.ts`
+
+---
+
+### ✅ B111: Sign-in legalDisclaimer interpolasyon düzeltildi + app icon Image ile değiştirildi
+
+**Sorun 1:** `legalDisclaimer` metni `{terms}` ve `{privacy}` placeholder'larını literal olarak gösteriyordu. i18next `{{}}` çift süslü parantez bekler, `{}` tek parantez çalışmaz.
+
+**Sorun 2:** "G" harfi logo yerine gerçek app icon kullanılmalıydı.
+
+**Yapılan:**
+- `legalDisclaimer` interpolation kaldırıldı, metin direkt yazıldı:
+  - TR: "Devam ederek Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmiş olursunuz"
+  - EN: "By continuing, you agree to our Terms of Service and Privacy Policy"
+- Logo: `<Text>G</Text>` → `<Image source={require('../../icon.png')} />`
+- Kullanılmayan `Shadows` import'u temizlendi
+
+**Değişen dosyalar:** `app/(auth)/sign-in.tsx`, `locales/tr.json`, `locales/en.json`
+
+---
+
+### ✅ B112: App icon güncellendi
+
+**Sorun:** Eski `assets/images/icon.png` (393KB, Mayıs) ile yeni `icon.png` (72KB, Haziran — Groopay ikonu) farklıydı. iPhone ana ekranda eski ikon görünüyordu.
+
+**Yapılan:**
+- Yeni `icon.png` → `assets/images/icon.png` üzerine kopyalandı
+- `app.json`'da `"icon": "./icon.png"` zaten doğru
+
+**Değişen dosyalar:** `assets/images/icon.png`, `icon.png`
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` | ✅ Temiz (sadece önceden var olan `expo-notifications` import hatası) |
+| app.json entitlements | ✅ Kaldırıldı |
+| app.json expo-notifications plugin | ✅ Kaldırıldı |
+| Route warnings | ✅ Sıfır |
+| privacy.html + terms.html | ✅ Vercel'de canlı |
+| account.tsx linkleri | ✅ Linking.openURL |
+| Sign-in tasarım | ✅ Gradient + hero + card |
+| Onboarding renk | ✅ Tek gradient |
+| Dashboard invalidation | ✅ Tüm key'ler |
+| App icon | ✅ Yeni ikon |
+
+*Son güncelleme: 2026-06-05 — B112 eklendi (Faz 8 store hazırlık + cila)*
