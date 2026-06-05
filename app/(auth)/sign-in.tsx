@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Platform,
   Linking,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,7 +17,7 @@ import { useRouter } from 'expo-router';
 
 import { useAuth } from '@/lib/auth';
 import type { OAuthProvider } from '@/lib/auth';
-import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
+import { Colors, Typography, Spacing, Radius } from '@/constants/theme';
 
 const PRIVACY_URL = 'https://groopay.vercel.app/privacy';
 const TERMS_URL = 'https://groopay.vercel.app/terms';
@@ -64,7 +65,7 @@ export default function SignInScreen() {
         {/* ── Hero Section (top ~60%) ── */}
         <View style={styles.hero}>
           <View style={styles.logoCircle}>
-            <Text style={styles.logoLetter}>G</Text>
+            <Image source={require('../../icon.png')} style={styles.logoImage} resizeMode="cover" />
           </View>
           <Text style={styles.appName}>{t('auth.appName')}</Text>
           <Text style={styles.tagline}>{t('auth.tagline')}</Text>
@@ -149,12 +150,7 @@ export default function SignInScreen() {
           )}
 
           {/* Legal disclaimer */}
-          <Text style={styles.legalText}>
-            {t('auth.legalDisclaimer', {
-              terms: t('auth.termsLink'),
-              privacy: t('auth.privacyLink'),
-            })}
-          </Text>
+          <Text style={styles.legalText}>{t('auth.legalDisclaimer')}</Text>
           <View style={styles.legalLinks}>
             <TouchableOpacity
               onPress={() => Linking.openURL(TERMS_URL)}
@@ -205,10 +201,10 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  logoLetter: {
-    fontFamily: Typography.fontDisplayBold,
-    fontSize: 40,
-    color: '#FFFFFF',
+  logoImage: {
+    width: 56,
+    height: 56,
+    borderRadius: Radius.md,
   },
   appName: {
     fontFamily: Typography.fontDisplayBold,

@@ -178,7 +178,7 @@
     "tagline": "Split expenses, settle up",
     "googleSignIn": "Continue with Google",
     "appleSignIn": "Continue with Apple",
-    "legalDisclaimer": "By continuing, you agree to our {terms} and {privacy}",
+    "legalDisclaimer": "By continuing, you agree to our Terms of Service and Privacy Policy",
     "termsLink": "Terms of Service",
     "privacyLink": "Privacy Policy",
     "oauthNotice": "OAuth sign-in works in dev builds. Use the test button below when running in Expo Go.",
