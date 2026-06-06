@@ -1,29 +1,56 @@
 import 'react-native-url-polyfill/auto';
-import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
-// Extract project ref from URL for manual storage key (fallback)
-const SUPABASE_PROJECT_REF = supabaseUrl.match(/https:\/\/(.+)\.supabase\.co/)?.[1] ?? '';
-export const SUPABASE_STORAGE_KEY = `sb-${SUPABASE_PROJECT_REF}-auth-token`;
+// ── Module-level token holder ──
+// The accessToken callback below injects this as Authorization: Bearer
+// on every Supabase request. This means auth.uid() = token's sub claim,
+// RLS policies work, and we NEVER call setSession/getSession (which hang).
+let currentAccessToken: string | null = null;
+
+export function setSupabaseAccessToken(token: string | null) {
+  currentAccessToken = token;
+}
+
+export function getSupabaseAccessToken(): string | null {
+  return currentAccessToken;
+}
+
+// ── Storage keys for manual persistence ──
+export const STORAGE_KEY_ACCESS_TOKEN = 'groopay-access-token';
+export const STORAGE_KEY_REFRESH_TOKEN = 'groopay-refresh-token';
+
+// Keep the SB key for backward compatibility with any stored sessions
+export const SUPABASE_STORAGE_KEY = (() => {
+  const ref = supabaseUrl.match(/https:\/\/(.+)\.supabase\.co/)?.[1] ?? '';
+  return `sb-${ref}-auth-token`;
+})();
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    // On web, Supabase uses localStorage by default. On native,
-    // we must provide AsyncStorage for session persistence.
-    storage: Platform.OS === 'web' ? undefined : AsyncStorage,
-    // autoRefreshToken: false because the internal refresh API call hangs
-    // on React Native (setSession/getSession deadlock). We handle token
-    // storage manually and rely on the session's expires_at for validity.
+    storage: AsyncStorage,
     autoRefreshToken: false,
-    persistSession: true,
+    persistSession: false,
     detectSessionInUrl: false,
-    // Implicit flow: tokens are returned in the URL fragment (#access_token=...)
-    // on native. We handle this manually in AuthContext because React Native
-    // lacks WebCrypto for PKCE SHA256 (falls back to plain, which may hang).
     flowType: 'implicit',
+  },
+  // accessToken callback: Supabase calls this before every request to get
+  // the current token. This completely bypasses setSession/getSession —
+  // the token flows directly from our state into the Authorization header.
+  accessToken: async () => {
+    // Check module-level holder first (set during sign-in)
+    if (currentAccessToken) return currentAccessToken;
+    // Fallback: read from AsyncStorage (cold start before mount sets it)
+    try {
+      const stored = await AsyncStorage.getItem(STORAGE_KEY_ACCESS_TOKEN);
+      if (stored) {
+        currentAccessToken = stored;
+        return stored;
+      }
+    } catch { /* ignore */ }
+    return '';
   },
 });

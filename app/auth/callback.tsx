@@ -5,15 +5,21 @@ import * as Linking from 'expo-linking';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { supabase, SUPABASE_STORAGE_KEY } from '@/lib/supabase/client';
+import {
+  supabase,
+  setSupabaseAccessToken,
+  STORAGE_KEY_ACCESS_TOKEN,
+  STORAGE_KEY_REFRESH_TOKEN,
+} from '@/lib/supabase/client';
 import { palette } from '@/constants/theme';
 
 /**
- * Handles deep link: groopay://auth/callback?code=...
+ * Handles deep link: groopay://auth/callback#access_token=...&refresh_token=...
  *
  * Cold-start path: the app was killed while the OAuth browser was open.
  * maybeCompleteAuthSession() processes the pending auth, and Expo Router
- * navigates here. We extract the code and exchange it for a Supabase session.
+ * navigates here. We extract tokens, set them via the accessToken callback,
+ * persist to AsyncStorage, and navigate to root.
  *
  * Warm-start path: openAuthSessionAsync returns the URL directly in
  * AuthContext.signInWithProvider — this route is not invoked.
@@ -40,73 +46,36 @@ export default function AuthCallbackScreen() {
           const params = new URLSearchParams(fragment);
           const access_token = params.get('access_token');
           const refresh_token = params.get('refresh_token');
-          const expires_in = params.get('expires_in');
-          const token_type = params.get('token_type');
 
           console.log('[auth:callback] Token preview — access:', access_token?.substring(0, 20) + '…');
-          console.log('[auth:callback] Token preview — refresh:', refresh_token?.substring(0, 20) + '…');
-          console.log('[auth:callback] expires_in:', expires_in, 'token_type:', token_type);
 
           if (access_token) {
-            try {
-              // ── Step 1: verify token ──
-              console.log('[auth:callback] Step 1: getUser…');
-              const { data: userData, error: userError } = await supabase.auth.getUser(access_token);
-              if (userError || !userData?.user) {
-                const msg = userError?.message ?? 'No user returned';
-                console.error('[auth:callback] getUser failed:', msg);
-                setError(msg);
-                return;
-              }
-              console.log('[auth:callback] getUser OK, user:', userData.user.id);
-
-              // ── Step 2: establish Supabase session ──
-              // With autoRefreshToken: false, setSession completes quickly.
-              console.log('[auth:callback] Step 2: setSession…');
-              const setSessionPromise = supabase.auth.setSession({
-                access_token,
-                refresh_token: refresh_token ?? '',
-              });
-              const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
-                setTimeout(() => resolve({ _timedOut: true }), 4000),
-              );
-              const sessionResult = await Promise.race([setSessionPromise, timeoutPromise]);
-
-              if ('_timedOut' in sessionResult) {
-                console.warn('[auth:callback] setSession timed out');
-              } else {
-                const { error: setSessionError } = sessionResult;
-                if (setSessionError) {
-                  console.warn('[auth:callback] setSession error:', setSessionError.message);
-                } else {
-                  console.log('[auth:callback] setSession OK');
-                }
-              }
-
-              // ── Step 3: manual AsyncStorage backup + navigate ──
-              const expiresAt = expires_in
-                ? Math.floor(Date.now() / 1000) + parseInt(expires_in, 10)
-                : Math.floor(Date.now() / 1000) + 3600;
-
-              const sessionPayload = JSON.stringify({
-                access_token,
-                refresh_token: refresh_token ?? '',
-                expires_at: expiresAt,
-                token_type: token_type ?? 'bearer',
-                user: userData.user,
-              });
-
-              AsyncStorage.setItem(SUPABASE_STORAGE_KEY, sessionPayload).catch(
-                (e) => console.warn('[auth:callback] bg storage write failed:', e?.message),
-              );
-              console.log('[auth:callback] Session stored, navigating to root…');
-
-              router.replace('/');
-            } catch (e: any) {
-              console.error('[auth:callback] Exception:', e?.message ?? e);
-              setError(e?.message ?? 'Unknown error');
+            // ── Step 1: verify token ──
+            console.log('[auth:callback] Step 1: getUser…');
+            const { data: userData, error: userError } = await supabase.auth.getUser(access_token);
+            if (userError || !userData?.user) {
+              const msg = userError?.message ?? 'No user returned';
+              console.error('[auth:callback] getUser failed:', msg);
+              setError(msg);
               return;
             }
+            console.log('[auth:callback] getUser OK, user:', userData.user.id);
+
+            // ── Step 2: set token via callback ──
+            // auth.uid() now resolves from JWT sub claim → RLS works
+            console.log('[auth:callback] Step 2: setSupabaseAccessToken');
+            setSupabaseAccessToken(access_token);
+
+            // ── Step 3: persist for next cold start ──
+            await AsyncStorage.setItem(STORAGE_KEY_ACCESS_TOKEN, access_token);
+            if (refresh_token) {
+              await AsyncStorage.setItem(STORAGE_KEY_REFRESH_TOKEN, refresh_token);
+            }
+            console.log('[auth:callback] Tokens persisted, navigating to root…');
+
+            // Navigate to root — AuthContext useEffect will read the stored
+            // token, call getUser to verify, and set the user profile.
+            router.replace('/');
           } else {
             console.warn('[auth:callback] No access_token in fragment');
             router.replace('/(auth)/sign-in');
@@ -136,7 +105,8 @@ export default function AuthCallbackScreen() {
               setError(exchangeError.message);
               return;
             }
-            console.log('[auth:callback] PKCE session established');
+            console.log('[auth:callback] PKCE session established — navigating to root');
+            router.replace('/');
           } else {
             console.warn('[auth:callback] No fragment or code in callback URL');
             router.replace('/(auth)/sign-in');
