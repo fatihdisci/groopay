@@ -71,11 +71,15 @@ export default function AuthCallbackScreen() {
               const sessionResult = await Promise.race([setSessionPromise, timeoutPromise]);
 
               if ('_timedOut' in sessionResult) {
-                // ── Fallback: manual storage ──
-                console.warn('[auth:callback] setSession timed out — manual storage fallback');
+                // ── Fallback: manual storage, NO getSession ──
+                // getSession internally triggers auto-refresh if expires_at looks
+                // wrong, and the refresh API call hangs. Skip it — write session
+                // with far-future expiry and navigate home. index.tsx + useEffect
+                // will pick up the session from AsyncStorage.
+                console.warn('[auth:callback] setSession timed out — manual storage');
                 const expiresAt = expires_in
                   ? Math.floor(Date.now() / 1000) + parseInt(expires_in, 10)
-                  : undefined;
+                  : Math.floor(Date.now() / 1000) + 3600;
 
                 const sessionPayload = JSON.stringify({
                   access_token,
@@ -86,10 +90,11 @@ export default function AuthCallbackScreen() {
                 });
 
                 await AsyncStorage.setItem(SUPABASE_STORAGE_KEY, sessionPayload);
-                console.log('[auth:callback] Manual storage written');
-
-                const { data: restored } = await supabase.auth.getSession();
-                console.log('[auth:callback] Session restored:', restored?.session ? 'YES' : 'NO');
+                console.log('[auth:callback] Manual session written, expires:', new Date(expiresAt * 1000).toISOString());
+                console.log('[auth:callback] Navigating to root — useEffect will restore from storage');
+                // Navigate to root; index.tsx rerenders, useEffect calls getSession
+                // (with 5s timeout), falls back to manual AsyncStorage read.
+                router.replace('/');
               } else {
                 const { data: sessionData, error: setSessionError } = sessionResult;
                 console.log('[auth:callback] setSession:', sessionData?.session ? 'OK' : 'NO SESSION');

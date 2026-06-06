@@ -81,7 +81,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // getSession can hang if the stored session has expired/missing expires_at
+        // and auto-refresh is triggered. Wrap in a timeout.
+        console.log('[auth] Restoring session on mount…');
+        const getSessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
+          setTimeout(() => resolve({ _timedOut: true }), 5000),
+        );
+        const result = await Promise.race([getSessionPromise, timeoutPromise]);
+
+        let session = null;
+        if ('_timedOut' in result) {
+          console.warn('[auth] getSession timed out on mount — trying manual read');
+          // Fallback: read directly from AsyncStorage
+          try {
+            const raw = await AsyncStorage.getItem(SUPABASE_STORAGE_KEY);
+            if (raw) {
+              const parsed = JSON.parse(raw);
+              if (parsed?.user) {
+                console.log('[auth] Manual session read OK, user:', parsed.user.id);
+                session = { user: parsed.user };
+              }
+            }
+          } catch (manualErr: any) {
+            console.warn('[auth] Manual session read failed:', manualErr?.message);
+          }
+        } else {
+          session = result.data?.session;
+        }
 
         const storedOnboarded = await AsyncStorage.getItem(STORAGE_KEY_ONBOARDED);
         if (session?.user) {
@@ -202,7 +229,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (access_token) {
             try {
               // ── Step 1: verify token with getUser (proven to work) ──
-              console.log('[auth] Step 1: getUser with access_token…');
+              console.log('[auth] Step 1: getUser…');
               const { data: userData, error: userError } = await supabase.auth.getUser(access_token);
 
               if (userError) {
@@ -212,8 +239,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               console.log('[auth] getUser OK, user:', userData?.user?.id);
 
               // ── Step 2: try setSession with timeout ──
-              // setSession internally calls _saveSession → storage.setItem which
-              // can hang due to AsyncStorage adapter issues on some RN versions.
               console.log('[auth] Step 2: setSession (4s timeout)…');
               const setSessionPromise = supabase.auth.setSession({
                 access_token,
@@ -225,13 +250,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const sessionResult = await Promise.race([setSessionPromise, timeoutPromise]);
 
               if ('_timedOut' in sessionResult) {
-                // ── setSession hung — fallback: manual storage ──
-                console.warn('[auth] setSession timed out — using manual storage fallback');
-                console.log('[auth] Step 3: manually writing session to AsyncStorage…');
+                // ── setSession hung — fallback: manual storage + direct user set ──
+                console.warn('[auth] setSession timed out — manual storage + direct user set');
+                console.log('[auth] Step 3: independent AsyncStorage test…');
 
+                try {
+                  await AsyncStorage.setItem('__groopay_auth_test__', 'ok');
+                  const testVal = await AsyncStorage.getItem('__groopay_auth_test__');
+                  console.log('[auth] AsyncStorage test:', testVal === 'ok' ? 'PASS' : 'FAIL');
+                  await AsyncStorage.removeItem('__groopay_auth_test__');
+                } catch (storageErr: any) {
+                  console.error('[auth] AsyncStorage test CRASHED:', storageErr?.message);
+                }
+
+                // Write session with far-future expiry.
+                // CRITICAL: getSession() internally checks expires_at. If missing
+                // or expired, it tries to REFRESH via API → hangs. We set it to
+                // 1 hour from now so getSession() on next app launch won't refresh.
                 const expiresAt = expires_in
                   ? Math.floor(Date.now() / 1000) + parseInt(expires_in, 10)
-                  : undefined;
+                  : Math.floor(Date.now() / 1000) + 3600; // fallback: 1 hour
 
                 const sessionPayload = JSON.stringify({
                   access_token,
@@ -241,22 +279,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   user: userData.user,
                 });
 
+                console.log('[auth] Writing session to:', SUPABASE_STORAGE_KEY);
+                console.log('[auth] expires_at:', expiresAt, new Date(expiresAt * 1000).toISOString());
                 await AsyncStorage.setItem(SUPABASE_STORAGE_KEY, sessionPayload);
-                console.log('[auth] Manual storage written to:', SUPABASE_STORAGE_KEY);
+                console.log('[auth] Manual session written OK');
 
-                // Reload session from storage — this triggers onAuthStateChange
-                console.log('[auth] Reloading session via getSession…');
-                const { data: restored } = await supabase.auth.getSession();
-                if (restored?.session) {
-                  console.log('[auth] Session restored from manual storage, user:', restored.session.user.id);
+                // DO NOT call getSession() — it will try to refresh if expires_at
+                // looks wrong, and the refresh API call hangs. Instead, directly
+                // fetch profile and set user. onAuthStateChange won't fire from
+                // manual storage, but index.tsx watches `user` state and redirects.
+                console.log('[auth] Step 4: fetch profile + setUser (bypass getSession)…');
+                const profile = await fetchProfile(userData.user.id);
+                if (profile) {
+                  setUser(profileRowToProfile(profile));
+                  console.log('[auth] User set directly, dashboard will load via index.tsx redirect');
                 } else {
-                  // Even if getSession doesn't pick it up, onAuthStateChange listener
-                  // will still fire. We already have the user — set it directly.
-                  console.log('[auth] getSession returned no session — manually setting user');
-                  const profile = await fetchProfile(userData.user.id);
-                  if (profile) {
-                    setUser(profileRowToProfile(profile));
-                  }
+                  console.warn('[auth] Profile not found — user set with defaults');
+                  // Create a minimal profile so the user can proceed
+                  setUser({
+                    id: userData.user.id,
+                    display_name: userData.user.user_metadata?.full_name ?? 'Kullanıcı',
+                    avatar_color: AVATAR_COLORS[0]!,
+                    locale: 'tr',
+                    preferred_currency: null,
+                    user_pro: false,
+                    user_pro_purchased_at: null,
+                  });
                 }
               } else {
                 // setSession succeeded normally
@@ -267,6 +315,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   throw setSessionError;
                 }
                 console.log('[auth] Session persisted, user:', sessionData?.session?.user?.id);
+                // onAuthStateChange fires SIGNED_IN → profile loaded → index.tsx redirects
               }
             } catch (e: any) {
               console.error('[auth] Session establishment failed:', e?.message ?? e);
