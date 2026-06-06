@@ -21,7 +21,7 @@ import { useAuth, AVATAR_COLORS } from '@/lib/auth';
 import { getAvatarHeaderGradient } from '@/constants/avatarColors';
 import { usePro } from '@/hooks/usePro';
 import { isRevenueCatAvailable, restorePurchases } from '@/lib/revenuecat';
-import { supabase } from '@/lib/supabase/client';
+import { supabase, getSupabaseAccessToken } from '@/lib/supabase/client';
 import { getUserCurrencies } from '@/lib/supabase/queries';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
@@ -163,7 +163,7 @@ export default function AccountScreen() {
       return;
     }
     queryClient.invalidateQueries({ queryKey: ['profile'] });
-    await supabase.auth.refreshSession();
+    // refreshSession() unavailable in accessToken mode — query invalidation is enough
     showToast(
       newVal ? '🛠 [DEV] Pro AÇIK — sayfayı yenileyin' : '🛠 [DEV] Pro KAPALI',
       'info',
@@ -252,8 +252,8 @@ export default function AccountScreen() {
   const executeDeleteAccount = async () => {
     if (!user) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      // accessToken mode: get token from module-level holder (NOT getSession)
+      const token = getSupabaseAccessToken();
       if (!token) {
         showToast(t('account.deleteError'), 'error');
         return;

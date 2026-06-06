@@ -10,7 +10,7 @@ import { useRouter, useNavigation } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useGroups } from '@/hooks/useGroups';
 import { useAuth } from '@/lib/auth';
-import { supabase } from '@/lib/supabase/client';
+import { supabase, getSupabaseAccessToken } from '@/lib/supabase/client';
 import { getInviteByToken, joinViaInvite } from '@/lib/supabase/queries';
 import { useCreateGroup } from '@/hooks/useGroups';
 import { useRealtimeAllGroups } from '@/hooks/useRealtime';
@@ -109,8 +109,7 @@ export default function GroupsScreen() {
     const invite = await getInviteByToken(joinCode.trim());
     if (!invite) { setJoinError(t('join.invalidCode')); return; }
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = getSupabaseAccessToken();
       if (!token) throw new Error(t('join.noSession'));
       await joinViaInvite(invite.token, token, { displayName: user.display_name });
       queryClient.invalidateQueries({ queryKey: ['groups'] });

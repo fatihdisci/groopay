@@ -23,7 +23,6 @@ import {
 
 import '../lib/i18n';
 import { AuthProvider, useAuth } from '@/lib/auth';
-import { supabase } from '@/lib/supabase/client';
 import { initRevenueCat } from '@/lib/revenuecat';
 
 // Prevent auto-hide until fonts are loaded
@@ -42,18 +41,6 @@ export {
 export const unstable_settings = {
   initialRouteName: 'index',
 };
-
-function SupabaseCheck() {
-  useEffect(() => {
-    supabase.auth.getSession().then(({ error }) => {
-      if (error) {
-        console.warn('[supabase] Connection check failed:', error.message);
-      }
-    });
-  }, []);
-
-  return null;
-}
 
 /**
  * Initialize RevenueCat after auth is ready.
@@ -95,7 +82,6 @@ export default function RootLayout() {
     <View style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <SupabaseCheck />
           <RevenueCatInit />
           <StatusBar style="dark" />
           <Stack screenOptions={{ headerShown: false }}>

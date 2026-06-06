@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   supabase,
   setSupabaseAccessToken,
+  getSupabaseAccessToken,
   STORAGE_KEY_ACCESS_TOKEN,
   STORAGE_KEY_REFRESH_TOKEN,
 } from '@/lib/supabase/client';
@@ -126,19 +127,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── GOOGLE / APPLE OAuth ──
   const signInWithProvider = useCallback(async (provider: OAuthProvider) => {
-    // Attempt to link identity if user is currently anonymous
-    const { data: { session } } = await supabase.auth.getSession();
-    const isAnonymous = session?.user?.is_anonymous ?? false;
+    // getSession() throws in accessToken mode — skip anonymous linking.
+    // Anonymous sign-in is dev-only; in production, users always use OAuth.
+    // If a dev user is anonymous and wants to upgrade, they can sign out
+    // and sign in with OAuth directly.
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const isAnonymous = session?.user?.is_anonymous ?? false;
 
-    if (isAnonymous) {
-      const { error: linkError } = await supabase.auth.linkIdentity({ provider });
-      if (!linkError) {
-        await new Promise((r) => setTimeout(r, 300));
-        const profile = await fetchProfile(session!.user.id);
-        if (profile) setUser(profileRowToProfile(profile));
-        return;
+      if (isAnonymous) {
+        const { error: linkError } = await supabase.auth.linkIdentity({ provider });
+        if (!linkError) {
+          await new Promise((r) => setTimeout(r, 300));
+          const profile = await fetchProfile(session!.user.id);
+          if (profile) setUser(profileRowToProfile(profile));
+          return;
+        }
+        console.log('[auth] linkIdentity failed, signing in as new user:', linkError.message);
       }
-      console.log('[auth] linkIdentity failed, signing in as new user:', linkError.message);
+    } catch {
+      // accessToken mode: getSession() is unavailable — proceed with OAuth
+      console.log('[auth] getSession unavailable (accessToken mode), skipping anon check');
     }
 
     // Standard OAuth sign-in
@@ -299,8 +308,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       STORAGE_KEY_REFRESH_TOKEN,
       STORAGE_KEY_ONBOARDED,
     ]);
-    // Also sign out from Supabase (for anonymous sessions)
-    await supabase.auth.signOut().catch(() => {});
     setUser(null);
     setIsOnboarded(false);
   }, []);

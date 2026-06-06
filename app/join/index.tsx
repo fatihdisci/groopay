@@ -10,7 +10,7 @@ import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { getInviteByToken, joinViaInvite } from '@/lib/supabase/queries';
-import { supabase } from '@/lib/supabase/client';
+import { supabase, getSupabaseAccessToken } from '@/lib/supabase/client';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
 import type { GroupMemberRow } from '@/lib/supabase/types';
 
@@ -54,8 +54,7 @@ export default function JoinScreen() {
     setErrorMsg(null);
     setStep('joining');
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      const token = getSupabaseAccessToken();
       if (!token) throw new Error(t('join.noSession'));
 
       await joinViaInvite(preview.token, token, {
