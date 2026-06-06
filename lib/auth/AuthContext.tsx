@@ -4,8 +4,8 @@ import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   supabase,
+  supabaseAuth,
   setSupabaseAccessToken,
-  getSupabaseAccessToken,
   STORAGE_KEY_ACCESS_TOKEN,
   STORAGE_KEY_REFRESH_TOKEN,
 } from '@/lib/supabase/client';
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSupabaseAccessToken(storedToken);
 
           // Verify the token is still valid
-          const { data: userData, error: userError } = await supabase.auth.getUser(storedToken);
+          const { data: userData, error: userError } = await supabaseAuth.auth.getUser(storedToken);
 
           if (userError || !userData?.user) {
             console.log('[auth] Stored token expired, clearing…');
@@ -127,16 +127,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── GOOGLE / APPLE OAuth ──
   const signInWithProvider = useCallback(async (provider: OAuthProvider) => {
-    // getSession() throws in accessToken mode — skip anonymous linking.
-    // Anonymous sign-in is dev-only; in production, users always use OAuth.
-    // If a dev user is anonymous and wants to upgrade, they can sign out
-    // and sign in with OAuth directly.
+    // The dedicated auth client can inspect its in-memory session without
+    // affecting the access-token client used for DB queries.
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await supabaseAuth.auth.getSession();
       const isAnonymous = session?.user?.is_anonymous ?? false;
 
       if (isAnonymous) {
-        const { error: linkError } = await supabase.auth.linkIdentity({ provider });
+        const { error: linkError } = await supabaseAuth.auth.linkIdentity({ provider });
         if (!linkError) {
           await new Promise((r) => setTimeout(r, 300));
           const profile = await fetchProfile(session!.user.id);
@@ -146,12 +144,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('[auth] linkIdentity failed, signing in as new user:', linkError.message);
       }
     } catch {
-      // accessToken mode: getSession() is unavailable — proceed with OAuth
-      console.log('[auth] getSession unavailable (accessToken mode), skipping anon check');
+      console.log('[auth] Auth session unavailable, skipping anon check');
     }
 
     // Standard OAuth sign-in
-    const { data, error } = await supabase.auth.signInWithOAuth({
+    const { data, error } = await supabaseAuth.auth.signInWithOAuth({
       provider,
       options: {
         skipBrowserRedirect: true,
@@ -198,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // ── Step 1: verify token ──
         console.log('[auth] Step 1: getUser…');
-        const { data: userData, error: userError } = await supabase.auth.getUser(access_token);
+        const { data: userData, error: userError } = await supabaseAuth.auth.getUser(access_token);
         if (userError || !userData?.user) {
           const msg = userError?.message ?? 'No user returned';
           console.error('[auth] getUser failed:', msg);
@@ -262,14 +259,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── ANONYMOUS SIGN-IN (dev fallback, Expo Go) ──
   const signIn = useCallback(async () => {
-    const { data, error } = await supabase.auth.signInAnonymously();
+    const { data, error } = await supabaseAuth.auth.signInAnonymously();
 
     if (error) {
       console.error('[auth] Anonymous sign-in failed:', error.message);
       throw error;
     }
 
-    if (data.user) {
+    if (data.user && data.session) {
+      setSupabaseAccessToken(data.session.access_token);
+      await AsyncStorage.setItem(STORAGE_KEY_ACCESS_TOKEN, data.session.access_token);
+      if (data.session.refresh_token) {
+        await AsyncStorage.setItem(STORAGE_KEY_REFRESH_TOKEN, data.session.refresh_token);
+      }
+
       await new Promise((r) => setTimeout(r, 300));
       let profile = await fetchProfile(data.user.id);
 

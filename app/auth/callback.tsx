@@ -6,7 +6,7 @@ import * as Linking from 'expo-linking';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import {
-  supabase,
+  supabaseAuth,
   setSupabaseAccessToken,
   STORAGE_KEY_ACCESS_TOKEN,
   STORAGE_KEY_REFRESH_TOKEN,
@@ -52,7 +52,7 @@ export default function AuthCallbackScreen() {
           if (access_token) {
             // ── Step 1: verify token ──
             console.log('[auth:callback] Step 1: getUser…');
-            const { data: userData, error: userError } = await supabase.auth.getUser(access_token);
+            const { data: userData, error: userError } = await supabaseAuth.auth.getUser(access_token);
             if (userError || !userData?.user) {
               const msg = userError?.message ?? 'No user returned';
               console.error('[auth:callback] getUser failed:', msg);
@@ -87,7 +87,7 @@ export default function AuthCallbackScreen() {
 
           if (code) {
             console.log('[auth:callback] PKCE fallback: exchanging code (5s timeout)…');
-            const exchangePromise = supabase.auth.exchangeCodeForSession(code);
+            const exchangePromise = supabaseAuth.auth.exchangeCodeForSession(code);
             const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
               setTimeout(() => resolve({ _timedOut: true }), 5000),
             );
@@ -99,11 +99,28 @@ export default function AuthCallbackScreen() {
               return;
             }
 
-            const { error: exchangeError } = exchangeResult;
+            const { data: exchangeData, error: exchangeError } = exchangeResult;
             if (exchangeError) {
               console.error('[auth:callback] PKCE exchange failed:', exchangeError.message);
               setError(exchangeError.message);
               return;
+            }
+            if (!exchangeData.session) {
+              console.error('[auth:callback] PKCE exchange returned no session');
+              setError('No session returned');
+              return;
+            }
+
+            setSupabaseAccessToken(exchangeData.session.access_token);
+            await AsyncStorage.setItem(
+              STORAGE_KEY_ACCESS_TOKEN,
+              exchangeData.session.access_token,
+            );
+            if (exchangeData.session.refresh_token) {
+              await AsyncStorage.setItem(
+                STORAGE_KEY_REFRESH_TOKEN,
+                exchangeData.session.refresh_token,
+              );
             }
             console.log('[auth:callback] PKCE session established — navigating to root');
             router.replace('/');

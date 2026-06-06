@@ -2583,3 +2583,22 @@ npx supabase functions deploy revenuecat-webhook
 | App icon | ✅ Yeni ikon |
 
 *Son güncelleme: 2026-06-05 — B112 eklendi (Faz 8 store hazırlık + cila)*
+
+---
+
+### ✅ B113: Supabase auth ve DB client ayrımı
+
+**Sorun:** `accessToken` callback ile oluşturulan Supabase client üzerinden `signInWithOAuth` çağrısı yapılamıyor ve `"accessing supabase.auth.signInWithOAuth is not possible"` hatası oluşuyordu.
+
+**Yapılan:**
+- OAuth, kullanıcı doğrulama ve anonim giriş için ayrı `supabaseAuth` client oluşturuldu
+- RLS korumalı DB sorguları ve RPC çağrıları mevcut `supabase` access-token client üzerinde bırakıldı
+- OAuth callback ve cold-start token doğrulaması `supabaseAuth.auth.getUser(token)` kullanacak şekilde güncellendi
+- Anonim giriş ve PKCE fallback sonrasında access token DB client'a aktarılıp AsyncStorage'a kaydedildi
+- Sign-out akışındaki token holder ve AsyncStorage temizliği korundu
+
+**Değişen dosyalar:** `lib/supabase/client.ts`, `lib/auth/AuthContext.tsx`, `app/auth/callback.tsx`
+
+**Test:** 87/87 finans testi geçti; auth/DB kullanım ayrımı `rg` ile doğrulandı. `npx tsc --noEmit` yalnızca önceden mevcut `expo-notifications` eksik modül hatasını veriyor.
+
+*Son güncelleme: 2026-06-06 — B113 eklendi*

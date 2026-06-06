@@ -5,13 +5,24 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
+// Auth client: OAuth and user verification only.
+export const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: AsyncStorage,
+    autoRefreshToken: false,
+    persistSession: false,
+    detectSessionInUrl: false,
+    flowType: 'implicit',
+  },
+});
+
 // ── Module-level token holder ──
 // The accessToken callback below injects this as Authorization: Bearer
 // on every Supabase request. This means auth.uid() = token's sub claim,
 // RLS policies work, and we NEVER call setSession/getSession (which hang).
 let currentAccessToken: string | null = null;
 
-export function setSupabaseAccessToken(token: string | null) {
+export function setSupabaseAccessToken(token: string | null): void {
   currentAccessToken = token;
 }
 
@@ -31,11 +42,9 @@ export const SUPABASE_STORAGE_KEY = (() => {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: AsyncStorage,
     autoRefreshToken: false,
     persistSession: false,
     detectSessionInUrl: false,
-    flowType: 'implicit',
   },
   // accessToken callback: Supabase calls this before every request to get
   // the current token. This completely bypasses setSession/getSession —
