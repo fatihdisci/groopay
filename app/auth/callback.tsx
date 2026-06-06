@@ -49,62 +49,45 @@ export default function AuthCallbackScreen() {
 
           if (access_token) {
             try {
-              // ── Step 1: verify token ──
+              // ── Step 1: verify token via API ──
               console.log('[auth:callback] Step 1: getUser…');
               const { data: userData, error: userError } = await supabase.auth.getUser(access_token);
-              if (userError) {
-                console.error('[auth:callback] getUser failed:', userError.message);
-                setError(userError.message);
+              if (userError || !userData?.user) {
+                const msg = userError?.message ?? 'No user returned';
+                console.error('[auth:callback] getUser failed:', msg);
+                setError(msg);
                 return;
               }
-              console.log('[auth:callback] getUser OK, user:', userData?.user?.id);
+              console.log('[auth:callback] getUser OK, user:', userData.user.id);
 
-              // ── Step 2: try setSession with timeout ──
-              console.log('[auth:callback] Step 2: setSession (4s timeout)…');
-              const setSessionPromise = supabase.auth.setSession({
+              // ── Step 2: fire-and-forget setSession + manual storage ──
+              // setSession hangs on RN — fire-and-forget, don't await.
+              supabase.auth.setSession({
                 access_token,
                 refresh_token: refresh_token ?? '',
+              }).catch((e) => console.warn('[auth:callback] bg setSession failed:', e?.message));
+
+              // Manual AsyncStorage for session restore on next launch
+              const expiresAt = expires_in
+                ? Math.floor(Date.now() / 1000) + parseInt(expires_in, 10)
+                : Math.floor(Date.now() / 1000) + 3600;
+
+              const sessionPayload = JSON.stringify({
+                access_token,
+                refresh_token: refresh_token ?? '',
+                expires_at: expiresAt,
+                token_type: token_type ?? 'bearer',
+                user: userData.user,
               });
-              const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
-                setTimeout(() => resolve({ _timedOut: true }), 4000),
+
+              AsyncStorage.setItem(SUPABASE_STORAGE_KEY, sessionPayload).catch(
+                (e) => console.warn('[auth:callback] bg storage write failed:', e?.message),
               );
-              const sessionResult = await Promise.race([setSessionPromise, timeoutPromise]);
+              console.log('[auth:callback] Session stored, navigating to root…');
 
-              if ('_timedOut' in sessionResult) {
-                // ── Fallback: manual storage, NO getSession ──
-                // getSession internally triggers auto-refresh if expires_at looks
-                // wrong, and the refresh API call hangs. Skip it — write session
-                // with far-future expiry and navigate home. index.tsx + useEffect
-                // will pick up the session from AsyncStorage.
-                console.warn('[auth:callback] setSession timed out — manual storage');
-                const expiresAt = expires_in
-                  ? Math.floor(Date.now() / 1000) + parseInt(expires_in, 10)
-                  : Math.floor(Date.now() / 1000) + 3600;
-
-                const sessionPayload = JSON.stringify({
-                  access_token,
-                  refresh_token: refresh_token ?? '',
-                  expires_at: expiresAt,
-                  token_type: token_type ?? 'bearer',
-                  user: userData.user,
-                });
-
-                await AsyncStorage.setItem(SUPABASE_STORAGE_KEY, sessionPayload);
-                console.log('[auth:callback] Manual session written, expires:', new Date(expiresAt * 1000).toISOString());
-                console.log('[auth:callback] Navigating to root — useEffect will restore from storage');
-                // Navigate to root; index.tsx rerenders, useEffect calls getSession
-                // (with 5s timeout), falls back to manual AsyncStorage read.
-                router.replace('/');
-              } else {
-                const { data: sessionData, error: setSessionError } = sessionResult;
-                console.log('[auth:callback] setSession:', sessionData?.session ? 'OK' : 'NO SESSION');
-                if (setSessionError) {
-                  console.error('[auth:callback] setSession error:', setSessionError.message);
-                  setError(setSessionError.message);
-                  return;
-                }
-                console.log('[auth:callback] Session persisted, user:', sessionData?.session?.user?.id);
-              }
+              // Navigate to root — AuthContext useEffect will restore session
+              // from AsyncStorage (with timeout → manual read fallback).
+              router.replace('/');
             } catch (e: any) {
               console.error('[auth:callback] Exception:', e?.message ?? e);
               setError(e?.message ?? 'Unknown error');

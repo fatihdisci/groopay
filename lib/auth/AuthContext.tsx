@@ -228,95 +228,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (access_token) {
             try {
-              // ── Step 1: verify token with getUser (proven to work) ──
+              // ── Step 1: verify token via API (proven to work) ──
               console.log('[auth] Step 1: getUser…');
               const { data: userData, error: userError } = await supabase.auth.getUser(access_token);
-
-              if (userError) {
-                console.error('[auth] getUser failed:', userError.message);
-                throw userError;
+              if (userError || !userData?.user) {
+                const msg = userError?.message ?? 'No user returned';
+                console.error('[auth] getUser failed:', msg);
+                throw new Error(msg);
               }
-              console.log('[auth] getUser OK, user:', userData?.user?.id);
+              console.log('[auth] getUser OK, user:', userData.user.id);
 
-              // ── Step 2: try setSession with timeout ──
-              console.log('[auth] Step 2: setSession (4s timeout)…');
-              const setSessionPromise = supabase.auth.setSession({
+              // ── Step 2: setUser DIRECTLY (bypass Supabase session entirely) ──
+              // setSession/getSession both hang due to internal AsyncStorage
+              // deadlock in @supabase/supabase-js v2 on React Native.
+              // We set AuthContext state directly — index.tsx watches `user`
+              // and the sign-in screen navigates to root on success.
+              console.log('[auth] Step 2: fetch profile + setUser directly…');
+              const profile = await fetchProfile(userData.user.id);
+              if (profile) {
+                setUser(profileRowToProfile(profile));
+                console.log('[auth] User set OK:', profile.display_name);
+              } else {
+                // Profile trigger might not have fired — create minimal profile
+                console.warn('[auth] Profile not found, creating fallback…');
+                setUser({
+                  id: userData.user.id,
+                  display_name: userData.user.user_metadata?.full_name ?? 'Kullanıcı',
+                  avatar_color: AVATAR_COLORS[0]!,
+                  locale: 'tr',
+                  preferred_currency: null,
+                  user_pro: false,
+                  user_pro_purchased_at: null,
+                });
+              }
+
+              // ── Step 3: fire-and-forget setSession (DON'T await — it hangs) ──
+              supabase.auth.setSession({
                 access_token,
                 refresh_token: refresh_token ?? '',
+              }).catch((e) => console.warn('[auth] bg setSession failed:', e?.message));
+
+              // ── Step 4: manual AsyncStorage for next app launch ──
+              const expiresAt = expires_in
+                ? Math.floor(Date.now() / 1000) + parseInt(expires_in, 10)
+                : Math.floor(Date.now() / 1000) + 3600;
+
+              const sessionPayload = JSON.stringify({
+                access_token,
+                refresh_token: refresh_token ?? '',
+                expires_at: expiresAt,
+                token_type: token_type ?? 'bearer',
+                user: userData.user,
               });
-              const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
-                setTimeout(() => resolve({ _timedOut: true }), 4000),
+
+              AsyncStorage.setItem(SUPABASE_STORAGE_KEY, sessionPayload).catch(
+                (e) => console.warn('[auth] bg storage write failed:', e?.message),
               );
-              const sessionResult = await Promise.race([setSessionPromise, timeoutPromise]);
-
-              if ('_timedOut' in sessionResult) {
-                // ── setSession hung — fallback: manual storage + direct user set ──
-                console.warn('[auth] setSession timed out — manual storage + direct user set');
-                console.log('[auth] Step 3: independent AsyncStorage test…');
-
-                try {
-                  await AsyncStorage.setItem('__groopay_auth_test__', 'ok');
-                  const testVal = await AsyncStorage.getItem('__groopay_auth_test__');
-                  console.log('[auth] AsyncStorage test:', testVal === 'ok' ? 'PASS' : 'FAIL');
-                  await AsyncStorage.removeItem('__groopay_auth_test__');
-                } catch (storageErr: any) {
-                  console.error('[auth] AsyncStorage test CRASHED:', storageErr?.message);
-                }
-
-                // Write session with far-future expiry.
-                // CRITICAL: getSession() internally checks expires_at. If missing
-                // or expired, it tries to REFRESH via API → hangs. We set it to
-                // 1 hour from now so getSession() on next app launch won't refresh.
-                const expiresAt = expires_in
-                  ? Math.floor(Date.now() / 1000) + parseInt(expires_in, 10)
-                  : Math.floor(Date.now() / 1000) + 3600; // fallback: 1 hour
-
-                const sessionPayload = JSON.stringify({
-                  access_token,
-                  refresh_token: refresh_token ?? '',
-                  expires_at: expiresAt,
-                  token_type: token_type ?? 'bearer',
-                  user: userData.user,
-                });
-
-                console.log('[auth] Writing session to:', SUPABASE_STORAGE_KEY);
-                console.log('[auth] expires_at:', expiresAt, new Date(expiresAt * 1000).toISOString());
-                await AsyncStorage.setItem(SUPABASE_STORAGE_KEY, sessionPayload);
-                console.log('[auth] Manual session written OK');
-
-                // DO NOT call getSession() — it will try to refresh if expires_at
-                // looks wrong, and the refresh API call hangs. Instead, directly
-                // fetch profile and set user. onAuthStateChange won't fire from
-                // manual storage, but index.tsx watches `user` state and redirects.
-                console.log('[auth] Step 4: fetch profile + setUser (bypass getSession)…');
-                const profile = await fetchProfile(userData.user.id);
-                if (profile) {
-                  setUser(profileRowToProfile(profile));
-                  console.log('[auth] User set directly, dashboard will load via index.tsx redirect');
-                } else {
-                  console.warn('[auth] Profile not found — user set with defaults');
-                  // Create a minimal profile so the user can proceed
-                  setUser({
-                    id: userData.user.id,
-                    display_name: userData.user.user_metadata?.full_name ?? 'Kullanıcı',
-                    avatar_color: AVATAR_COLORS[0]!,
-                    locale: 'tr',
-                    preferred_currency: null,
-                    user_pro: false,
-                    user_pro_purchased_at: null,
-                  });
-                }
-              } else {
-                // setSession succeeded normally
-                const { data: sessionData, error: setSessionError } = sessionResult;
-                console.log('[auth] setSession:', sessionData?.session ? 'OK' : 'NO SESSION');
-                if (setSessionError) {
-                  console.error('[auth] setSession error:', setSessionError.message);
-                  throw setSessionError;
-                }
-                console.log('[auth] Session persisted, user:', sessionData?.session?.user?.id);
-                // onAuthStateChange fires SIGNED_IN → profile loaded → index.tsx redirects
-              }
+              console.log('[auth] Session stored, expires:', new Date(expiresAt * 1000).toISOString());
             } catch (e: any) {
               console.error('[auth] Session establishment failed:', e?.message ?? e);
               throw e;

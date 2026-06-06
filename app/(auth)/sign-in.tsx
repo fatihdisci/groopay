@@ -33,6 +33,10 @@ export default function SignInScreen() {
     setInProgress(provider);
     try {
       await signInWithProvider(provider);
+      // AuthContext user state is set directly (bypassing Supabase session).
+      // Navigate to root — index.tsx re-evaluates and redirects to
+      // dashboard (returning user) or onboarding (new user).
+      router.replace('/');
     } catch (e: any) {
       Alert.alert(t('auth.error'), e?.message ?? t('auth.unknownError'));
     } finally {
