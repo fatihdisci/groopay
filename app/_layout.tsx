@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import * as WebBrowser from 'expo-web-browser';
 import {
   useFonts,
   PlusJakartaSans_600SemiBold,
@@ -23,6 +24,10 @@ import { initRevenueCat } from '@/lib/revenuecat';
 
 // Prevent auto-hide until fonts are loaded
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// Required for expo-web-browser to handle OAuth redirects back to the app.
+// Must be called at module level before any components render.
+WebBrowser.maybeCompleteAuthSession();
 
 const queryClient = new QueryClient();
 

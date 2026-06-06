@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '@/lib/supabase/client';
 import { AVATAR_COLORS } from '@/constants/avatarColors';
@@ -143,13 +144,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('[auth] linkIdentity failed, signing in as new user:', linkError.message);
     }
 
-    // Standard OAuth sign-in (new or existing real account)
+    // Standard OAuth sign-in (new or existing real account).
+    // skipBrowserRedirect: true so we get the URL back and open it manually
+    // via expo-web-browser — this is required on native (Expo).
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        // On native, the redirect happens via expo-web-browser which opens
-        // the system browser. Supabase handles the deep-link callback.
-        skipBrowserRedirect: false,
+        skipBrowserRedirect: true,
+        redirectTo: 'groopay://auth/callback',
       },
     });
 
@@ -158,13 +160,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw error;
     }
 
-    // On web this returns immediately with a URL to redirect to.
-    // On native, expo-web-browser opens the OAuth provider and the
-    // redirect brings the user back to the app → onAuthStateChange fires.
-    // We don't set profile here — onAuthStateChange handles it.
+    // Open the OAuth URL in the system browser.
+    // When the provider redirects back to groopay://auth/callback,
+    // the browser closes and onAuthStateChange fires with the new session.
     if (data?.url) {
-      // Web path: the caller should redirect to data.url
-      console.log('[auth] OAuth URL returned (web path)');
+      const result = await WebBrowser.openAuthSessionAsync(
+        data.url,
+        'groopay://auth/callback',
+      );
+
+      if (result.type === 'cancel') {
+        console.log('[auth] OAuth browser cancelled by user');
+      }
+      // On success, onAuthStateChange picks up the session automatically.
     }
   }, []);
 
