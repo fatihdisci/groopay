@@ -238,22 +238,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
               console.log('[auth] getUser OK, user:', userData.user.id);
 
-              // ── Step 2: setUser DIRECTLY (bypass Supabase session entirely) ──
-              // setSession/getSession both hang due to internal AsyncStorage
-              // deadlock in @supabase/supabase-js v2 on React Native.
-              // We set AuthContext state directly — index.tsx watches `user`
-              // and the sign-in screen navigates to root on success.
-              console.log('[auth] Step 2: fetch profile + setUser directly…');
-              const profile = await fetchProfile(userData.user.id);
+              // ── Step 2: fetch or create profile, then setUser DIRECTLY ──
+              console.log('[auth] Step 2: fetch or create profile…');
+              let profile = await fetchProfile(userData.user.id);
+
+              if (!profile) {
+                // Profile trigger (handle_new_user) may not have fired yet for
+                // OAuth sign-ins, or it failed. UPSERT a row so subsequent
+                // operations (createDemoGroup, group joins, etc.) don't fail RLS.
+                console.log('[auth] Profile not found — upserting into DB…');
+                const displayName =
+                  userData.user.user_metadata?.full_name ??
+                  userData.user.user_metadata?.name ??
+                  'Kullanıcı';
+                const avatarColor =
+                  AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]!;
+
+                const { data: newProfile, error: upsertError } = await supabase
+                  .from('profiles')
+                  .upsert({
+                    id: userData.user.id,
+                    display_name: displayName,
+                    avatar_color: avatarColor,
+                    locale: 'tr',
+                  })
+                  .select('*')
+                  .single();
+
+                if (upsertError) {
+                  console.error('[auth] Profile upsert failed:', upsertError.message);
+                  // Continue with in-memory fallback — the trigger may catch up later
+                } else if (newProfile) {
+                  profile = newProfile as ProfileRow;
+                  console.log('[auth] Profile upserted:', displayName);
+                }
+              }
+
               if (profile) {
                 setUser(profileRowToProfile(profile));
                 console.log('[auth] User set OK:', profile.display_name);
               } else {
-                // Profile trigger might not have fired — create minimal profile
-                console.warn('[auth] Profile not found, creating fallback…');
+                // Last resort: in-memory only (will retry on next launch)
+                console.warn('[auth] Using in-memory profile fallback');
                 setUser({
                   id: userData.user.id,
-                  display_name: userData.user.user_metadata?.full_name ?? 'Kullanıcı',
+                  display_name:
+                    userData.user.user_metadata?.full_name ??
+                    userData.user.user_metadata?.name ??
+                    'Kullanıcı',
                   avatar_color: AVATAR_COLORS[0]!,
                   locale: 'tr',
                   preferred_currency: null,

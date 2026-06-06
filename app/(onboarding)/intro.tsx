@@ -55,18 +55,24 @@ export default function IntroScreen() {
   const flatListRef = useRef<FlatList<OnboardingStep>>(null);
 
   const handleGetStarted = async () => {
+    console.log('[onboarding] handleGetStarted pressed, user:', user?.id);
     if (!user || isCreating) return;
     setIsCreating(true);
     try {
-      await createDemoGroup(user.id);
-    } catch (e) {
-      console.warn('[onboarding] Failed to create demo group:', e);
+      console.log('[onboarding] Creating demo group for:', user.id);
+      const groupId = await createDemoGroup(user.id);
+      console.log('[onboarding] Demo group created:', groupId);
+    } catch (e: any) {
+      console.warn('[onboarding] Failed to create demo group:', e?.message ?? e);
     }
+    console.log('[onboarding] Setting onboarded flag…');
     await setOnboarded();
+    console.log('[onboarding] Navigating to groups…');
     router.replace('/(tabs)/groups');
   };
 
   const handleSkip = async () => {
+    console.log('[onboarding] handleSkip pressed');
     await setOnboarded();
     router.replace('/(tabs)/groups');
   };
