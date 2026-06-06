@@ -180,65 +180,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ? result.url.slice(0, 200) + '…'
           : result.url;
         console.log('[auth] OAuth callback URL:', urlPreview);
-        console.log('[auth] Has query (?):', result.url.includes('?'));
-        console.log('[auth] Has fragment (#):', result.url.includes('#'));
 
         // ── Implicit flow (primary on native) ──
         // Tokens in fragment: groopay://auth/callback#access_token=...&refresh_token=...
-        const fragmentMatch = result.url.match(/#(.*)$/);
-        const fragment = fragmentMatch ? fragmentMatch[1] : '';
-        const accessTokenMatch = fragment.match(/access_token=([^&]+)/);
-        const refreshTokenMatch = fragment.match(/refresh_token=([^&]+)/);
+        const hashIndex = result.url.indexOf('#');
+        if (hashIndex >= 0) {
+          const fragment = result.url.slice(hashIndex + 1);
+          console.log('[auth] All fragment params:', fragment);
 
-        // ── PKCE fallback ──
-        // Code in query: groopay://auth/callback?code=...
-        const codeMatch = result.url.match(/[?&]code=([^&#]+)/);
-        const code = codeMatch ? decodeURIComponent(codeMatch[1]) : null;
+          // Use URLSearchParams for reliable parsing (decodes automatically)
+          const params = new URLSearchParams(fragment);
+          const access_token = params.get('access_token');
+          const refresh_token = params.get('refresh_token');
+          const expires_in = params.get('expires_in');
+          const token_type = params.get('token_type');
 
-        if (accessTokenMatch && refreshTokenMatch) {
-          console.log('[auth] Implicit flow: setting session from fragment tokens…');
-          const { error: setSessionError } = await supabase.auth.setSession({
-            access_token: decodeURIComponent(accessTokenMatch[1]),
-            refresh_token: decodeURIComponent(refreshTokenMatch[1]),
-          });
-          if (setSessionError) {
-            console.error('[auth] setSession failed:', setSessionError.message);
-            throw setSessionError;
-          }
-          console.log('[auth] Implicit session established');
-        } else if (code) {
-          console.log('[auth] PKCE fallback: exchanging code for session (5s timeout)…');
-          // Wrap in a timeout — exchangeCodeForSession can hang if PKCE
-          // code_challenge method = plain is rejected by the server.
-          const exchangePromise = supabase.auth.exchangeCodeForSession(code);
-          const timeoutPromise = new Promise<{ timedOut: true }>((resolve) =>
-            setTimeout(() => resolve({ timedOut: true }), 5000),
-          );
-          const exchangeResult = await Promise.race([exchangePromise, timeoutPromise]);
+          console.log('[auth] Token preview — access:', access_token?.substring(0, 20) + '…');
+          console.log('[auth] Token preview — refresh:', refresh_token?.substring(0, 20) + '…');
+          console.log('[auth] expires_in:', expires_in, 'token_type:', token_type);
 
-          if ('timedOut' in exchangeResult) {
-            console.error('[auth] PKCE exchangeCodeForSession timed out after 5s');
-            throw new Error('Oturum açma zaman aşımına uğradı. Lütfen tekrar deneyin.');
-          }
+          if (access_token) {
+            try {
+              console.log('[auth] Implicit flow: calling setSession…');
+              const setSessionPromise = supabase.auth.setSession({
+                access_token,
+                refresh_token: refresh_token ?? '',
+              });
+              const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
+                setTimeout(() => resolve({ _timedOut: true }), 8000),
+              );
+              const sessionResult = await Promise.race([setSessionPromise, timeoutPromise]);
 
-          const { error: exchangeError } = exchangeResult;
-          if (exchangeError) {
-            console.error('[auth] PKCE exchange failed:', exchangeError.message);
-            throw exchangeError;
-          }
-          console.log('[auth] PKCE session established');
-        } else {
-          // No recognizable auth params — try getSession as last resort
-          console.warn('[auth] No code or tokens in callback URL — trying getSession…');
-          const { data: sessionCheck } = await supabase.auth.getSession();
-          if (sessionCheck.session) {
-            console.log('[auth] Session found via getSession (already established)');
+              if ('_timedOut' in sessionResult) {
+                console.error('[auth] setSession timed out after 8s');
+                throw new Error('Oturum açma zaman aşımına uğradı. Lütfen tekrar deneyin.');
+              }
+
+              const { data: sessionData, error: setSessionError } = sessionResult;
+              console.log('[auth] setSession result:', sessionData?.session ? 'SESSION OK' : 'NO SESSION');
+              if (setSessionError) {
+                console.error('[auth] setSession error:', setSessionError.message);
+                throw setSessionError;
+              }
+              console.log('[auth] Implicit session established, user:', sessionData?.session?.user?.id);
+              // onAuthStateChange fires SIGNED_IN → profile loaded → index.tsx redirects
+            } catch (e: any) {
+              console.error('[auth] setSession exception:', e?.message ?? e);
+              throw e;
+            }
           } else {
-            console.warn('[auth] No session established after OAuth callback');
+            console.warn('[auth] No access_token in fragment');
+          }
+        } else {
+          // No fragment — try PKCE code in query string
+          const codeMatch = result.url.match(/[?&]code=([^&#]+)/);
+          const code = codeMatch ? decodeURIComponent(codeMatch[1]) : null;
+
+          if (code) {
+            console.log('[auth] PKCE fallback: exchanging code (5s timeout)…');
+            const exchangePromise = supabase.auth.exchangeCodeForSession(code);
+            const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
+              setTimeout(() => resolve({ _timedOut: true }), 5000),
+            );
+            const exchangeResult = await Promise.race([exchangePromise, timeoutPromise]);
+
+            if ('_timedOut' in exchangeResult) {
+              console.error('[auth] PKCE exchangeCodeForSession timed out after 5s');
+              throw new Error('Oturum açma zaman aşımına uğradı. Lütfen tekrar deneyin.');
+            }
+
+            const { error: exchangeError } = exchangeResult;
+            if (exchangeError) {
+              console.error('[auth] PKCE exchange failed:', exchangeError.message);
+              throw exchangeError;
+            }
+            console.log('[auth] PKCE session established');
+          } else {
+            // Last resort
+            console.warn('[auth] No fragment or code in callback URL — trying getSession…');
+            const { data: sessionCheck } = await supabase.auth.getSession();
+            if (sessionCheck.session) {
+              console.log('[auth] Session found via getSession');
+            } else {
+              console.warn('[auth] No session established after OAuth callback');
+            }
           }
         }
-
-        // onAuthStateChange fires SIGNED_IN → profile loaded → index.tsx redirects
       } else if (result.type === 'cancel') {
         console.log('[auth] OAuth browser cancelled by user');
       }

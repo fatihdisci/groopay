@@ -28,55 +28,89 @@ export default function AuthCallbackScreen() {
       try {
         const urlPreview = url.length > 200 ? url.slice(0, 200) + '…' : url;
         console.log('[auth:callback] URL:', urlPreview);
-        console.log('[auth:callback] Has query (?):', url.includes('?'));
-        console.log('[auth:callback] Has fragment (#):', url.includes('#'));
 
-        // ── Implicit flow (primary on native, no WebCrypto needed) ──
-        const fragmentMatch = url.match(/#(.*)$/);
-        const fragment = fragmentMatch ? fragmentMatch[1] : '';
-        const accessTokenMatch = fragment.match(/access_token=([^&]+)/);
-        const refreshTokenMatch = fragment.match(/refresh_token=([^&]+)/);
+        // ── Implicit flow (primary on native) ──
+        const hashIndex = url.indexOf('#');
+        if (hashIndex >= 0) {
+          const fragment = url.slice(hashIndex + 1);
+          console.log('[auth:callback] All fragment params:', fragment);
 
-        // ── PKCE fallback ──
-        const codeMatch = url.match(/[?&]code=([^&#]+)/);
-        const code = codeMatch ? decodeURIComponent(codeMatch[1]) : null;
+          const params = new URLSearchParams(fragment);
+          const access_token = params.get('access_token');
+          const refresh_token = params.get('refresh_token');
+          const expires_in = params.get('expires_in');
+          const token_type = params.get('token_type');
 
-        if (accessTokenMatch && refreshTokenMatch) {
-          console.log('[auth:callback] Implicit flow: setting session from fragment tokens…');
-          const { error: setSessionError } = await supabase.auth.setSession({
-            access_token: decodeURIComponent(accessTokenMatch[1]),
-            refresh_token: decodeURIComponent(refreshTokenMatch[1]),
-          });
-          if (setSessionError) {
-            console.error('[auth:callback] setSession failed:', setSessionError.message);
-            setError(setSessionError.message);
-            return;
+          console.log('[auth:callback] Token preview — access:', access_token?.substring(0, 20) + '…');
+          console.log('[auth:callback] Token preview — refresh:', refresh_token?.substring(0, 20) + '…');
+          console.log('[auth:callback] expires_in:', expires_in, 'token_type:', token_type);
+
+          if (access_token) {
+            try {
+              console.log('[auth:callback] Calling setSession…');
+              const setSessionPromise = supabase.auth.setSession({
+                access_token,
+                refresh_token: refresh_token ?? '',
+              });
+              const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
+                setTimeout(() => resolve({ _timedOut: true }), 8000),
+              );
+              const sessionResult = await Promise.race([setSessionPromise, timeoutPromise]);
+
+              if ('_timedOut' in sessionResult) {
+                console.error('[auth:callback] setSession timed out after 8s');
+                setError('Oturum açma zaman aşımına uğradı. Lütfen tekrar deneyin.');
+                return;
+              }
+
+              const { data: sessionData, error: setSessionError } = sessionResult;
+              console.log('[auth:callback] setSession result:', sessionData?.session ? 'SESSION OK' : 'NO SESSION');
+              if (setSessionError) {
+                console.error('[auth:callback] setSession error:', setSessionError.message);
+                setError(setSessionError.message);
+                return;
+              }
+              console.log('[auth:callback] Session established, user:', sessionData?.session?.user?.id);
+              // index.tsx will redirect based on user state (via onAuthStateChange)
+            } catch (e: any) {
+              console.error('[auth:callback] setSession exception:', e?.message ?? e);
+              setError(e?.message ?? 'Unknown error');
+              return;
+            }
+          } else {
+            console.warn('[auth:callback] No access_token in fragment');
+            router.replace('/(auth)/sign-in');
           }
-          console.log('[auth:callback] Implicit session established');
-        } else if (code) {
-          console.log('[auth:callback] PKCE fallback: exchanging code (5s timeout)…');
-          const exchangePromise = supabase.auth.exchangeCodeForSession(code);
-          const timeoutPromise = new Promise<{ timedOut: true }>((resolve) =>
-            setTimeout(() => resolve({ timedOut: true }), 5000),
-          );
-          const exchangeResult = await Promise.race([exchangePromise, timeoutPromise]);
-
-          if ('timedOut' in exchangeResult) {
-            console.error('[auth:callback] PKCE exchangeCodeForSession timed out');
-            setError('Oturum açma zaman aşımına uğradı. Lütfen tekrar deneyin.');
-            return;
-          }
-
-          const { error: exchangeError } = exchangeResult;
-          if (exchangeError) {
-            console.error('[auth:callback] PKCE exchange failed:', exchangeError.message);
-            setError(exchangeError.message);
-            return;
-          }
-          console.log('[auth:callback] PKCE session established');
         } else {
-          console.warn('[auth:callback] No code or tokens in callback URL');
-          router.replace('/(auth)/sign-in');
+          // No fragment — try PKCE code in query string
+          const codeMatch = url.match(/[?&]code=([^&#]+)/);
+          const code = codeMatch ? decodeURIComponent(codeMatch[1]) : null;
+
+          if (code) {
+            console.log('[auth:callback] PKCE fallback: exchanging code (5s timeout)…');
+            const exchangePromise = supabase.auth.exchangeCodeForSession(code);
+            const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
+              setTimeout(() => resolve({ _timedOut: true }), 5000),
+            );
+            const exchangeResult = await Promise.race([exchangePromise, timeoutPromise]);
+
+            if ('_timedOut' in exchangeResult) {
+              console.error('[auth:callback] PKCE exchange timed out');
+              setError('Oturum açma zaman aşımına uğradı. Lütfen tekrar deneyin.');
+              return;
+            }
+
+            const { error: exchangeError } = exchangeResult;
+            if (exchangeError) {
+              console.error('[auth:callback] PKCE exchange failed:', exchangeError.message);
+              setError(exchangeError.message);
+              return;
+            }
+            console.log('[auth:callback] PKCE session established');
+          } else {
+            console.warn('[auth:callback] No fragment or code in callback URL');
+            router.replace('/(auth)/sign-in');
+          }
         }
       } catch (e: any) {
         console.error('[auth:callback] Unexpected error:', e?.message);
