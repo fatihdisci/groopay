@@ -2602,3 +2602,41 @@ npx supabase functions deploy revenuecat-webhook
 **Test:** 87/87 finans testi geçti; auth/DB kullanım ayrımı `rg` ile doğrulandı. `npx tsc --noEmit` yalnızca önceden mevcut `expo-notifications` eksik modül hatasını veriyor.
 
 *Son güncelleme: 2026-06-06 — B113 eklendi*
+
+---
+
+### ✅ B114: Production build blocker'ları giderildi
+
+**Sorun:**
+- Provisioning conflict nedeniyle kaldırılan `expo-notifications` paketi `lib/notifications/index.ts` tarafından import edilmeye devam ediyor ve TypeScript kontrolünü bozuyordu.
+- EAS production environment içinde Supabase ve RevenueCat için gereken `EXPO_PUBLIC_` değişkenleri tanımlı değildi.
+
+**Yapılan:**
+- `expo-notifications`, React Native ve Supabase import'ları bildirim modülünden kaldırıldı.
+- `registerPushToken`, `setupNotificationHandler`, `sendPushToUser` ve `remindDebtor` mevcut imzaları korunarak no-op stub'lara çevrildi.
+- Stub'lar development modunda `push disabled` log'u bırakacak şekilde düzenlendi.
+- Push altyapısının launch sonrasında yeniden etkinleştirilmesi için TODO eklendi.
+- `send-push` Edge Function değiştirilmedi.
+- `.env` içindeki dolu `EXPO_PUBLIC_` değişkenleri EAS production environment'a plaintext olarak eklendi: Supabase URL, Supabase anon key ve RevenueCat Apple key.
+- `.env` ve API key değerleri repoya eklenmedi.
+
+**Değişen dosyalar:** `lib/notifications/index.ts`, `BUGFIX-CILA.md`
+
+**Nasıl test edilir:**
+1. `npx tsc --noEmit`
+2. `npm test`
+3. `eas env:list --environment production`
+4. `package.json` ve `app.json` içinde `expo-notifications` dependency/plugin olmadığını doğrula.
+
+| Kontrol | Durum |
+|---|---|
+| `npx tsc --noEmit` temiz | ✅ |
+| `npm test` 87/87 geçti | ✅ |
+| Bildirim export imzaları korundu | ✅ |
+| `expo-notifications` paketi geri eklenmedi | ✅ |
+| `send-push` Edge Function değişmedi | ✅ |
+| EAS production Supabase değişkenleri mevcut | ✅ |
+| EAS production RevenueCat Apple key mevcut | ✅ |
+| `.env` ve API key'ler commit dışında | ✅ |
+
+*Son güncelleme: 2026-06-06 — B114 eklendi*
