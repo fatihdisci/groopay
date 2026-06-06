@@ -161,18 +161,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Open the OAuth URL in the system browser.
-    // When the provider redirects back to groopay://auth/callback,
-    // the browser closes and onAuthStateChange fires with the new session.
+    // The provider redirects back to groopay://auth/callback → browser closes
+    // → openAuthSessionAsync resolves with the callback URL.
+    // We must manually exchange the code for a session because
+    // skipBrowserRedirect: true means Supabase doesn't process the URL internally.
     if (data?.url) {
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
         'groopay://auth/callback',
       );
 
-      if (result.type === 'cancel') {
+      if (result.type === 'success' && result.url) {
+        // Extract the authorization code from the callback URL
+        // Format: groopay://auth/callback?code=xxx...
+        const codeMatch = result.url.match(/[?&]code=([^&#]+)/);
+        const code = codeMatch ? decodeURIComponent(codeMatch[1]) : null;
+
+        if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+          if (exchangeError) {
+            console.error('[auth] Code exchange failed:', exchangeError.message);
+            throw exchangeError;
+          }
+          // onAuthStateChange fires SIGNED_IN → profile loaded → index.tsx redirects
+        } else {
+          // No code in URL — the session might have been established another way
+          const { data: sessionCheck } = await supabase.auth.getSession();
+          if (!sessionCheck.session) {
+            console.warn('[auth] No session established after OAuth callback');
+          }
+        }
+      } else if (result.type === 'cancel') {
         console.log('[auth] OAuth browser cancelled by user');
       }
-      // On success, onAuthStateChange picks up the session automatically.
     }
   }, []);
 
