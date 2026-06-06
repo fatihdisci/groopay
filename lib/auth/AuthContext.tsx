@@ -172,22 +172,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
 
       if (result.type === 'success' && result.url) {
-        // Extract the authorization code from the callback URL
-        // Format: groopay://auth/callback?code=xxx...
+        // Debug: log the full callback URL to diagnose flow type issues
+        console.log('[auth] OAuth callback URL received');
+        console.log('[auth] URL length:', result.url.length);
+        console.log('[auth] Has query (?):', result.url.includes('?'));
+        console.log('[auth] Has fragment (#):', result.url.includes('#'));
+
+        // PKCE flow: code is in the query string → groopay://auth/callback?code=xxx
         const codeMatch = result.url.match(/[?&]code=([^&#]+)/);
         const code = codeMatch ? decodeURIComponent(codeMatch[1]) : null;
 
+        // Implicit flow fallback: tokens are in the fragment → groopay://auth/callback#access_token=xxx&refresh_token=yyy
+        const fragmentMatch = result.url.match(/#(.*)$/);
+        const fragment = fragmentMatch ? fragmentMatch[1] : '';
+        const accessTokenMatch = fragment.match(/access_token=([^&]+)/);
+        const refreshTokenMatch = fragment.match(/refresh_token=([^&]+)/);
+
         if (code) {
+          console.log('[auth] PKCE code found, exchanging for session...');
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) {
             console.error('[auth] Code exchange failed:', exchangeError.message);
             throw exchangeError;
           }
+          console.log('[auth] PKCE code exchange successful');
           // onAuthStateChange fires SIGNED_IN → profile loaded → index.tsx redirects
+        } else if (accessTokenMatch && refreshTokenMatch) {
+          // Implicit flow fallback — set the session directly from tokens
+          console.log('[auth] Implicit flow tokens found, setting session...');
+          const { error: setSessionError } = await supabase.auth.setSession({
+            access_token: decodeURIComponent(accessTokenMatch[1]),
+            refresh_token: decodeURIComponent(refreshTokenMatch[1]),
+          });
+          if (setSessionError) {
+            console.error('[auth] setSession failed:', setSessionError.message);
+            throw setSessionError;
+          }
+          console.log('[auth] Implicit session set successful');
         } else {
-          // No code in URL — the session might have been established another way
+          // No recognizable auth params — try getSession as last resort
+          console.warn('[auth] No code or tokens in callback URL');
           const { data: sessionCheck } = await supabase.auth.getSession();
-          if (!sessionCheck.session) {
+          if (sessionCheck.session) {
+            console.log('[auth] Session found via getSession (was already established)');
+          } else {
             console.warn('[auth] No session established after OAuth callback');
           }
         }

@@ -26,21 +26,46 @@ export default function AuthCallbackScreen() {
 
     (async () => {
       try {
-        // Extract code from groopay://auth/callback?code=...
+        console.log('[auth:callback] URL received');
+        console.log('[auth:callback] URL length:', url.length);
+        console.log('[auth:callback] Has query (?):', url.includes('?'));
+        console.log('[auth:callback] Has fragment (#):', url.includes('#'));
+
+        // PKCE flow: code is in the query string → groopay://auth/callback?code=xxx
         const codeMatch = url.match(/[?&]code=([^&#]+)/);
         const code = codeMatch ? decodeURIComponent(codeMatch[1]) : null;
 
+        // Implicit flow fallback: tokens are in the fragment
+        const fragmentMatch = url.match(/#(.*)$/);
+        const fragment = fragmentMatch ? fragmentMatch[1] : '';
+        const accessTokenMatch = fragment.match(/access_token=([^&]+)/);
+        const refreshTokenMatch = fragment.match(/refresh_token=([^&]+)/);
+
         if (code) {
+          console.log('[auth:callback] PKCE code found, exchanging for session...');
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
           if (exchangeError) {
             console.error('[auth:callback] Code exchange failed:', exchangeError.message);
             setError(exchangeError.message);
             return;
           }
+          console.log('[auth:callback] PKCE code exchange successful');
           // Session established — index.tsx will redirect based on user state
+        } else if (accessTokenMatch && refreshTokenMatch) {
+          console.log('[auth:callback] Implicit flow tokens found, setting session...');
+          const { error: setSessionError } = await supabase.auth.setSession({
+            access_token: decodeURIComponent(accessTokenMatch[1]),
+            refresh_token: decodeURIComponent(refreshTokenMatch[1]),
+          });
+          if (setSessionError) {
+            console.error('[auth:callback] setSession failed:', setSessionError.message);
+            setError(setSessionError.message);
+            return;
+          }
+          console.log('[auth:callback] Implicit session set successful');
         } else {
-          // No code in URL — redirect to sign-in
-          console.warn('[auth:callback] No code in callback URL');
+          // No recognizable auth params — redirect to sign-in
+          console.warn('[auth:callback] No code or tokens in callback URL');
           router.replace('/(auth)/sign-in');
         }
       } catch (e: any) {
