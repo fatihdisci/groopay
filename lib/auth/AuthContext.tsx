@@ -238,60 +238,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
               console.log('[auth] getUser OK, user:', userData.user.id);
 
-              // ── Step 2: fetch or create profile, then setUser DIRECTLY ──
-              console.log('[auth] Step 2: fetch or create profile…');
+              // ── Step 2: fetch profile, fallback to in-memory ──
+              // Client-side upsert is NOT used here — it fails RLS because
+              // setSession is fire-and-forget (Supabase session not yet set,
+              // so auth.uid() = null → INSERT policy fails).
+              // Instead, the handle_new_user trigger (migration 0015) creates
+              // the profile server-side with SEES DEFINER (RLS bypass).
+              // We use in-memory fallback immediately and schedule a retry
+              // to pick up the real profile once the trigger completes.
+              console.log('[auth] Step 2: fetch profile…');
               let profile = await fetchProfile(userData.user.id);
-
-              if (!profile) {
-                // Profile trigger (handle_new_user) may not have fired yet for
-                // OAuth sign-ins, or it failed. UPSERT a row so subsequent
-                // operations (createDemoGroup, group joins, etc.) don't fail RLS.
-                console.log('[auth] Profile not found — upserting into DB…');
-                const displayName =
-                  userData.user.user_metadata?.full_name ??
-                  userData.user.user_metadata?.name ??
-                  'Kullanıcı';
-                const avatarColor =
-                  AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]!;
-
-                const { data: newProfile, error: upsertError } = await supabase
-                  .from('profiles')
-                  .upsert({
-                    id: userData.user.id,
-                    display_name: displayName,
-                    avatar_color: avatarColor,
-                    locale: 'tr',
-                  })
-                  .select('*')
-                  .single();
-
-                if (upsertError) {
-                  console.error('[auth] Profile upsert failed:', upsertError.message);
-                  // Continue with in-memory fallback — the trigger may catch up later
-                } else if (newProfile) {
-                  profile = newProfile as ProfileRow;
-                  console.log('[auth] Profile upserted:', displayName);
-                }
-              }
 
               if (profile) {
                 setUser(profileRowToProfile(profile));
                 console.log('[auth] User set OK:', profile.display_name);
               } else {
-                // Last resort: in-memory only (will retry on next launch)
-                console.warn('[auth] Using in-memory profile fallback');
+                // Trigger hasn't fired yet — use in-memory fallback, retry soon
+                console.log('[auth] Profile not found (trigger pending) — in-memory fallback');
+                const fallbackName =
+                  userData.user.user_metadata?.full_name ??
+                  userData.user.user_metadata?.name ??
+                  'Kullanıcı';
+                const fallbackColor =
+                  AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]!;
+
                 setUser({
                   id: userData.user.id,
-                  display_name:
-                    userData.user.user_metadata?.full_name ??
-                    userData.user.user_metadata?.name ??
-                    'Kullanıcı',
-                  avatar_color: AVATAR_COLORS[0]!,
+                  display_name: fallbackName,
+                  avatar_color: fallbackColor,
                   locale: 'tr',
                   preferred_currency: null,
                   user_pro: false,
                   user_pro_purchased_at: null,
                 });
+
+                // Schedule background retry — trigger should complete within ~1s
+                setTimeout(async () => {
+                  const retryProfile = await fetchProfile(userData.user.id);
+                  if (retryProfile) {
+                    setUser(profileRowToProfile(retryProfile));
+                    console.log('[auth] Retry: profile loaded from DB');
+                  }
+                }, 1500);
               }
 
               // ── Step 3: fire-and-forget setSession (DON'T await — it hangs) ──
