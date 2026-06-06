@@ -15,7 +15,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     // On web, Supabase uses localStorage by default. On native,
     // we must provide AsyncStorage for session persistence.
     storage: Platform.OS === 'web' ? undefined : AsyncStorage,
-    autoRefreshToken: true,
+    // autoRefreshToken: false because the internal refresh API call hangs
+    // on React Native (setSession/getSession deadlock). We handle token
+    // storage manually and rely on the session's expires_at for validity.
+    autoRefreshToken: false,
     persistSession: true,
     detectSessionInUrl: false,
     // Implicit flow: tokens are returned in the URL fragment (#access_token=...)

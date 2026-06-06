@@ -77,12 +77,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isOnboarded, setIsOnboarded] = useState(false);
 
-  // Restore session on mount
+  // Restore session on mount.
+  // With autoRefreshToken: false, getSession only reads from AsyncStorage
+  // (no API calls) so it won't hang. Timeout kept as safety.
   useEffect(() => {
     (async () => {
       try {
-        // getSession can hang if the stored session has expired/missing expires_at
-        // and auto-refresh is triggered. Wrap in a timeout.
         console.log('[auth] Restoring session on mount…');
         const getSessionPromise = supabase.auth.getSession();
         const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
@@ -92,19 +92,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         let session = null;
         if ('_timedOut' in result) {
-          console.warn('[auth] getSession timed out on mount — trying manual read');
-          // Fallback: read directly from AsyncStorage
+          console.warn('[auth] getSession timed out — trying manual read');
           try {
             const raw = await AsyncStorage.getItem(SUPABASE_STORAGE_KEY);
             if (raw) {
               const parsed = JSON.parse(raw);
               if (parsed?.user) {
-                console.log('[auth] Manual session read OK, user:', parsed.user.id);
+                console.log('[auth] Manual read OK, user:', parsed.user.id);
                 session = { user: parsed.user };
               }
             }
           } catch (manualErr: any) {
-            console.warn('[auth] Manual session read failed:', manualErr?.message);
+            console.warn('[auth] Manual read failed:', manualErr?.message);
           }
         } else {
           session = result.data?.session;
@@ -116,7 +115,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (profile) {
             setUser(profileRowToProfile(profile));
           }
-          // Only restore onboarding flag if user actually has groups
           const hasGroups = await syncOnboardingFlag(session.user.id);
           if (hasGroups && storedOnboarded === 'true') setIsOnboarded(true);
         }
@@ -228,7 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (access_token) {
             try {
-              // ── Step 1: verify token via API (proven to work) ──
+              // ── Step 1: verify token via API ──
               console.log('[auth] Step 1: getUser…');
               const { data: userData, error: userError } = await supabase.auth.getUser(access_token);
               if (userError || !userData?.user) {
@@ -238,23 +236,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
               console.log('[auth] getUser OK, user:', userData.user.id);
 
-              // ── Step 2: fetch profile, fallback to in-memory ──
-              // Client-side upsert is NOT used here — it fails RLS because
-              // setSession is fire-and-forget (Supabase session not yet set,
-              // so auth.uid() = null → INSERT policy fails).
-              // Instead, the handle_new_user trigger (migration 0015) creates
-              // the profile server-side with SEES DEFINER (RLS bypass).
-              // We use in-memory fallback immediately and schedule a retry
-              // to pick up the real profile once the trigger completes.
-              console.log('[auth] Step 2: fetch profile…');
+              // ── Step 2: establish Supabase session (AWAITED) ──
+              // With autoRefreshToken: false, setSession should NOT hang.
+              // It stores the session in AsyncStorage and sets auth.uid()
+              // so RLS policies work for subsequent DB queries.
+              console.log('[auth] Step 2: setSession (autoRefreshToken disabled)…');
+              const setSessionPromise = supabase.auth.setSession({
+                access_token,
+                refresh_token: refresh_token ?? '',
+              });
+              const sessionTimeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
+                setTimeout(() => resolve({ _timedOut: true }), 4000),
+              );
+              const sessionResult = await Promise.race([setSessionPromise, sessionTimeoutPromise]);
+
+              let sessionEstablished = false;
+              if ('_timedOut' in sessionResult) {
+                console.warn('[auth] setSession timed out even with autoRefreshToken:false');
+              } else {
+                const { error: setSessionError } = sessionResult;
+                if (setSessionError) {
+                  console.warn('[auth] setSession error:', setSessionError.message);
+                } else {
+                  console.log('[auth] setSession OK — auth.uid() now available for RLS');
+                  sessionEstablished = true;
+                }
+              }
+
+              // ── Step 3: fetch profile (RLS now passes if sessionEstablished) ──
+              console.log('[auth] Step 3: fetch profile…');
               let profile = await fetchProfile(userData.user.id);
 
               if (profile) {
                 setUser(profileRowToProfile(profile));
                 console.log('[auth] User set OK:', profile.display_name);
               } else {
-                // Trigger hasn't fired yet — use in-memory fallback, retry soon
-                console.log('[auth] Profile not found (trigger pending) — in-memory fallback');
+                // Profile not in DB yet — use in-memory fallback.
+                // The handle_new_user trigger (migration 0015) may not have
+                // fired yet, or it hasn't been deployed.
+                console.log('[auth] Profile not found — in-memory fallback');
                 const fallbackName =
                   userData.user.user_metadata?.full_name ??
                   userData.user.user_metadata?.name ??
@@ -272,23 +292,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   user_pro_purchased_at: null,
                 });
 
-                // Schedule background retry — trigger should complete within ~1s
-                setTimeout(async () => {
-                  const retryProfile = await fetchProfile(userData.user.id);
-                  if (retryProfile) {
-                    setUser(profileRowToProfile(retryProfile));
-                    console.log('[auth] Retry: profile loaded from DB');
-                  }
-                }, 1500);
+                // Retry: if session is established and trigger fires, the profile
+                // will be readable via RLS within ~1s
+                if (sessionEstablished) {
+                  setTimeout(async () => {
+                    const retryProfile = await fetchProfile(userData.user.id);
+                    if (retryProfile) {
+                      setUser(profileRowToProfile(retryProfile));
+                      console.log('[auth] Retry: profile loaded from DB');
+                    }
+                  }, 1500);
+                }
               }
 
-              // ── Step 3: fire-and-forget setSession (DON'T await — it hangs) ──
-              supabase.auth.setSession({
-                access_token,
-                refresh_token: refresh_token ?? '',
-              }).catch((e) => console.warn('[auth] bg setSession failed:', e?.message));
-
-              // ── Step 4: manual AsyncStorage for next app launch ──
+              // ── Step 4: manual AsyncStorage backup (belt and suspenders) ──
               const expiresAt = expires_in
                 ? Math.floor(Date.now() / 1000) + parseInt(expires_in, 10)
                 : Math.floor(Date.now() / 1000) + 3600;

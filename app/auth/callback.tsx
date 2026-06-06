@@ -49,7 +49,7 @@ export default function AuthCallbackScreen() {
 
           if (access_token) {
             try {
-              // ── Step 1: verify token via API ──
+              // ── Step 1: verify token ──
               console.log('[auth:callback] Step 1: getUser…');
               const { data: userData, error: userError } = await supabase.auth.getUser(access_token);
               if (userError || !userData?.user) {
@@ -60,14 +60,30 @@ export default function AuthCallbackScreen() {
               }
               console.log('[auth:callback] getUser OK, user:', userData.user.id);
 
-              // ── Step 2: fire-and-forget setSession + manual storage ──
-              // setSession hangs on RN — fire-and-forget, don't await.
-              supabase.auth.setSession({
+              // ── Step 2: establish Supabase session ──
+              // With autoRefreshToken: false, setSession completes quickly.
+              console.log('[auth:callback] Step 2: setSession…');
+              const setSessionPromise = supabase.auth.setSession({
                 access_token,
                 refresh_token: refresh_token ?? '',
-              }).catch((e) => console.warn('[auth:callback] bg setSession failed:', e?.message));
+              });
+              const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
+                setTimeout(() => resolve({ _timedOut: true }), 4000),
+              );
+              const sessionResult = await Promise.race([setSessionPromise, timeoutPromise]);
 
-              // Manual AsyncStorage for session restore on next launch
+              if ('_timedOut' in sessionResult) {
+                console.warn('[auth:callback] setSession timed out');
+              } else {
+                const { error: setSessionError } = sessionResult;
+                if (setSessionError) {
+                  console.warn('[auth:callback] setSession error:', setSessionError.message);
+                } else {
+                  console.log('[auth:callback] setSession OK');
+                }
+              }
+
+              // ── Step 3: manual AsyncStorage backup + navigate ──
               const expiresAt = expires_in
                 ? Math.floor(Date.now() / 1000) + parseInt(expires_in, 10)
                 : Math.floor(Date.now() / 1000) + 3600;
@@ -85,8 +101,6 @@ export default function AuthCallbackScreen() {
               );
               console.log('[auth:callback] Session stored, navigating to root…');
 
-              // Navigate to root — AuthContext useEffect will restore session
-              // from AsyncStorage (with timeout → manual read fallback).
               router.replace('/');
             } catch (e: any) {
               console.error('[auth:callback] Exception:', e?.message ?? e);
