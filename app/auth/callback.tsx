@@ -26,33 +26,23 @@ export default function AuthCallbackScreen() {
 
     (async () => {
       try {
-        console.log('[auth:callback] URL received');
-        console.log('[auth:callback] URL length:', url.length);
+        const urlPreview = url.length > 200 ? url.slice(0, 200) + '…' : url;
+        console.log('[auth:callback] URL:', urlPreview);
         console.log('[auth:callback] Has query (?):', url.includes('?'));
         console.log('[auth:callback] Has fragment (#):', url.includes('#'));
 
-        // PKCE flow: code is in the query string → groopay://auth/callback?code=xxx
-        const codeMatch = url.match(/[?&]code=([^&#]+)/);
-        const code = codeMatch ? decodeURIComponent(codeMatch[1]) : null;
-
-        // Implicit flow fallback: tokens are in the fragment
+        // ── Implicit flow (primary on native, no WebCrypto needed) ──
         const fragmentMatch = url.match(/#(.*)$/);
         const fragment = fragmentMatch ? fragmentMatch[1] : '';
         const accessTokenMatch = fragment.match(/access_token=([^&]+)/);
         const refreshTokenMatch = fragment.match(/refresh_token=([^&]+)/);
 
-        if (code) {
-          console.log('[auth:callback] PKCE code found, exchanging for session...');
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeError) {
-            console.error('[auth:callback] Code exchange failed:', exchangeError.message);
-            setError(exchangeError.message);
-            return;
-          }
-          console.log('[auth:callback] PKCE code exchange successful');
-          // Session established — index.tsx will redirect based on user state
-        } else if (accessTokenMatch && refreshTokenMatch) {
-          console.log('[auth:callback] Implicit flow tokens found, setting session...');
+        // ── PKCE fallback ──
+        const codeMatch = url.match(/[?&]code=([^&#]+)/);
+        const code = codeMatch ? decodeURIComponent(codeMatch[1]) : null;
+
+        if (accessTokenMatch && refreshTokenMatch) {
+          console.log('[auth:callback] Implicit flow: setting session from fragment tokens…');
           const { error: setSessionError } = await supabase.auth.setSession({
             access_token: decodeURIComponent(accessTokenMatch[1]),
             refresh_token: decodeURIComponent(refreshTokenMatch[1]),
@@ -62,9 +52,29 @@ export default function AuthCallbackScreen() {
             setError(setSessionError.message);
             return;
           }
-          console.log('[auth:callback] Implicit session set successful');
+          console.log('[auth:callback] Implicit session established');
+        } else if (code) {
+          console.log('[auth:callback] PKCE fallback: exchanging code (5s timeout)…');
+          const exchangePromise = supabase.auth.exchangeCodeForSession(code);
+          const timeoutPromise = new Promise<{ timedOut: true }>((resolve) =>
+            setTimeout(() => resolve({ timedOut: true }), 5000),
+          );
+          const exchangeResult = await Promise.race([exchangePromise, timeoutPromise]);
+
+          if ('timedOut' in exchangeResult) {
+            console.error('[auth:callback] PKCE exchangeCodeForSession timed out');
+            setError('Oturum açma zaman aşımına uğradı. Lütfen tekrar deneyin.');
+            return;
+          }
+
+          const { error: exchangeError } = exchangeResult;
+          if (exchangeError) {
+            console.error('[auth:callback] PKCE exchange failed:', exchangeError.message);
+            setError(exchangeError.message);
+            return;
+          }
+          console.log('[auth:callback] PKCE session established');
         } else {
-          // No recognizable auth params — redirect to sign-in
           console.warn('[auth:callback] No code or tokens in callback URL');
           router.replace('/(auth)/sign-in');
         }

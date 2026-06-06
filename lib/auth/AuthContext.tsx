@@ -163,8 +163,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Open the OAuth URL in the system browser.
     // The provider redirects back to groopay://auth/callback → browser closes
     // → openAuthSessionAsync resolves with the callback URL.
-    // We must manually exchange the code for a session because
-    // skipBrowserRedirect: true means Supabase doesn't process the URL internally.
+    // With implicit flow (default on native due to no WebCrypto/SHA256):
+    //   groopay://auth/callback#access_token=...&refresh_token=...
+    // With PKCE flow (if WebCrypto is available):
+    //   groopay://auth/callback?code=...
+    // We handle both, with implicit as the primary path on native.
     if (data?.url) {
       const result = await WebBrowser.openAuthSessionAsync(
         data.url,
@@ -172,34 +175,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
 
       if (result.type === 'success' && result.url) {
-        // Debug: log the full callback URL to diagnose flow type issues
-        console.log('[auth] OAuth callback URL received');
-        console.log('[auth] URL length:', result.url.length);
+        // Debug: log callback URL structure for diagnosis
+        const urlPreview = result.url.length > 200
+          ? result.url.slice(0, 200) + '…'
+          : result.url;
+        console.log('[auth] OAuth callback URL:', urlPreview);
         console.log('[auth] Has query (?):', result.url.includes('?'));
         console.log('[auth] Has fragment (#):', result.url.includes('#'));
 
-        // PKCE flow: code is in the query string → groopay://auth/callback?code=xxx
-        const codeMatch = result.url.match(/[?&]code=([^&#]+)/);
-        const code = codeMatch ? decodeURIComponent(codeMatch[1]) : null;
-
-        // Implicit flow fallback: tokens are in the fragment → groopay://auth/callback#access_token=xxx&refresh_token=yyy
+        // ── Implicit flow (primary on native) ──
+        // Tokens in fragment: groopay://auth/callback#access_token=...&refresh_token=...
         const fragmentMatch = result.url.match(/#(.*)$/);
         const fragment = fragmentMatch ? fragmentMatch[1] : '';
         const accessTokenMatch = fragment.match(/access_token=([^&]+)/);
         const refreshTokenMatch = fragment.match(/refresh_token=([^&]+)/);
 
-        if (code) {
-          console.log('[auth] PKCE code found, exchanging for session...');
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeError) {
-            console.error('[auth] Code exchange failed:', exchangeError.message);
-            throw exchangeError;
-          }
-          console.log('[auth] PKCE code exchange successful');
-          // onAuthStateChange fires SIGNED_IN → profile loaded → index.tsx redirects
-        } else if (accessTokenMatch && refreshTokenMatch) {
-          // Implicit flow fallback — set the session directly from tokens
-          console.log('[auth] Implicit flow tokens found, setting session...');
+        // ── PKCE fallback ──
+        // Code in query: groopay://auth/callback?code=...
+        const codeMatch = result.url.match(/[?&]code=([^&#]+)/);
+        const code = codeMatch ? decodeURIComponent(codeMatch[1]) : null;
+
+        if (accessTokenMatch && refreshTokenMatch) {
+          console.log('[auth] Implicit flow: setting session from fragment tokens…');
           const { error: setSessionError } = await supabase.auth.setSession({
             access_token: decodeURIComponent(accessTokenMatch[1]),
             refresh_token: decodeURIComponent(refreshTokenMatch[1]),
@@ -208,17 +205,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('[auth] setSession failed:', setSessionError.message);
             throw setSessionError;
           }
-          console.log('[auth] Implicit session set successful');
+          console.log('[auth] Implicit session established');
+        } else if (code) {
+          console.log('[auth] PKCE fallback: exchanging code for session (5s timeout)…');
+          // Wrap in a timeout — exchangeCodeForSession can hang if PKCE
+          // code_challenge method = plain is rejected by the server.
+          const exchangePromise = supabase.auth.exchangeCodeForSession(code);
+          const timeoutPromise = new Promise<{ timedOut: true }>((resolve) =>
+            setTimeout(() => resolve({ timedOut: true }), 5000),
+          );
+          const exchangeResult = await Promise.race([exchangePromise, timeoutPromise]);
+
+          if ('timedOut' in exchangeResult) {
+            console.error('[auth] PKCE exchangeCodeForSession timed out after 5s');
+            throw new Error('Oturum açma zaman aşımına uğradı. Lütfen tekrar deneyin.');
+          }
+
+          const { error: exchangeError } = exchangeResult;
+          if (exchangeError) {
+            console.error('[auth] PKCE exchange failed:', exchangeError.message);
+            throw exchangeError;
+          }
+          console.log('[auth] PKCE session established');
         } else {
           // No recognizable auth params — try getSession as last resort
-          console.warn('[auth] No code or tokens in callback URL');
+          console.warn('[auth] No code or tokens in callback URL — trying getSession…');
           const { data: sessionCheck } = await supabase.auth.getSession();
           if (sessionCheck.session) {
-            console.log('[auth] Session found via getSession (was already established)');
+            console.log('[auth] Session found via getSession (already established)');
           } else {
             console.warn('[auth] No session established after OAuth callback');
           }
         }
+
+        // onAuthStateChange fires SIGNED_IN → profile loaded → index.tsx redirects
       } else if (result.type === 'cancel') {
         console.log('[auth] OAuth browser cancelled by user');
       }

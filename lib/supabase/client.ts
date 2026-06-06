@@ -11,6 +11,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
-    flowType: 'pkce',
+    // Implicit flow: tokens are returned in the URL fragment (#access_token=...)
+    // on native. We handle this manually in AuthContext because React Native
+    // lacks WebCrypto for PKCE SHA256 (falls back to plain, which may hang).
+    flowType: 'implicit',
   },
 });

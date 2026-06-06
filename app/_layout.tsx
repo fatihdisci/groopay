@@ -1,3 +1,7 @@
+// react-native-get-random-values MUST be imported first — before anything
+// that depends on crypto.getRandomValues (Supabase auth PKCE).
+import 'react-native-get-random-values';
+
 import { useEffect, useCallback } from 'react';
 import { View } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
