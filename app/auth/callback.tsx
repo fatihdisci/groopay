@@ -47,33 +47,45 @@ export default function AuthCallbackScreen() {
 
           if (access_token) {
             try {
-              console.log('[auth:callback] Calling setSession…');
-              const setSessionPromise = supabase.auth.setSession({
-                access_token,
-                refresh_token: refresh_token ?? '',
-              });
-              const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
-                setTimeout(() => resolve({ _timedOut: true }), 8000),
+              // ── Diagnostic: verify token before trying to store session ──
+              console.log('[auth:callback] Diagnostic: getUser with access_token…');
+              const userPromise = supabase.auth.getUser(access_token);
+              const userTimeoutPromise = new Promise<{ _userTimedOut: true }>((resolve) =>
+                setTimeout(() => resolve({ _userTimedOut: true }), 6000),
               );
-              const sessionResult = await Promise.race([setSessionPromise, timeoutPromise]);
+              const userResult = await Promise.race([userPromise, userTimeoutPromise]);
 
-              if ('_timedOut' in sessionResult) {
-                console.error('[auth:callback] setSession timed out after 8s');
-                setError('Oturum açma zaman aşımına uğradı. Lütfen tekrar deneyin.');
+              if ('_userTimedOut' in userResult) {
+                console.error('[auth:callback] getUser timed out — API unreachable or bad token');
+                setError('Sunucuya ulaşılamıyor. Lütfen internet bağlantınızı kontrol edin.');
                 return;
               }
 
-              const { data: sessionData, error: setSessionError } = sessionResult;
-              console.log('[auth:callback] setSession result:', sessionData?.session ? 'SESSION OK' : 'NO SESSION');
+              const { data: userData, error: userError } = userResult;
+              if (userError) {
+                console.error('[auth:callback] getUser failed:', userError.message);
+                setError(userError.message);
+                return;
+              }
+              console.log('[auth:callback] getUser OK — token valid, user:', userData?.user?.id);
+
+              // Token is valid — persist the session
+              console.log('[auth:callback] Persisting session via setSession…');
+              const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
+                access_token,
+                refresh_token: refresh_token ?? '',
+              });
+
+              console.log('[auth:callback] setSession:', sessionData?.session ? 'OK' : 'NO SESSION');
               if (setSessionError) {
                 console.error('[auth:callback] setSession error:', setSessionError.message);
                 setError(setSessionError.message);
                 return;
               }
-              console.log('[auth:callback] Session established, user:', sessionData?.session?.user?.id);
+              console.log('[auth:callback] Session persisted, user:', sessionData?.session?.user?.id);
               // index.tsx will redirect based on user state (via onAuthStateChange)
             } catch (e: any) {
-              console.error('[auth:callback] setSession exception:', e?.message ?? e);
+              console.error('[auth:callback] Exception:', e?.message ?? e);
               setError(e?.message ?? 'Unknown error');
               return;
             }

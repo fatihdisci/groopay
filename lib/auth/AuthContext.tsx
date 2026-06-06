@@ -201,31 +201,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (access_token) {
             try {
-              console.log('[auth] Implicit flow: calling setSession…');
-              const setSessionPromise = supabase.auth.setSession({
+              // ── Diagnostic: verify token validity before setSession ──
+              // setSession internally calls GET /auth/v1/user — if this hangs,
+              // it means the token is invalid or the Supabase API is unreachable.
+              // By calling getUser first, we isolate the API call from storage.
+              console.log('[auth] Diagnostic: calling getUser with access_token…');
+              const userPromise = supabase.auth.getUser(access_token);
+              const userTimeoutPromise = new Promise<{ _userTimedOut: true }>((resolve) =>
+                setTimeout(() => resolve({ _userTimedOut: true }), 6000),
+              );
+              const userResult = await Promise.race([userPromise, userTimeoutPromise]);
+
+              if ('_userTimedOut' in userResult) {
+                console.error('[auth] getUser timed out (6s) — Supabase API unreachable or token invalid');
+                throw new Error('Sunucuya ulaşılamıyor. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.');
+              }
+
+              const { data: userData, error: userError } = userResult;
+              if (userError) {
+                console.error('[auth] getUser failed — token may be invalid:', userError.message);
+                throw userError;
+              }
+              console.log('[auth] getUser SUCCESS — token is valid, user ID:', userData?.user?.id);
+
+              // Token verified — now store the session
+              console.log('[auth] Token valid, calling setSession to persist…');
+              const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
                 access_token,
                 refresh_token: refresh_token ?? '',
               });
-              const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
-                setTimeout(() => resolve({ _timedOut: true }), 8000),
-              );
-              const sessionResult = await Promise.race([setSessionPromise, timeoutPromise]);
 
-              if ('_timedOut' in sessionResult) {
-                console.error('[auth] setSession timed out after 8s');
-                throw new Error('Oturum açma zaman aşımına uğradı. Lütfen tekrar deneyin.');
-              }
-
-              const { data: sessionData, error: setSessionError } = sessionResult;
               console.log('[auth] setSession result:', sessionData?.session ? 'SESSION OK' : 'NO SESSION');
               if (setSessionError) {
                 console.error('[auth] setSession error:', setSessionError.message);
                 throw setSessionError;
               }
-              console.log('[auth] Implicit session established, user:', sessionData?.session?.user?.id);
+              console.log('[auth] Session persisted, user:', sessionData?.session?.user?.id);
               // onAuthStateChange fires SIGNED_IN → profile loaded → index.tsx redirects
             } catch (e: any) {
-              console.error('[auth] setSession exception:', e?.message ?? e);
+              console.error('[auth] Session establishment failed:', e?.message ?? e);
               throw e;
             }
           } else {
