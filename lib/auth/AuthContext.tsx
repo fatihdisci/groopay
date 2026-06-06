@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import type { Session } from '@supabase/supabase-js';
 import {
   supabase,
   supabaseAuth,
@@ -14,14 +14,14 @@ import type { ProfileRow } from '@/lib/supabase/types';
 import type { Profile, OAuthProvider } from './types';
 
 // ──────────────────────────────────────
-// Faz 8: Anonymous auth replaced with Google + Apple OAuth.
+// Faz 8: Google + Apple OAuth and production guest auth.
 //
 // Token strategy (June 2026):
-//   setSession/getSession HANG on React Native (supabase-js bug).
-//   We use the accessToken callback in createClient — it injects
+//   The DB client never uses Supabase session APIs. Its accessToken callback injects
 //   Authorization: Bearer <token> on every request without needing
 //   a Supabase session. auth.uid() works via the JWT sub claim.
-//   setSession/getSession are NEVER called.
+//   The separate auth client owns OAuth, guest auth, and identity linking.
+//   setSession is used only to restore a guest session before linkIdentity.
 // ──────────────────────────────────────
 
 const STORAGE_KEY_ONBOARDED = 'groopay:onboarded';
@@ -29,10 +29,11 @@ const STORAGE_KEY_DEMO_GROUP = 'groopay:demo_group';
 
 interface AuthContextValue {
   user: Profile | null;
+  isAnonymous: boolean;
   isLoading: boolean;
   isOnboarded: boolean;
   signIn: () => Promise<void>;
-  signInWithProvider: (provider: OAuthProvider) => Promise<void>;
+  signInWithProvider: (provider: OAuthProvider) => Promise<boolean>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Pick<Profile, 'display_name' | 'avatar_color' | 'locale' | 'preferred_currency'>>) => Promise<void>;
   setOnboarded: () => Promise<void>;
@@ -80,8 +81,106 @@ async function syncOnboardingFlag(userId: string): Promise<boolean> {
   return true;
 }
 
+interface CompletedOAuthSignIn {
+  userId: string;
+  profile: Profile;
+  isAnonymous: boolean;
+  profileNeedsRetry: boolean;
+}
+
+async function completeOAuthSignIn(
+  callbackUrl: string,
+  expectedUserId?: string,
+): Promise<CompletedOAuthSignIn> {
+  const hashIndex = callbackUrl.indexOf('#');
+  if (hashIndex < 0) {
+    throw new Error('No authentication tokens returned');
+  }
+
+  const params = new URLSearchParams(callbackUrl.slice(hashIndex + 1));
+  const callbackError = params.get('error_description') ?? params.get('error');
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+
+  if (callbackError) {
+    throw new Error(callbackError);
+  }
+  if (!accessToken) {
+    throw new Error('No access token returned');
+  }
+
+  const { data: userData, error: userError } = await supabaseAuth.auth.getUser(accessToken);
+  if (userError || !userData.user) {
+    throw new Error(userError?.message ?? 'No user returned');
+  }
+
+  if (expectedUserId && userData.user.id !== expectedUserId) {
+    throw new Error('Identity linking returned a different user');
+  }
+  if (expectedUserId && userData.user.is_anonymous !== false) {
+    throw new Error('Identity linking did not complete');
+  }
+
+  setSupabaseAccessToken(accessToken);
+  await AsyncStorage.setItem(STORAGE_KEY_ACCESS_TOKEN, accessToken);
+  if (refreshToken) {
+    await AsyncStorage.setItem(STORAGE_KEY_REFRESH_TOKEN, refreshToken);
+  }
+
+  const profile = await fetchProfile(userData.user.id);
+  if (profile) {
+    return {
+      userId: userData.user.id,
+      profile: profileRowToProfile(profile),
+      isAnonymous: userData.user.is_anonymous ?? false,
+      profileNeedsRetry: false,
+    };
+  }
+
+  return {
+    userId: userData.user.id,
+    profile: {
+      id: userData.user.id,
+      display_name:
+        userData.user.user_metadata?.full_name ??
+        userData.user.user_metadata?.name ??
+        'Kullanıcı',
+      avatar_color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]!,
+      locale: 'tr',
+      preferred_currency: null,
+      user_pro: false,
+      user_pro_purchased_at: null,
+    },
+    isAnonymous: userData.user.is_anonymous ?? false,
+    profileNeedsRetry: true,
+  };
+}
+
+async function restoreAuthSessionForIdentityLinking(): Promise<Session | null> {
+  const [accessToken, refreshToken] = await AsyncStorage.multiGet([
+    STORAGE_KEY_ACCESS_TOKEN,
+    STORAGE_KEY_REFRESH_TOKEN,
+  ]);
+  const storedAccessToken = accessToken[1];
+  const storedRefreshToken = refreshToken[1];
+
+  if (!storedAccessToken || !storedRefreshToken) return null;
+
+  const sessionResult = await Promise.race([
+    supabaseAuth.auth.setSession({
+      access_token: storedAccessToken,
+      refresh_token: storedRefreshToken,
+    }),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+  ]);
+
+  if (!sessionResult || sessionResult.error) return null;
+  return sessionResult.data.session;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Profile | null>(null);
+  const [isAnonymous, setIsAnonymous] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isOnboarded, setIsOnboarded] = useState(false);
 
@@ -105,6 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await AsyncStorage.multiRemove([STORAGE_KEY_ACCESS_TOKEN, STORAGE_KEY_REFRESH_TOKEN]);
           } else {
             console.log('[auth] Token valid, user:', userData.user.id);
+            setIsAnonymous(userData.user.is_anonymous ?? false);
             const profile = await fetchProfile(userData.user.id);
             if (profile) {
               setUser(profileRowToProfile(profile));
@@ -129,22 +229,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithProvider = useCallback(async (provider: OAuthProvider) => {
     // The dedicated auth client can inspect its in-memory session without
     // affecting the access-token client used for DB queries.
+    let authSession: Session | null = null;
     try {
       const { data: { session } } = await supabaseAuth.auth.getSession();
-      const isAnonymous = session?.user?.is_anonymous ?? false;
-
-      if (isAnonymous) {
-        const { error: linkError } = await supabaseAuth.auth.linkIdentity({ provider });
-        if (!linkError) {
-          await new Promise((r) => setTimeout(r, 300));
-          const profile = await fetchProfile(session!.user.id);
-          if (profile) setUser(profileRowToProfile(profile));
-          return;
-        }
-        console.log('[auth] linkIdentity failed, signing in as new user:', linkError.message);
-      }
+      authSession = session;
     } catch {
-      console.log('[auth] Auth session unavailable, skipping anon check');
+      console.log('[auth] Auth session unavailable, proceeding with OAuth');
+    }
+
+    if (isAnonymous) {
+      if (!authSession?.user?.is_anonymous) {
+        authSession = await restoreAuthSessionForIdentityLinking();
+      }
+      if (!authSession?.user?.is_anonymous) {
+        throw new Error('Anonymous session is unavailable for identity linking');
+      }
+
+      const anonymousUserId = authSession.user.id;
+      const { data: linkData, error: linkError } = await supabaseAuth.auth.linkIdentity({
+        provider,
+        options: {
+          skipBrowserRedirect: true,
+          redirectTo: 'groopay://auth/callback',
+        },
+      });
+
+      if (linkError) {
+        console.error('[auth] linkIdentity failed:', linkError.message);
+        throw linkError;
+      }
+      if (!linkData.url) {
+        throw new Error('Identity linking URL was not returned');
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(
+        linkData.url,
+        'groopay://auth/callback',
+      );
+      if (result.type !== 'success' || !result.url) return false;
+
+      const linkedUser = await completeOAuthSignIn(result.url, anonymousUserId);
+      setUser(linkedUser.profile);
+      setIsAnonymous(false);
+      if (linkedUser.profileNeedsRetry) {
+        setTimeout(async () => {
+          const retry = await fetchProfile(linkedUser.userId);
+          if (retry) setUser(profileRowToProfile(retry));
+        }, 1500);
+      }
+      return true;
     }
 
     // Standard OAuth sign-in
@@ -165,99 +298,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await WebBrowser.openAuthSessionAsync(data.url, 'groopay://auth/callback');
 
       if (result.type === 'success' && result.url) {
-        const urlPreview = result.url.length > 200 ? result.url.slice(0, 200) + '…' : result.url;
-        console.log('[auth] OAuth callback URL:', urlPreview);
-
-        // Parse tokens from fragment: groopay://auth/callback#access_token=...&...
-        const hashIndex = result.url.indexOf('#');
-        if (hashIndex < 0) {
-          console.warn('[auth] No fragment in callback URL');
-          return;
-        }
-
-        const fragment = result.url.slice(hashIndex + 1);
-        console.log('[auth] All fragment params:', fragment);
-
-        const params = new URLSearchParams(fragment);
-        const access_token = params.get('access_token');
-        const refresh_token = params.get('refresh_token');
-        const expires_in = params.get('expires_in');
-        const token_type = params.get('token_type');
-
-        console.log('[auth] Token preview — access:', access_token?.substring(0, 20) + '…');
-        console.log('[auth] Token preview — refresh:', refresh_token?.substring(0, 20) + '…');
-        console.log('[auth] expires_in:', expires_in, 'token_type:', token_type);
-
-        if (!access_token) {
-          console.warn('[auth] No access_token in fragment');
-          return;
-        }
-
-        // ── Step 1: verify token ──
-        console.log('[auth] Step 1: getUser…');
-        const { data: userData, error: userError } = await supabaseAuth.auth.getUser(access_token);
-        if (userError || !userData?.user) {
-          const msg = userError?.message ?? 'No user returned';
-          console.error('[auth] getUser failed:', msg);
-          throw new Error(msg);
-        }
-        console.log('[auth] getUser OK, user:', userData.user.id);
-
-        // ── Step 2: set token via callback → all subsequent requests use it ──
-        // This is the CRITICAL step. The accessToken callback in createClient
-        // returns this token on every request → auth.uid() = JWT sub → RLS works.
-        console.log('[auth] Step 2: setSupabaseAccessToken → auth.uid() now works');
-        setSupabaseAccessToken(access_token);
-
-        // ── Step 3: persist tokens for cold start ──
-        await AsyncStorage.setItem(STORAGE_KEY_ACCESS_TOKEN, access_token);
-        if (refresh_token) {
-          await AsyncStorage.setItem(STORAGE_KEY_REFRESH_TOKEN, refresh_token);
-        }
-        console.log('[auth] Tokens persisted to AsyncStorage');
-
-        // ── Step 4: fetch profile (RLS now passes because auth.uid() = user.id) ──
-        console.log('[auth] Step 4: fetch profile…');
-        let profile = await fetchProfile(userData.user.id);
-
-        if (profile) {
-          setUser(profileRowToProfile(profile));
-          console.log('[auth] Profile loaded:', profile.display_name);
-        } else {
-          // handle_new_user trigger (migration 0015) may not have fired yet
-          console.log('[auth] Profile not in DB yet — in-memory fallback + retry');
-          const fallbackName =
-            userData.user.user_metadata?.full_name ??
-            userData.user.user_metadata?.name ??
-            'Kullanıcı';
-          const fallbackColor =
-            AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]!;
-
-          setUser({
-            id: userData.user.id,
-            display_name: fallbackName,
-            avatar_color: fallbackColor,
-            locale: 'tr',
-            preferred_currency: null,
-            user_pro: false,
-            user_pro_purchased_at: null,
-          });
-
+        const completed = await completeOAuthSignIn(result.url);
+        setUser(completed.profile);
+        setIsAnonymous(completed.isAnonymous);
+        if (completed.profileNeedsRetry) {
           setTimeout(async () => {
-            const retry = await fetchProfile(userData.user.id);
-            if (retry) {
-              setUser(profileRowToProfile(retry));
-              console.log('[auth] Retry: profile loaded from DB');
-            }
+            const retry = await fetchProfile(completed.userId);
+            if (retry) setUser(profileRowToProfile(retry));
           }, 1500);
         }
+        return true;
       } else if (result.type === 'cancel') {
         console.log('[auth] OAuth browser cancelled by user');
       }
     }
-  }, []);
+    return false;
+  }, [isAnonymous]);
 
-  // ── ANONYMOUS SIGN-IN (dev fallback, Expo Go) ──
+  // ── GUEST SIGN-IN ──
   const signIn = useCallback(async () => {
     const { data, error } = await supabaseAuth.auth.signInAnonymously();
 
@@ -267,6 +325,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (data.user && data.session) {
+      setIsAnonymous(true);
       setSupabaseAccessToken(data.session.access_token);
       await AsyncStorage.setItem(STORAGE_KEY_ACCESS_TOKEN, data.session.access_token);
       if (data.session.refresh_token) {
@@ -312,6 +371,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       STORAGE_KEY_ONBOARDED,
     ]);
     setUser(null);
+    setIsAnonymous(false);
     setIsOnboarded(false);
   }, []);
 
@@ -357,7 +417,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, isLoading, isOnboarded, signIn, signInWithProvider, signOut, updateProfile, setOnboarded }}
+      value={{
+        user,
+        isAnonymous,
+        isLoading,
+        isOnboarded,
+        signIn,
+        signInWithProvider,
+        signOut,
+        updateProfile,
+        setOnboarded,
+      }}
     >
       {children}
     </AuthContext.Provider>

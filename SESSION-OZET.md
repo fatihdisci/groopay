@@ -45,7 +45,7 @@ Detaylar için: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
 | Faz | Ne | Durum |
 |---|---|---|
 | 0 | Proje iskeleti, Expo SDK 54, i18n, theme | ✅ |
-| 1A | Anonim auth (Supabase), profil, onboarding, demo grup | ✅ |
+| 1A | Misafir auth (Supabase), profil, onboarding, demo grup | ✅ |
 | 2 | Veritabanı şeması (8 tablo), RLS, migration | ✅ |
 | 3 | Grup CRUD, hayalet üye, davet kodu, katılma + claim | ✅ |
 | 4 | Masraf CRUD + bölüşme + çoklu para birimi | ✅ |
@@ -58,7 +58,7 @@ Detaylar için: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
 
 ## Önemli Mimari Kararlar (güncel — Haziran 2026)
 
-1. **Auth:** `lib/auth/AuthContext.tsx` — `useAuth()` hook'u. Anonim auth aktif. Profile `user_pro` içeriyor.
+1. **Auth:** `lib/auth/AuthContext.tsx` — Google + Apple OAuth ve production misafir girişi birlikte aktif. Misafir hesap Pro satın almadan önce `linkIdentity` ile aynı user ID üzerinde OAuth hesabına yükseltilir; mevcut grup ve masraf verileri korunur.
 2. **Hayalet üye:** `group_members.user_id = NULL`. Claim → aynı satıra `user_id` yazılır.
 3. **Para:** ASLA float, integer kuruş + Postgres numeric.
 4. **FX:** Masraf orijinal para biriminde saklanır. Çevrim sadece görüntüleme (canlı kur, kaydedilmez).
@@ -214,7 +214,7 @@ npx expo start --tunnel --clear
 
 ## Faz 8 İçin Kalanlar
 
-- Google + Apple OAuth (şu an anonim auth)
+- Google + Apple OAuth ve misafir giriş aktif; production cihazında anonim → OAuth veri koruma akışı doğrulanacak
 - EAS dev build (EAS Build ile iOS + Android)
 - RevenueCat webhook deploy + gerçek IAP testi (sandbox)
 - send-push + delete-account Edge Function deploy

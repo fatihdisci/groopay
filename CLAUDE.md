@@ -69,8 +69,10 @@
 - RLS: use `SECURITY DEFINER` function to avoid recursion trap.
 
 ## Auth (Phase 8)
-- Anonymous auth is retired for production direction.
-- Google + Apple Sign-In only (Supabase OAuth).
+- Guest (anonymous) sign-in is active in production alongside Google + Apple Supabase OAuth.
+- Guests keep full access to core group, expense, balance, and invite flows.
+- Before a Pro purchase, guests must link Google or Apple. `linkIdentity` upgrades the same `auth.users` row, so the user ID and existing data are preserved.
+- If identity linking fails, do not fall back to a new OAuth user and do not start the purchase.
 - No password storage.
 - Apple requires "Sign in with Apple" when third-party sign-in is offered.
 

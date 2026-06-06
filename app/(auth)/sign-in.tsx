@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  Platform,
   Linking,
   Image,
 } from 'react-native';
@@ -26,13 +25,14 @@ export default function SignInScreen() {
   const { t } = useTranslation();
   const { signIn, signInWithProvider } = useAuth();
   const router = useRouter();
-  const [inProgress, setInProgress] = useState<OAuthProvider | 'anon' | null>(null);
+  const [inProgress, setInProgress] = useState<OAuthProvider | 'guest' | null>(null);
 
   const handleOAuth = async (provider: OAuthProvider) => {
     if (inProgress) return;
     setInProgress(provider);
     try {
-      await signInWithProvider(provider);
+      const signedIn = await signInWithProvider(provider);
+      if (!signedIn) return;
       // AuthContext user state is set directly (bypassing Supabase session).
       // Navigate to root — index.tsx re-evaluates and redirects to
       // dashboard (returning user) or onboarding (new user).
@@ -44,9 +44,9 @@ export default function SignInScreen() {
     }
   };
 
-  const handleDevSignIn = async () => {
+  const handleGuestSignIn = async () => {
     if (inProgress) return;
-    setInProgress('anon');
+    setInProgress('guest');
     try {
       await signIn();
       router.replace('/(onboarding)/intro');
@@ -117,41 +117,31 @@ export default function SignInScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Expo Go notice */}
-          {Platform.OS !== 'web' && (
-            <Text style={styles.oauthNotice}>{t('auth.oauthNotice')}</Text>
-          )}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>{t('auth.or')}</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
-          {/* DEV-only: Test user button */}
-          {__DEV__ && (
-            <>
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>{t('auth.devSection')}</Text>
-                <View style={styles.dividerLine} />
-              </View>
+          <TouchableOpacity
+            style={[styles.guestButton, isBusy && styles.buttonDisabled]}
+            onPress={handleGuestSignIn}
+            activeOpacity={0.7}
+            disabled={isBusy}
+            accessibilityRole="button"
+            accessibilityLabel={t('auth.continueAsGuest')}
+          >
+            {inProgress === 'guest' ? (
+              <ActivityIndicator size="small" color={Colors.primary} />
+            ) : (
+              <>
+                <Ionicons name="person-outline" size={18} color={Colors.primary} />
+                <Text style={styles.guestButtonText}>{t('auth.continueAsGuest')}</Text>
+              </>
+            )}
+          </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.devButton, isBusy && styles.buttonDisabled]}
-                onPress={handleDevSignIn}
-                activeOpacity={0.7}
-                disabled={isBusy}
-                accessibilityRole="button"
-                accessibilityLabel={t('auth.devSignIn')}
-              >
-                {inProgress === 'anon' ? (
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                ) : (
-                  <>
-                    <Ionicons name="flask-outline" size={18} color={Colors.primary} />
-                    <Text style={styles.devButtonText}>{t('auth.devSignIn')}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <Text style={styles.devNotice}>{t('auth.devNotice')}</Text>
-            </>
-          )}
+          <Text style={styles.guestNotice}>{t('auth.guestNotice')}</Text>
 
           {/* Legal disclaimer */}
           <Text style={styles.legalText}>{t('auth.legalDisclaimer')}</Text>
@@ -271,14 +261,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
 
-  // ── OAuth notice ──
-  oauthNotice: {
-    textAlign: 'center',
-    fontSize: 12,
-    color: Colors.textTertiary,
-    marginTop: Spacing.sm,
-  },
-
   // ── Divider ──
   divider: {
     width: '100%',
@@ -299,8 +281,8 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontBody,
   },
 
-  // ── Dev button ──
-  devButton: {
+  // ── Guest button ──
+  guestButton: {
     width: '100%',
     maxWidth: 340,
     flexDirection: 'row',
@@ -314,12 +296,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     minHeight: 44,
   },
-  devButtonText: {
+  guestButtonText: {
     fontFamily: Typography.fontBodyMedium,
     fontSize: 14,
     color: Colors.primary,
   },
-  devNotice: {
+  guestNotice: {
     textAlign: 'center',
     fontSize: 11,
     color: Colors.textTertiary,

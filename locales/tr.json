@@ -261,6 +261,9 @@
     "tagline": "Masrafları böl, hesaplar netleşsin",
     "googleSignIn": "Google ile devam et",
     "appleSignIn": "Apple ile devam et",
+    "or": "veya",
+    "continueAsGuest": "Misafir olarak devam et",
+    "guestNotice": "Hesap oluşturmadan hemen başla. Sonra Google veya Apple ile bağlayabilirsin.",
     "legalDisclaimer": "Devam ederek Kullanım Koşulları ve Gizlilik Politikası'nı kabul etmiş olursunuz",
     "termsLink": "Kullanım Koşulları",
     "privacyLink": "Gizlilik Politikası",
@@ -329,6 +332,8 @@
     "devBuildTitle": "Pro Özelliği",
     "devBuildMessage": "Satın alma işlemi sadece gerçek uygulama derlemesinde (dev build) kullanılabilir. Expo Go'da test edilemez.",
     "devBuildNotice": "Satın alma dev build'de aktif — Expo Go'da test edilemez",
+    "guestSignInRequired": "Pro aboneliğin hesabına bağlanır. Aboneliğini kaybetmemek için önce Google veya Apple ile giriş yap.",
+    "guestUpgradeFailed": "Hesap bağlanamadı. Google veya Apple hesabın başka bir kullanıcıya bağlı olabilir. Misafir verilerin korunuyor ve satın alma başlatılmadı.",
     "alreadyPro": "Zaten Pro'sunuz!",
     "alreadyProSub": "Tüm Pro özellikleri hesabınızda aktif.",
     "finePrint": "Satın alımlar Apple/Google üzerinden işlenir. Geri yükleme her zaman yapılabilir."

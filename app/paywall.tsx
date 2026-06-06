@@ -13,6 +13,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
+import { useAuth } from '@/lib/auth';
+import type { OAuthProvider } from '@/lib/auth';
 import {
   isRevenueCatAvailable,
   getOfferings,
@@ -34,6 +36,7 @@ const PRO_FEATURES: ProFeature[] = [
 export default function PaywallScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { isAnonymous, signInWithProvider } = useAuth();
   const { isUserPro } = usePro();
 
   const params = useLocalSearchParams<{ context?: string; groupId?: string }>();
@@ -64,28 +67,66 @@ export default function PaywallScreen() {
     };
   }, []);
 
-  const handlePurchaseUserPro = async () => {
+  const purchaseUserProNow = async () => {
     if (!offerings?.userPro?.id) {
       Alert.alert(t('paywall.unavailable'), t('paywall.noProduct'));
-      return;
+      return false;
     }
     if (!isRevenueCatAvailable()) {
       Alert.alert(t('paywall.devBuildTitle'), t('paywall.devBuildMessage'));
+      return false;
+    }
+
+    const result = await purchaseUserPro(offerings.userPro.id);
+    if (result.devBuildRequired) {
+      Alert.alert(t('paywall.devBuildTitle'), t('paywall.devBuildMessage'));
+    } else if (result.success) {
+      Alert.alert(t('paywall.successTitle'), t('paywall.userProSuccess'), [
+        { text: t('paywall.ok'), onPress: () => router.back() },
+      ]);
+    } else if (result.error !== 'cancelled') {
+      Alert.alert(t('paywall.errorTitle'), result.error);
+    }
+    return result.success;
+  };
+
+  const handleGuestUpgrade = async (provider: OAuthProvider) => {
+    setPurchasing('user');
+    try {
+      const upgraded = await signInWithProvider(provider);
+      if (!upgraded) return;
+      await purchaseUserProNow();
+    } catch (error: unknown) {
+      console.error('[paywall] Guest identity upgrade failed:', error);
+      Alert.alert(t('paywall.errorTitle'), t('paywall.guestUpgradeFailed'));
+    } finally {
+      setPurchasing(null);
+    }
+  };
+
+  const handlePurchaseUserPro = async () => {
+    if (isAnonymous) {
+      Alert.alert(t('paywall.title'), t('paywall.guestSignInRequired'), [
+        {
+          text: t('auth.googleSignIn'),
+          onPress: () => {
+            void handleGuestUpgrade('google');
+          },
+        },
+        {
+          text: t('auth.appleSignIn'),
+          onPress: () => {
+            void handleGuestUpgrade('apple');
+          },
+        },
+        { text: t('groups.cancel'), style: 'cancel' },
+      ]);
       return;
     }
 
     setPurchasing('user');
     try {
-      const result = await purchaseUserPro(offerings.userPro.id);
-      if (result.devBuildRequired) {
-        Alert.alert(t('paywall.devBuildTitle'), t('paywall.devBuildMessage'));
-      } else if (result.success) {
-        Alert.alert(t('paywall.successTitle'), t('paywall.userProSuccess'), [
-          { text: t('paywall.ok'), onPress: () => router.back() },
-        ]);
-      } else if (result.error !== 'cancelled') {
-        Alert.alert(t('paywall.errorTitle'), result.error);
-      }
+      await purchaseUserProNow();
     } finally {
       setPurchasing(null);
     }

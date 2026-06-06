@@ -178,6 +178,9 @@
     "tagline": "Split expenses, settle up",
     "googleSignIn": "Continue with Google",
     "appleSignIn": "Continue with Apple",
+    "or": "or",
+    "continueAsGuest": "Continue as guest",
+    "guestNotice": "Start right away without creating an account. You can link Google or Apple later.",
     "legalDisclaimer": "By continuing, you agree to our Terms of Service and Privacy Policy",
     "termsLink": "Terms of Service",
     "privacyLink": "Privacy Policy",
@@ -332,6 +335,8 @@
     "devBuildTitle": "Pro Feature",
     "devBuildMessage": "Purchases are only available in the real app build (dev build). Cannot test in Expo Go.",
     "devBuildNotice": "Purchases active in dev build — cannot test in Expo Go",
+    "guestSignInRequired": "Your Pro subscription is linked to your account. Sign in with Google or Apple first so you do not lose access to it.",
+    "guestUpgradeFailed": "The account could not be linked. Your Google or Apple account may already belong to another user. Your guest data is safe and the purchase was not started.",
     "alreadyPro": "You're already Pro!",
     "alreadyProSub": "All Pro features are active on your account.",
     "finePrint": "Purchases are processed through Apple/Google. Restoration is always available."

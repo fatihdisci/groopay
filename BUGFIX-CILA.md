@@ -2640,3 +2640,49 @@ npx supabase functions deploy revenuecat-webhook
 | `.env` ve API key'ler commit dışında | ✅ |
 
 *Son güncelleme: 2026-06-06 — B114 eklendi*
+
+---
+
+### ✅ B115: Production misafir girişi ve Pro hesap yükseltme
+
+**Sorun:**
+- Çalışan Supabase anonim auth altyapısı yalnızca `__DEV__` test butonunun arkasındaydı; production kullanıcısı hesap oluşturmadan başlayamıyordu.
+- Misafir kullanıcı Pro satın almayı başlatırsa aboneliğin kalıcı bir OAuth hesabına bağlanmasını ve anonim verilerin korunmasını garanti eden bir kapı yoktu.
+- Mevcut `linkIdentity` dalı provider URL'sini açmadan başarı kabul edebiliyor ve hata halinde yeni OAuth kullanıcısına düşebiliyordu.
+
+**Yapılan:**
+- Giriş ekranına production'da görünen, düşük vurgulu `Misafir olarak devam et` butonu ve açıklaması eklendi.
+- Mevcut `signIn()` / `signInAnonymously()` akışı aynen kullanıldı; yeni Supabase client veya anonim akış oluşturulmadı.
+- AuthContext doğrulanmış Supabase user bilgisinden `isAnonymous` state'i sunacak şekilde güncellendi.
+- Anonim → Google/Apple yükseltmesi `linkIdentity` provider URL'sini açacak ve callback tokenını doğrulayacak şekilde tamamlandı.
+- Yükseltme sonrasında dönen user ID anonim user ID ile karşılaştırılıyor; ID değişirse işlem hata veriyor.
+- Cold start sonrasında identity linking için saklanan anonim access/refresh tokenlarla mevcut auth client session'ı kontrollü olarak hazırlanıyor.
+- `linkIdentity` başarısız olduğunda yeni OAuth hesabına fallback kaldırıldı; anonim veri korunuyor ve satın alma başlatılmıyor.
+- Paywall satın alma CTA'sı misafir kullanıcıya Google/Apple seçimi gösteriyor; aynı kullanıcı üzerinde yükseltme başarılı olursa mevcut RevenueCat satın alma akışına devam ediyor.
+- Grup oluşturma, gruba katılma, masraf, bölüşme, bakiye ve davet akışlarına misafir kısıtı eklenmedi.
+- Auth kararları `CLAUDE.md` ve `SESSION-OZET.md` içinde güncellendi.
+
+**Değişen dosyalar:** `app/(auth)/sign-in.tsx`, `app/paywall.tsx`, `lib/auth/AuthContext.tsx`, `lib/auth/types.ts`, `locales/tr.json`, `locales/en.json`, `CLAUDE.md`, `SESSION-OZET.md`, `BUGFIX-CILA.md`
+
+**Nasıl test edilir:**
+1. Production/dev build giriş ekranında `Misafir olarak devam et` butonuna bas ve onboarding'i tamamla.
+2. Misafir olarak grup oluştur, masraf ekle ve davet koduyla başka gruba katıl.
+3. Misafir hesabın user ID'sini ve oluşturduğu grup/masraf kayıtlarını not et.
+4. Paywall'da `Pro'ya Geç` butonuna bas, Google veya Apple seç ve OAuth'u tamamla.
+5. Yükseltme sonrası user ID'nin değişmediğini ve önceki grup/masrafların görünmeye devam ettiğini doğrula.
+6. Başka kullanıcıya bağlı provider ile denendiğinde satın almanın başlamadığını ve anonim verinin silinmediğini doğrula.
+
+| Kontrol | Durum |
+|---|---|
+| Misafir butonu production'da görünür | ✅ |
+| Mevcut anonim auth akışı yeniden kullanıldı | ✅ |
+| İki-client Supabase mimarisi korundu | ✅ |
+| Temel özelliklere misafir kısıtı eklenmedi | ✅ |
+| Pro satın alma öncesi OAuth yükseltme zorunlu | ✅ |
+| `linkIdentity` sonrası aynı user ID doğrulanıyor | ✅ |
+| Link hatasında yeni kullanıcı fallback'i yok | ✅ |
+| TR/EN i18n anahtarları eklendi | ✅ |
+| `npx tsc --noEmit` temiz | ✅ |
+| `npm test` 87/87 geçti | ✅ |
+
+*Son güncelleme: 2026-06-06 — B115 eklendi*

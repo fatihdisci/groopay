@@ -10,6 +10,7 @@ export interface Profile {
 
 export interface AuthState {
   user: Profile | null;
+  isAnonymous: boolean;
   isLoading: boolean;
 }
 
