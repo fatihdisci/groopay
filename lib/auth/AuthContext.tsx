@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { Platform } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '@/lib/supabase/client';
+import { supabase, SUPABASE_STORAGE_KEY } from '@/lib/supabase/client';
 import { AVATAR_COLORS } from '@/constants/avatarColors';
 import type { ProfileRow } from '@/lib/supabase/types';
 import type { Profile, OAuthProvider } from './types';
@@ -201,43 +201,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
           if (access_token) {
             try {
-              // ── Diagnostic: verify token validity before setSession ──
-              // setSession internally calls GET /auth/v1/user — if this hangs,
-              // it means the token is invalid or the Supabase API is unreachable.
-              // By calling getUser first, we isolate the API call from storage.
-              console.log('[auth] Diagnostic: calling getUser with access_token…');
-              const userPromise = supabase.auth.getUser(access_token);
-              const userTimeoutPromise = new Promise<{ _userTimedOut: true }>((resolve) =>
-                setTimeout(() => resolve({ _userTimedOut: true }), 6000),
-              );
-              const userResult = await Promise.race([userPromise, userTimeoutPromise]);
+              // ── Step 1: verify token with getUser (proven to work) ──
+              console.log('[auth] Step 1: getUser with access_token…');
+              const { data: userData, error: userError } = await supabase.auth.getUser(access_token);
 
-              if ('_userTimedOut' in userResult) {
-                console.error('[auth] getUser timed out (6s) — Supabase API unreachable or token invalid');
-                throw new Error('Sunucuya ulaşılamıyor. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.');
-              }
-
-              const { data: userData, error: userError } = userResult;
               if (userError) {
-                console.error('[auth] getUser failed — token may be invalid:', userError.message);
+                console.error('[auth] getUser failed:', userError.message);
                 throw userError;
               }
-              console.log('[auth] getUser SUCCESS — token is valid, user ID:', userData?.user?.id);
+              console.log('[auth] getUser OK, user:', userData?.user?.id);
 
-              // Token verified — now store the session
-              console.log('[auth] Token valid, calling setSession to persist…');
-              const { data: sessionData, error: setSessionError } = await supabase.auth.setSession({
+              // ── Step 2: try setSession with timeout ──
+              // setSession internally calls _saveSession → storage.setItem which
+              // can hang due to AsyncStorage adapter issues on some RN versions.
+              console.log('[auth] Step 2: setSession (4s timeout)…');
+              const setSessionPromise = supabase.auth.setSession({
                 access_token,
                 refresh_token: refresh_token ?? '',
               });
+              const timeoutPromise = new Promise<{ _timedOut: true }>((resolve) =>
+                setTimeout(() => resolve({ _timedOut: true }), 4000),
+              );
+              const sessionResult = await Promise.race([setSessionPromise, timeoutPromise]);
 
-              console.log('[auth] setSession result:', sessionData?.session ? 'SESSION OK' : 'NO SESSION');
-              if (setSessionError) {
-                console.error('[auth] setSession error:', setSessionError.message);
-                throw setSessionError;
+              if ('_timedOut' in sessionResult) {
+                // ── setSession hung — fallback: manual storage ──
+                console.warn('[auth] setSession timed out — using manual storage fallback');
+                console.log('[auth] Step 3: manually writing session to AsyncStorage…');
+
+                const expiresAt = expires_in
+                  ? Math.floor(Date.now() / 1000) + parseInt(expires_in, 10)
+                  : undefined;
+
+                const sessionPayload = JSON.stringify({
+                  access_token,
+                  refresh_token: refresh_token ?? '',
+                  expires_at: expiresAt,
+                  token_type: token_type ?? 'bearer',
+                  user: userData.user,
+                });
+
+                await AsyncStorage.setItem(SUPABASE_STORAGE_KEY, sessionPayload);
+                console.log('[auth] Manual storage written to:', SUPABASE_STORAGE_KEY);
+
+                // Reload session from storage — this triggers onAuthStateChange
+                console.log('[auth] Reloading session via getSession…');
+                const { data: restored } = await supabase.auth.getSession();
+                if (restored?.session) {
+                  console.log('[auth] Session restored from manual storage, user:', restored.session.user.id);
+                } else {
+                  // Even if getSession doesn't pick it up, onAuthStateChange listener
+                  // will still fire. We already have the user — set it directly.
+                  console.log('[auth] getSession returned no session — manually setting user');
+                  const profile = await fetchProfile(userData.user.id);
+                  if (profile) {
+                    setUser(profileRowToProfile(profile));
+                  }
+                }
+              } else {
+                // setSession succeeded normally
+                const { data: sessionData, error: setSessionError } = sessionResult;
+                console.log('[auth] setSession:', sessionData?.session ? 'OK' : 'NO SESSION');
+                if (setSessionError) {
+                  console.error('[auth] setSession error:', setSessionError.message);
+                  throw setSessionError;
+                }
+                console.log('[auth] Session persisted, user:', sessionData?.session?.user?.id);
               }
-              console.log('[auth] Session persisted, user:', sessionData?.session?.user?.id);
-              // onAuthStateChange fires SIGNED_IN → profile loaded → index.tsx redirects
             } catch (e: any) {
               console.error('[auth] Session establishment failed:', e?.message ?? e);
               throw e;
