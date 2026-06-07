@@ -34,7 +34,7 @@
 
 <br />
 
-[![Phase](https://img.shields.io/badge/Faz-0→7_tamam,_B1→B112_cila-10B981?style=flat-square&labelColor=1B1B1F)](.)
+[![Phase](https://img.shields.io/badge/Faz-0→7_tamam,_B1→B117_cila-10B981?style=flat-square&labelColor=1B1B1F)](.)
 [![i18n](https://img.shields.io/badge/i18n-TR_|_EN-4F46E5?style=flat-square&labelColor=1B1B1F)](.)
 [![Strict](https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&labelColor=1B1B1F)](.)
 [![License](https://img.shields.io/badge/License-MIT-F43F5E?style=flat-square&labelColor=1B1B1F)](LICENSE)
@@ -82,8 +82,9 @@
 | ⚡ | **Gerçek Zamanlı** — Supabase Realtime. Masraf eklenince herkes anında görür. |
 | 🔢 | **Kuruş Tabanlı** — ASLA float. Tüm hesaplar integer minor units. Hassas. |
 | 🤖 | **En Az İşlemle Netleşme** — Graph algoritması. Gereksiz ödemeleri ele. |
-| 🔐 | **IBAN Saklanmaz** — Sunucuda ASLA. Realtime broadcast ile anlık iletilir, uçar. |
+| 🔐 | **IBAN Saklanmaz** — Sunucuda ASLA. WhatsApp deep link + clipboard fallback ile paylaşılır. |
 | 👻 | **Hayalet Üyeler** — Gruba ekle, sonradan hesap açınca geçmişi devralsın. |
+| 👤 | **Esnek Giriş** — Production misafir girişi, Google OAuth ve iOS native Sign in with Apple. |
 | 🔒 | **Server-Side Auth** — Tüm yazma işlemleri SECURITY DEFINER RPC + auth.uid() kontrolü. RLS daraltıldı. |
 | 💎 | **Panel & Pro** — 4. sekme genel bakiye + kategori analizi + Tüm İşlemler. Pro ile sınırsız grup. |
 | 🔍 | **Aktivite Arama** — Pro-gated metin araması, tr-TR karakter duyarlı, 300ms debounce. |
@@ -107,7 +108,7 @@
 │  ┌──────────────────────────────────────────────────────┐ │
 │  │              lib/finance  (PURE + tested)            │ │
 │  │  money.ts │ split.ts │ fx.ts │ balance.ts │ simplify │ │
-│  │                75 birim test ✅                       │ │
+│  │                87 birim test ✅                       │ │
 │  └──────────────────────────────────────────────────────┘ │
 └──────────────────────┬───────────────────────────────────┘
                        │  Supabase JS Client
@@ -120,7 +121,7 @@
 │  └─────────────────┘ └──────────┘ └────────────────────┘ │
 │  ┌──────────────────────────────────────────────────────┐ │
 │  │                Edge Functions (Deno)                  │ │
-│  │  join-via-invite │ send-push │ revenuecat-webhook    │ │
+│  │ join-via-invite │ revenuecat-webhook │ delete-account │ │
 │  └──────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -167,7 +168,7 @@
   <img src="https://img.shields.io/badge/Supabase-PostgreSQL-000?style=flat-square&logo=supabase&logoColor=3ECF8E&color=3ECF8E" />
   <img src="https://img.shields.io/badge/Edge_Functions-Deno-000?style=flat-square&logo=deno&color=000" />
 </td>
-<td>PostgreSQL + RLS + Realtime + Edge Functions + Anonymous Auth. Hepsi tek platformda.</td>
+<td>PostgreSQL + RLS + Realtime + Edge Functions + misafir/OAuth auth. Hepsi tek platformda.</td>
 </tr>
 
 <tr>
@@ -217,7 +218,7 @@
 <tr>
 <td><b>Test</b></td>
 <td>
-  <img src="https://img.shields.io/badge/Vitest-75_test-000?style=flat-square&logo=vitest&logoColor=6E9F18&color=10B981" />
+  <img src="https://img.shields.io/badge/Vitest-87_test-000?style=flat-square&logo=vitest&logoColor=6E9F18&color=10B981" />
 </td>
 <td>Tüm finansal fonksiyonlar PURE. Her fonksiyonun birim testi var. <code>npx vitest run</code> → 87/87 ✅</td>
 </tr>
@@ -545,7 +546,7 @@ cp .env.example .env
 # 4. Supabase migration'ları çalıştır
 # supabase CLI ile: supabase migration up
 # VEYA SQL dosyalarını supabase dashboard → SQL Editor'da sırayla çalıştır
-# (supabase/migrations/0001..0014)
+# (supabase/migrations/0001..0016)
 
 # 5. Başlat! 🚀
 npx expo start --tunnel --clear
@@ -562,8 +563,10 @@ npx tsc --noEmit  # TypeScript kontrolü
 npx expo start --tunnel --clear
 # → QR kodu telefonun kamerasıyla tara (iOS) veya
 #   Expo Go uygulamasından tara (Android)
-# → "Test kullanıcısı olarak gir" ile anonim giriş
+# → "Misafir olarak devam et" ile production anonim giriş
 ```
+
+> Native Apple Sign In ve RevenueCat testi için Expo Go yerine yeni bir EAS dev/production build gerekir.
 
 </details>
 
@@ -573,13 +576,12 @@ npx expo start --tunnel --clear
 Supabase Dashboard'da şunları aç:
 - **Authentication** → **Anonymous Sign-ins:** AÇIK
 - **Realtime** → Tüm tablolara publication ekle
-- **Edge Functions** → `join-via-invite` deploy et
+- **Edge Functions** → `join-via-invite`, `revenuecat-webhook` ve `delete-account` deploy et
 - `.env`:
   ```
   EXPO_PUBLIC_SUPABASE_URL=<your-project-url>
   EXPO_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
-  EXPO_PUBLIC_REVENUECAT_APPLE_KEY=  (opsiyonel, Faz 8)
-  EXPO_PUBLIC_REVENUECAT_GOOGLE_KEY= (opsiyonel, Faz 8)
+  EXPO_PUBLIC_REVENUECAT_APPLE_KEY=<your-revenuecat-apple-key>
   ```
 
 </details>
@@ -802,17 +804,17 @@ PostgreSQL RLS daraltıldı. SELECT geniş (`is_member_of`), INSERT/UPDATE/DELET
 </tr>
 
 <tr>
-<td>🔑 <b>RPC Auth (7 RPC)</b></td>
+<td>🔑 <b>RPC Auth (9 RPC)</b></td>
 <td>
 
-`add_expense_with_splits`, `update_expense_with_splits`, `delete_expense`, `add_settlement`, `confirm_settlement`, `reject_settlement`, `create_group_with_limit`, `create_invite` — tamamı `auth.uid()` yetki kontrolüyle. 6/2026 P0 turunda sertleştirildi.
+`add_expense_with_splits`, `update_expense_with_splits`, `delete_expense`, `add_settlement`, `confirm_settlement`, `reject_settlement`, `create_group_with_limit`, `create_invite`, `delete_user_data` — tamamı `auth.uid()` yetki kontrolüyle.
 
 </td>
 </tr>
 
 <tr>
-<td>🔑 <b>Anonymous Auth</b></td>
-<td>Supabase Anonymous Sign-In. Test kullanıcısı anında giriş yapar. Faz 8'de Google + Apple OAuth eklenecek.</td>
+<td>🔑 <b>Auth</b></td>
+<td>Production misafir girişi + Google OAuth aktiftir. Apple girişi iOS'ta <code>expo-apple-authentication</code> ile native, Android'de web OAuth'tur. Misafir hesap OAuth ile aynı user ID üzerinde yükseltilir.</td>
 </tr>
 
 <tr>
@@ -828,7 +830,7 @@ PostgreSQL RLS daraltıldı. SELECT geniş (`is_member_of`), INSERT/UPDATE/DELET
 <td>🚫 <b>IBAN Saklanmaz</b></td>
 <td>
 
-IBAN **hiçbir tabloda KALICI SAKLANMAZ**. Realtime broadcast channel ile anlık iletilir, alıcı kopyalar, sinyal uçar. Supabase'de IBAN kalıntısı yok.
+IBAN **hiçbir tabloda KALICI SAKLANMAZ**. Paylaşım WhatsApp deep link üzerinden yapılır; WhatsApp yoksa mesaj clipboard'a kopyalanır. Supabase'de IBAN kalıntısı yok.
 
 </td>
 </tr>
@@ -850,7 +852,12 @@ IBAN **hiçbir tabloda KALICI SAKLANMAZ**. Realtime broadcast channel ile anlık
 
 <tr>
 <td>🌐 <b>Edge Function Auth</b></td>
-<td>Her Edge Function `Authorization: Bearer <secret>` header'ı ile gelir. Service-role key sunucuda, client'ta DEĞİL.</td>
+<td>Kullanıcı işlemleri JWT ile doğrulanır; webhook kendi secret'ını kullanır. Service-role key yalnızca sunucudadır. <code>delete-account</code>, atomik veri temizliği RPC'sini kullanıcı JWT'siyle çağırır ve auth kaydını service role ile siler.</td>
+</tr>
+
+<tr>
+<td>🗑️ <b>Atomik Hesap Silme</b></td>
+<td><code>delete_user_data</code> solo/demo grupları ve bağlı verileri tek transaction içinde temizler. Başka gerçek üyeli kurucu grupları engellenir; ortak grup finans geçmişi anonimleştirilerek korunur.</td>
 </tr>
 </table>
 
@@ -948,9 +955,9 @@ groopay/
 │   │   ├── balance.ts               #   computeBalances (türetilmiş)
 │   │   ├── simplify.ts              #   simplifyDebts (graph algorithm)
 │   │   ├── categories.ts            #   Kategori tanımları
-│   │   └── __tests__/               #   75 birim test ✅
+│   │   └── __tests__/               #   87 birim test ✅
 │   ├── i18n/                         # i18next yapılandırması
-│   ├── notifications/               # Push notification yardımcıları
+│   ├── notifications/               # Launch sonrası açılacak no-op push stub'ları
 │   └── revenuecat/                   # RevenueCat SDK wrapper
 │
 ├── locales/                          # Çeviri dosyaları
@@ -958,7 +965,7 @@ groopay/
 │   └── en.json                       # İngilizce (fallback)
 │
 ├── supabase/
-│   ├── migrations/                   # 8 migration dosyası
+│   ├── migrations/                   # 16 migration dosyası
 │   │   ├── 0001_initial_schema.sql   #   8 tablo + RLS + trigger
 │   │   ├── 0002_invite_preview_rpc.sql
 │   │   ├── 0003_ghost_preview_rpc.sql
@@ -966,18 +973,20 @@ groopay/
 │   │   ├── 0005_realtime_publication.sql
 │   │   ├── 0006_settlements_currency_iban.sql
 │   │   ├── 0007_group_management.sql #   Grup yönetimi RPC'leri
-│   │   └── 0008_preferred_currency.sql #  Varsayılan para birimi
+│   │   ├── 0008_preferred_currency.sql #  Varsayılan para birimi
+│   │   ├── 0009..0015               #   Auth/RLS/RPC ve profil güvence düzeltmeleri
+│   │   └── 0016_delete_user_data.sql #   Atomik hesap verisi temizliği
 │   └── functions/                    # Edge Functions (Deno)
 │       ├── join-via-invite/          #   Davetle katılım
-│       ├── send-push/                #   Push bildirimi
+│       ├── send-push/                #   Server-side push (client launch sonrası açılacak)
 │       ├── revenuecat-webhook/       #   RevenueCat → DB
-│       └── delete-account/           #   Hesap silme (Apple zorunlu)
+│       └── delete-account/           #   Atomik hesap silme (deploy edildi)
 │
 ├── assets/                           # İkon, splash, font
 ├── docs/                             # Scope + Build Spec
 ├── FAZ0-PLAN.md ... FAZ7-PLAN.md     # Faz planları
 ├── SESSION-OZET.md                   # Oturum özeti
-├── BUGFIX-CILA.md                    # Bugfix günlüğü (B1-B64)
+├── BUGFIX-CILA.md                    # Bugfix günlüğü (B1-B117)
 ├── TASARIM-REVIZYON.md              # Tasarım revizyonu (Tur 1-5)
 ├── CLAUDE.md                         # Proje kuralları
 ├── package.json
@@ -1006,7 +1015,7 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 ## 🐛 Bugfix Günlüğü
 
 <details open>
-<summary><b>112 bugfix, 17 tur — hepsi kapandı ✅</b></summary>
+<summary><b>117 bugfix/geliştirme, 18 tur — hepsi kapandı ✅</b></summary>
 
 | Tur | ID'ler | Konular |
 |:---:|:-------|:--------|
@@ -1027,6 +1036,7 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 | 15 | B65-B72 | **P0 güvenlik:** RPC auth, RLS, RevenueCat revoke, atomik mutation, Pro limiti, invite token |
 | 16 | B73-B86 | **Cila:** Tüm İşlemler, aktivite arama, hesap reorganizasyonu, üye yönetimi, Modal bottom sheet, panel varsayılan, profil cache fix |
 | 17 | B87-B112 | **Faz 8 store hazırlık + cila:** Paywall gradient, split avatarları, bakiye aksiyonları, legal ekranlar, accessibility, IBAN WhatsApp, Realtime, numpad, app.json temizliği, route fix, privacy/terms HTML + Vercel, sign-in redesign, onboarding renk, dashboard invalidation, app icon |
+| 18 | B113-B117 | **Production auth + launch blocker'ları:** iki Supabase client, EAS env, production misafir girişi, iOS native Apple Sign In, atomik hesap silme |
 
 </details>
 
@@ -1063,10 +1073,10 @@ Faz 8  ░░░░░░░░░░░░  Store-hazırlık + OAuth + Cila    
 <td align="center"><b>80+</b><br><sub>dosya</sub></td>
 <td align="center"><b>12.000+</b><br><sub>satır kod</sub></td>
 <td align="center"><b>90+</b><br><sub>commit</sub></td>
-<td align="center"><b>75</b><br><sub>test (✅)</sub></td>
+<td align="center"><b>87</b><br><sub>test (✅)</sub></td>
 <td align="center"><b>250+</b><br><sub>i18n anahtarı</sub></td>
 <td align="center"><b>8</b><br><sub>veritabanı tablosu</sub></td>
-<td align="center"><b>8</b><br><sub>migration</sub></td>
+<td align="center"><b>16</b><br><sub>migration</sub></td>
 <td align="center"><b>4</b><br><sub>Edge Function</sub></td>
 </tr>
 </table>
