@@ -1,7 +1,11 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import * as WebBrowser from 'expo-web-browser';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Session } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
+import type { Session, User } from '@supabase/supabase-js';
+import i18n from '@/lib/i18n';
 import {
   supabase,
   supabaseAuth,
@@ -88,6 +92,54 @@ interface CompletedOAuthSignIn {
   profileNeedsRetry: boolean;
 }
 
+async function completeTokenSignIn(
+  authUser: User,
+  accessToken: string,
+  refreshToken: string | null,
+  expectedUserId?: string,
+): Promise<CompletedOAuthSignIn> {
+  if (expectedUserId && authUser.id !== expectedUserId) {
+    throw new Error('Identity linking returned a different user');
+  }
+  if (expectedUserId && authUser.is_anonymous !== false) {
+    throw new Error('Identity linking did not complete');
+  }
+
+  setSupabaseAccessToken(accessToken);
+  await AsyncStorage.setItem(STORAGE_KEY_ACCESS_TOKEN, accessToken);
+  if (refreshToken) {
+    await AsyncStorage.setItem(STORAGE_KEY_REFRESH_TOKEN, refreshToken);
+  }
+
+  const profile = await fetchProfile(authUser.id);
+  if (profile) {
+    return {
+      userId: authUser.id,
+      profile: profileRowToProfile(profile),
+      isAnonymous: authUser.is_anonymous ?? false,
+      profileNeedsRetry: false,
+    };
+  }
+
+  return {
+    userId: authUser.id,
+    profile: {
+      id: authUser.id,
+      display_name:
+        authUser.user_metadata?.full_name ??
+        authUser.user_metadata?.name ??
+        'Kullanıcı',
+      avatar_color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]!,
+      locale: 'tr',
+      preferred_currency: null,
+      user_pro: false,
+      user_pro_purchased_at: null,
+    },
+    isAnonymous: authUser.is_anonymous ?? false,
+    profileNeedsRetry: true,
+  };
+}
+
 async function completeOAuthSignIn(
   callbackUrl: string,
   expectedUserId?: string,
@@ -114,46 +166,12 @@ async function completeOAuthSignIn(
     throw new Error(userError?.message ?? 'No user returned');
   }
 
-  if (expectedUserId && userData.user.id !== expectedUserId) {
-    throw new Error('Identity linking returned a different user');
-  }
-  if (expectedUserId && userData.user.is_anonymous !== false) {
-    throw new Error('Identity linking did not complete');
-  }
-
-  setSupabaseAccessToken(accessToken);
-  await AsyncStorage.setItem(STORAGE_KEY_ACCESS_TOKEN, accessToken);
-  if (refreshToken) {
-    await AsyncStorage.setItem(STORAGE_KEY_REFRESH_TOKEN, refreshToken);
-  }
-
-  const profile = await fetchProfile(userData.user.id);
-  if (profile) {
-    return {
-      userId: userData.user.id,
-      profile: profileRowToProfile(profile),
-      isAnonymous: userData.user.is_anonymous ?? false,
-      profileNeedsRetry: false,
-    };
-  }
-
-  return {
-    userId: userData.user.id,
-    profile: {
-      id: userData.user.id,
-      display_name:
-        userData.user.user_metadata?.full_name ??
-        userData.user.user_metadata?.name ??
-        'Kullanıcı',
-      avatar_color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]!,
-      locale: 'tr',
-      preferred_currency: null,
-      user_pro: false,
-      user_pro_purchased_at: null,
-    },
-    isAnonymous: userData.user.is_anonymous ?? false,
-    profileNeedsRetry: true,
-  };
+  return completeTokenSignIn(
+    userData.user,
+    accessToken,
+    refreshToken,
+    expectedUserId,
+  );
 }
 
 async function restoreAuthSessionForIdentityLinking(): Promise<Session | null> {
@@ -176,6 +194,15 @@ async function restoreAuthSessionForIdentityLinking(): Promise<Session | null> {
 
   if (!sessionResult || sessionResult.error) return null;
   return sessionResult.data.session;
+}
+
+function isAppleSignInCancellation(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'ERR_REQUEST_CANCELED'
+  );
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -225,7 +252,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  // ── GOOGLE / APPLE OAuth ──
+  const applyCompletedSignIn = useCallback((completed: CompletedOAuthSignIn) => {
+    setUser(completed.profile);
+    setIsAnonymous(completed.isAnonymous);
+    if (completed.profileNeedsRetry) {
+      setTimeout(async () => {
+        const retry = await fetchProfile(completed.userId);
+        if (retry) setUser(profileRowToProfile(retry));
+      }, 1500);
+    }
+  }, []);
+
+  // ── GOOGLE / APPLE AUTH ──
   const signInWithProvider = useCallback(async (provider: OAuthProvider) => {
     // The dedicated auth client can inspect its in-memory session without
     // affecting the access-token client used for DB queries.
@@ -235,6 +273,98 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authSession = session;
     } catch {
       console.log('[auth] Auth session unavailable, proceeding with OAuth');
+    }
+
+    if (provider === 'apple' && Platform.OS === 'ios') {
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAvailable) {
+        throw new Error(i18n.t('auth.appleUnavailable'));
+      }
+
+      const rawNonce = Crypto.randomUUID();
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
+
+      try {
+        const credential = await AppleAuthentication.signInAsync({
+          nonce: hashedNonce,
+          requestedScopes: [
+            AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+            AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          ],
+        });
+
+        if (!credential.identityToken) {
+          throw new Error(i18n.t('auth.appleTokenMissing'));
+        }
+
+        if (isAnonymous) {
+          if (!authSession?.user?.is_anonymous) {
+            authSession = await restoreAuthSessionForIdentityLinking();
+          }
+          if (!authSession?.user?.is_anonymous) {
+            throw new Error('Anonymous session is unavailable for identity linking');
+          }
+
+          const anonymousUserId = authSession.user.id;
+          const { data, error } = await supabaseAuth.auth.linkIdentity({
+            provider: 'apple',
+            token: credential.identityToken,
+            nonce: rawNonce,
+          });
+
+          if (error) {
+            console.error('[auth] Native Apple identity linking failed:', error.message);
+            throw error;
+          }
+          if (!data.user || !data.session) {
+            throw new Error(i18n.t('auth.appleSessionMissing'));
+          }
+          if (data.user.id !== anonymousUserId || data.user.is_anonymous !== false) {
+            await restoreAuthSessionForIdentityLinking();
+            throw new Error(i18n.t('auth.appleUpgradeMismatch'));
+          }
+
+          const completed = await completeTokenSignIn(
+            data.user,
+            data.session.access_token,
+            data.session.refresh_token,
+            anonymousUserId,
+          );
+          applyCompletedSignIn(completed);
+          return true;
+        }
+
+        const { data, error } = await supabaseAuth.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+          nonce: rawNonce,
+        });
+
+        if (error) {
+          console.error('[auth] Native Apple sign-in failed:', error.message);
+          throw error;
+        }
+        if (!data.user || !data.session) {
+          throw new Error(i18n.t('auth.appleSessionMissing'));
+        }
+
+        const completed = await completeTokenSignIn(
+          data.user,
+          data.session.access_token,
+          data.session.refresh_token,
+        );
+        applyCompletedSignIn(completed);
+        return true;
+      } catch (error: unknown) {
+        if (isAppleSignInCancellation(error)) {
+          console.log('[auth] Native Apple sign-in cancelled by user');
+          return false;
+        }
+        throw error;
+      }
     }
 
     if (isAnonymous) {
@@ -269,14 +399,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.type !== 'success' || !result.url) return false;
 
       const linkedUser = await completeOAuthSignIn(result.url, anonymousUserId);
-      setUser(linkedUser.profile);
-      setIsAnonymous(false);
-      if (linkedUser.profileNeedsRetry) {
-        setTimeout(async () => {
-          const retry = await fetchProfile(linkedUser.userId);
-          if (retry) setUser(profileRowToProfile(retry));
-        }, 1500);
-      }
+      applyCompletedSignIn(linkedUser);
       return true;
     }
 
@@ -299,21 +422,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (result.type === 'success' && result.url) {
         const completed = await completeOAuthSignIn(result.url);
-        setUser(completed.profile);
-        setIsAnonymous(completed.isAnonymous);
-        if (completed.profileNeedsRetry) {
-          setTimeout(async () => {
-            const retry = await fetchProfile(completed.userId);
-            if (retry) setUser(profileRowToProfile(retry));
-          }, 1500);
-        }
+        applyCompletedSignIn(completed);
         return true;
       } else if (result.type === 'cancel') {
         console.log('[auth] OAuth browser cancelled by user');
       }
     }
     return false;
-  }, [isAnonymous]);
+  }, [applyCompletedSignIn, isAnonymous]);
 
   // ── GUEST SIGN-IN ──
   const signIn = useCallback(async () => {

@@ -58,7 +58,7 @@ Detaylar için: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
 
 ## Önemli Mimari Kararlar (güncel — Haziran 2026)
 
-1. **Auth:** `lib/auth/AuthContext.tsx` — Google + Apple OAuth ve production misafir girişi birlikte aktif. Misafir hesap Pro satın almadan önce `linkIdentity` ile aynı user ID üzerinde OAuth hesabına yükseltilir; mevcut grup ve masraf verileri korunur.
+1. **Auth:** `lib/auth/AuthContext.tsx` — Google OAuth, production misafir girişi ve Apple girişi birlikte aktif. Apple iOS'ta `expo-apple-authentication` + `signInWithIdToken` ile native modal kullanır; Android'de web OAuth devam eder. Misafir hesap Pro satın almadan önce web OAuth veya native Apple ID token ile `linkIdentity` üzerinden aynı user ID üzerinde yükseltilir; mevcut grup ve masraf verileri korunur.
 2. **Hayalet üye:** `group_members.user_id = NULL`. Claim → aynı satıra `user_id` yazılır.
 3. **Para:** ASLA float, integer kuruş + Postgres numeric.
 4. **FX:** Masraf orijinal para biriminde saklanır. Çevrim sadece görüntüleme (canlı kur, kaydedilmez).
@@ -214,8 +214,8 @@ npx expo start --tunnel --clear
 
 ## Faz 8 İçin Kalanlar
 
-- Google + Apple OAuth ve misafir giriş aktif; production cihazında anonim → OAuth veri koruma akışı doğrulanacak
-- EAS dev build (EAS Build ile iOS + Android)
+- Google OAuth, iOS native Apple Sign In, Android Apple web OAuth ve misafir giriş aktif; production cihazında anonim → native Apple veri koruma akışı doğrulanacak
+- `expo-apple-authentication` nedeniyle yeni iOS dev/production build alınacak (`EXPO_NO_CAPABILITY_SYNC=1` gerekebilir)
 - RevenueCat webhook deploy + gerçek IAP testi (sandbox)
 - send-push + delete-account Edge Function deploy
 - Sentry/error monitoring (native module — EAS build ile)
@@ -228,4 +228,4 @@ npx expo start --tunnel --clear
 
 ---
 
-*Son güncelleme: 2026-06-02 — Cila turu tamam (B73-B86), Modal bottom sheet, tsc temiz, 87 test*
+*Son güncelleme: 2026-06-07 — B116 iOS native Apple Sign In eklendi*

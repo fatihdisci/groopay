@@ -2686,3 +2686,51 @@ npx supabase functions deploy revenuecat-webhook
 | `npm test` 87/87 geçti | ✅ |
 
 *Son güncelleme: 2026-06-06 — B115 eklendi*
+
+---
+
+### ✅ B116: iOS native Sign in with Apple
+
+**Sorun:**
+- Apple girişi iOS'ta Supabase web OAuth ile tarayıcı açıyordu; native Apple modalı kullanılmıyordu.
+- Misafir hesabın native Apple kimliğiyle yükseltilmesi sırasında yeni kullanıcı oluşmaması ve mevcut grup/masraf verilerinin aynı user ID altında korunması gerekiyordu.
+
+**Yapılan:**
+- Expo SDK 54 uyumlu `expo-apple-authentication` ve nonce üretimi/hashleme için `expo-crypto` eklendi.
+- `app.json` içinde `ios.usesAppleSignIn: true` ve `expo-apple-authentication` config plugin'i tanımlandı; EAS prebuild'de `com.apple.developer.applesignin` entitlement'ı üretilecek.
+- iOS Apple girişi `AppleAuthentication.signInAsync()` ile native modal kullanacak şekilde güncellendi.
+- Kriptografik ham nonce üretildi, SHA-256 özeti Apple'a gönderildi ve ham nonce Supabase `signInWithIdToken` / `linkIdentity` doğrulamasına verildi.
+- Normal iOS Apple girişinde `supabaseAuth.auth.signInWithIdToken()` kullanıldı; dönen access token mevcut iki-client mimarisindeki DB client'a ve AsyncStorage'a aktarıldı.
+- Misafir iOS Apple yükseltmesinde kurulu Supabase SDK'nın native ID-token destekli `linkIdentity()` yolu kullanıldı. Dönüşte user ID anonim user ID ile karşılaştırılıyor; eşleşmezse eski anonim session geri yükleniyor, satın alma başlamıyor ve mevcut veri silinmiyor.
+- Android Apple girişi mevcut Supabase web OAuth akışında bırakıldı.
+- Apple native akışındaki kullanıcıya gösterilen hata metinleri TR/EN i18n'e eklendi.
+- Auth mimarisi `CLAUDE.md` ve `SESSION-OZET.md` içinde güncellendi.
+- Bu native modül ve Apple entitlement değişikliği yeni iOS dev/production build gerektirir. Önceki capability sync sorunu nedeniyle build komutunda `EXPO_NO_CAPABILITY_SYNC=1` gerekebilir; build Fatih tarafından alınacak.
+
+**Değişen dosyalar:** `lib/auth/AuthContext.tsx`, `app.json`, `package.json`, `package-lock.json`, `locales/tr.json`, `locales/en.json`, `CLAUDE.md`, `SESSION-OZET.md`, `BUGFIX-CILA.md`
+
+**Nasıl test edilir:**
+1. Apple Sign In capability açık `com.groopay.app` için yeni iOS dev/production build al.
+2. iOS gerçek cihazda Apple butonuna bas; tarayıcı yerine native Apple modalının açıldığını doğrula.
+3. Normal kullanıcı girişinden sonra uygulamayı kapat/aç; profil ve RLS korumalı verilerin aynı kullanıcıyla geldiğini doğrula.
+4. Misafir olarak giriş yap, grup ve masraf oluştur, anonim user ID'yi kaydet.
+5. Paywall'da Pro'ya bas, Apple'ı seç ve native modalı tamamla.
+6. Yükseltme sonrasında user ID'nin değişmediğini, misafir grubunun/masraflarının görünmeye devam ettiğini ve ardından satın alma akışının başladığını doğrula.
+7. Başka kullanıcıya bağlı Apple kimliğiyle denendiğinde yükseltmenin hata verdiğini, satın almanın başlamadığını ve anonim verinin korunduğunu doğrula.
+8. Android'de Apple butonunun mevcut web OAuth tarayıcı akışını açmaya devam ettiğini doğrula.
+
+| Kontrol | Durum |
+|---|---|
+| iOS Apple girişi native `signInAsync` kullanıyor | ✅ |
+| Nonce kriptografik üretilip SHA-256 hashleniyor | ✅ |
+| Normal giriş `signInWithIdToken` kullanıyor | ✅ |
+| Misafir yükseltme native ID token ile `linkIdentity` kullanıyor | ✅ |
+| Link sonrası aynı user ID doğrulanıyor | ✅ |
+| Hata halinde anonim token/veri silinmiyor | ✅ |
+| Android web OAuth akışı korunuyor | ✅ |
+| İki-client Supabase mimarisi korunuyor | ✅ |
+| Apple entitlement config'i etkin | ✅ |
+| `npx tsc --noEmit` temiz | ✅ |
+| `npm test` 87/87 geçti | ✅ |
+
+*Son güncelleme: 2026-06-07 — B116 eklendi*

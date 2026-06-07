@@ -190,7 +190,11 @@
     "devNotice": "Anonymous test account — development only",
     "signOut": "Sign out",
     "error": "Error",
-    "unknownError": "Sign in failed. Please try again."
+    "unknownError": "Sign in failed. Please try again.",
+    "appleUnavailable": "Sign in with Apple is unavailable on this device.",
+    "appleTokenMissing": "Apple authentication credentials were not returned. Please try again.",
+    "appleSessionMissing": "The Apple session could not be created. Please try again.",
+    "appleUpgradeMismatch": "The guest account could not be linked to Apple safely. Your data is preserved; please try again."
   },
   "onboarding": {
     "skip": "Skip",
