@@ -429,6 +429,7 @@
     "deleteFinalConfirm": "Type DELETE below to continue:",
     "typeSil": "Type \"DELETE\"",
     "deleteError": "Could not delete account. Please try again.",
+    "deleteAuthRetry": "Your account data was deleted, but the login record could not be removed. Please try again.",
     "founderGroupsBlockTitle": "Groups You Founded",
     "founderGroupsBlock": "Before deleting your account, you must transfer ownership of: {{groups}}",
     "sectionLegal": "LEGAL",

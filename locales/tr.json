@@ -430,6 +430,7 @@
     "deleteFinalConfirm": "Devam etmek için aşağıya SİL yazın:",
     "typeSil": "\"SİL\" yazın",
     "deleteError": "Hesap silinemedi. Lütfen tekrar deneyin.",
+    "deleteAuthRetry": "Hesap verileri temizlendi ancak giriş kaydı silinemedi. Lütfen tekrar deneyin.",
     "founderGroupsBlockTitle": "Kurucu Olduğunuz Gruplar",
     "founderGroupsBlock": "Hesabınızı silmeden önce şu gruplarda kuruculuğu devretmeniz gerekiyor: {{groups}}",
     "sectionLegal": "YASAL",

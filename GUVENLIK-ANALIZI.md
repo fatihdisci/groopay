@@ -357,11 +357,11 @@ Eğer `REVENUECAT_WEBHOOK_SECRET` env var'ı **tanımlı değilse veya boş stri
 
 **Düzeltme:** Asıl sorun tersi: `!REVENUECAT_AUTH_HEADER` kontrolü, secret boş olduğunda her isteği reddeder. Doğru davranış. Ama Secret tanımlandığında ve token eşleştiğinde sorun yok.
 
-### YN‑8: `delete-account` — solo grup silme transaction değil ❌ (P1)
+### YN‑8: `delete-account` — solo grup silme transaction değil ✅ ÇÖZÜLDÜ (B117)
 
-`supabase/functions/delete-account/index.ts:97-112`
+`supabase/migrations/0016_delete_user_data.sql`
 
-Solo gruplar bir loop içinde tek tek siliniyor. Bir grupta hata olursa diğerleri silinmez, user delete de çalışmaz. Eksik temizlik riski.
+Solo ve demo gruplar artık `delete_user_data` SECURITY DEFINER RPC'sinde FK sırasına göre tek transaction içinde siliniyor. Ortak grup finans geçmişi korunarak üyelik anonimleştiriliyor. Edge Function RPC'yi kullanıcı JWT'siyle çağırıyor ve yalnızca başarılı temizlikten sonra service role ile auth kaydını siliyor.
 
 ### YN‑9: `join-via-invite` — auth.uid() ile profil check yok ❌ (P2)
 
@@ -403,7 +403,7 @@ Davetle katılan kullanıcının profili var mı kontrol edilmiyor. Anon auth ku
 | # | Görev | Etkilenen |
 |---|-------|-----------|
 | P2-1 | **`fromMinor` precision edge case'leri** | money.ts |
-| P2-2 | **`delete-account`: transaction ile solo grup silme** | delete-account/index.ts |
+| P2-2 | ✅ **`delete-account`: transaction ile solo/demo grup silme (B117)** | 0016 + delete-account/index.ts |
 | P2-3 | **Hayalet üyeye ownership transfer edge case** | 0007 migration |
 | P2-4 | **Tüm SECURITY DEFINER fonksiyonlara audit log** | Tüm RPC'ler |
 

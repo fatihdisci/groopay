@@ -76,6 +76,7 @@
 - If identity linking fails, do not fall back to a new OAuth user and do not start the purchase.
 - No password storage.
 - Apple requires "Sign in with Apple" when third-party sign-in is offered.
+- Account deletion uses the user-JWT-scoped `delete_user_data` SECURITY DEFINER RPC for atomic database cleanup, then the `delete-account` Edge Function uses service role only for `auth.admin.deleteUser()`.
 
 ## IBAN
 - IBAN is NEVER stored in the database (no exceptions).

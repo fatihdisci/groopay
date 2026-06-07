@@ -268,12 +268,21 @@ export default function AccountScreen() {
         },
       });
 
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        if (json.error === 'FOUNDER_GROUPS_EXIST') {
-          Alert.alert(t('account.founderGroupsBlockTitle'), json.message);
+      const result = await res.json() as {
+        success?: boolean;
+        error?: string;
+        message?: string;
+      };
+      if (!res.ok || !result.success) {
+        if (result.error === 'FOUNDER_GROUPS_EXIST') {
+          Alert.alert(
+            t('account.founderGroupsBlockTitle'),
+            result.message ?? t('account.deleteError'),
+          );
+        } else if (result.error === 'AUTH_USER_DELETE_FAILED') {
+          showToast(t('account.deleteAuthRetry'), 'error');
         } else {
-          showToast(json.message ?? t('account.deleteError'), 'error');
+          showToast(t('account.deleteError'), 'error');
         }
         setDeleteStep('none');
         return;

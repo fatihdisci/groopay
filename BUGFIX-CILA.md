@@ -2734,3 +2734,46 @@ npx supabase functions deploy revenuecat-webhook
 | `npm test` 87/87 geçti | ✅ |
 
 *Son güncelleme: 2026-06-07 — B116 eklendi*
+
+---
+
+### ✅ B117: Atomik ve eksiksiz hesap silme
+
+**Sorun:**
+- `delete-account` Edge Function solo grupları loop içinde doğrudan siliyor, silme hatalarını kontrol etmiyor ve FK temizliğini transaction dışında yapıyordu.
+- İlişkili masraf/üye kayıtları olan demo veya solo grup silinemediğinde bazı gruplar siliniyor, profil ve `auth.users` kaydı kalıyordu.
+- Supabase Dashboard'dan kullanıcı silme de `profiles` tablosuna bağlı cascade olmayan FK'lar nedeniyle hata veriyordu.
+
+**Yapılan:**
+- Uygulanmış `0016_delete_user_data.sql` migration'ı repoya eklendi.
+- `delete_user_data` SECURITY DEFINER RPC'si `auth.uid() = target_user_id` kontrolüyle solo ve demo kurucu gruplarını FK sırasına göre tek transaction içinde temizliyor.
+- Başka aktif gerçek üyeli normal grupların kurucusu için mevcut `FOUNDER_GROUPS_EXIST` engeli korundu; demo gruplar bu engele dahil edilmedi.
+- Ortak gruplardaki finans geçmişi silinmedi; kullanıcının üyeliği `user_id = NULL` ve `is_active = false` yapılarak anonimleştirildi.
+- Edge Function iki Supabase client kullanacak şekilde yenilendi: RPC kullanıcı Authorization header'ı + anon key ile, `auth.admin.deleteUser()` yalnızca service role ile çağrılıyor.
+- RPC `FOUNDER_GROUPS_EXIST` hatası 409, `UNAUTHORIZED` hatası 403 olarak dönüyor. Temizlik ve auth silme hataları ayrı hata kodlarıyla raporlanıyor.
+- Client'ın mevcut 3 adımlı silme akışı korundu; founder 409 mesajı ve auth kaydı silme retry durumu hata kodlarına göre i18n mesajlarıyla gösteriliyor.
+- `GUVENLIK-ANALIZI.md` içindeki YN-8 kapatıldı.
+
+**Değişen dosyalar:** `supabase/migrations/0016_delete_user_data.sql`, `supabase/functions/delete-account/index.ts`, `app/(tabs)/account.tsx`, `locales/tr.json`, `locales/en.json`, `GUVENLIK-ANALIZI.md`, `CLAUDE.md`, `SESSION-OZET.md`, `BUGFIX-CILA.md`
+
+**Nasıl test edilir:**
+1. `supabase functions deploy delete-account` ile Edge Function'ı yeniden deploy et.
+2. Başka gerçek üyeli normal grubun kurucusu olan hesapta silmeyi dene; 409 engeli ve grup adları görünmeli.
+3. Sadece solo grup ve demo grubu olan hesapta silmeyi tamamla; tüm bu gruplar, profil ve auth kullanıcısı silinmeli.
+4. Başkasının grubuna üye hesapta silmeyi tamamla; ortak grup ve finans geçmişi kalmalı, üyelik hayalet/pasif satıra dönüşmeli.
+5. Aynı kullanıcıyı Supabase Authentication ve `profiles` tablosunda arayarak hiçbir hesap kaydı kalmadığını doğrula.
+
+| Kontrol | Durum |
+|---|---|
+| RPC kullanıcı JWT'siyle çağrılıyor | ✅ |
+| Service role yalnızca auth user silmede kullanılıyor | ✅ |
+| `auth.uid()` hedef kullanıcı kontrolü mevcut | ✅ |
+| Solo/demo grup temizliği atomik | ✅ |
+| FK silme sırası eksiksiz | ✅ |
+| B37 founder engeli korunuyor | ✅ |
+| Ortak grup finans geçmişi korunuyor | ✅ |
+| YN-8 kapatıldı | ✅ |
+| `npx tsc --noEmit` temiz | ✅ |
+| `npm test` 87/87 geçti | ✅ |
+
+*Son güncelleme: 2026-06-07 — B117 eklendi*

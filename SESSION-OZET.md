@@ -73,6 +73,7 @@ Detaylar için: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
 13. **Pro entitlement:** Sunucuda (`profiles.user_pro`), client'ta değil. Webhook yazar. DEV-only toggle butonu (`__DEV__` guard) ile test edilebilir.
 14. **Grup limiti:** 5 grup (demo hariç), User Pro ile sınırsız.
 15. **Bugfix kaydı:** Her düzeltme/geliştirme `BUGFIX-CILA.md`'ye kaydedilir. B numarası ile takip.
+16. **Hesap silme:** `delete_user_data` RPC'si solo/demo grup ve profil temizliğini tek transaction içinde yapar; Edge Function RPC'yi kullanıcı JWT'siyle, `auth.admin.deleteUser()` çağrısını service role ile yapar.
 
 ---
 
@@ -144,6 +145,8 @@ C:\Users\fatih\groopay\
 12. `0012_fix_expense_splits_rls.sql` — RLS fix: 0011'de kaldırılan 4 politika geri eklendi
 13. `0013_group_invite_rpc.sql` — **P1-1/P1-9:** create_group_with_limit (Pro limiti) + create_invite (kriptografik token) RPC
 14. `0014_fix_delete_group_cascade.sql` — **B76:** delete_group sıralı silme (FK cascade fix)
+15. `0015_ensure_profile_trigger.sql` — OAuth kullanıcıları için profiles trigger güvenceye alındı
+16. `0016_delete_user_data.sql` — **B117:** atomik hesap verisi temizliği, demo grup silme ve ortak grup üyeliği anonimleştirme
 
 ---
 
@@ -154,7 +157,7 @@ C:\Users\fatih\groopay\
 | `join-via-invite` | ✅ Deploy edildi |
 | `send-push` | ✅ Yazıldı, deploy bekliyor |
 | `revenuecat-webhook` | ✅ P0-3: revoke handling eklendi, deploy bekliyor |
-| `delete-account` | ✅ Yazıldı, deploy bekliyor |
+| `delete-account` | ⚠️ B117 ile güncellendi, yeniden deploy bekliyor |
 
 ---
 
@@ -217,7 +220,7 @@ npx expo start --tunnel --clear
 - Google OAuth, iOS native Apple Sign In, Android Apple web OAuth ve misafir giriş aktif; production cihazında anonim → native Apple veri koruma akışı doğrulanacak
 - `expo-apple-authentication` nedeniyle yeni iOS dev/production build alınacak (`EXPO_NO_CAPABILITY_SYNC=1` gerekebilir)
 - RevenueCat webhook deploy + gerçek IAP testi (sandbox)
-- send-push + delete-account Edge Function deploy
+- send-push deploy + B117 sonrası delete-account Edge Function yeniden deploy
 - Sentry/error monitoring (native module — EAS build ile)
 - Gizlilik/şartlar URL'leri (Vercel)
 - İkon, splash, ekran görüntüleri
@@ -228,4 +231,4 @@ npx expo start --tunnel --clear
 
 ---
 
-*Son güncelleme: 2026-06-07 — B116 iOS native Apple Sign In eklendi*
+*Son güncelleme: 2026-06-07 — B117 atomik hesap silme eklendi*

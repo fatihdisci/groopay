@@ -1,138 +1,144 @@
-// ──────────────────────────────────────────
 // delete-account — Supabase Edge Function
-// Faz 8: Hesap silme (Apple zorunlu)
-// Auth user'ı ve cascade ile tüm verisini siler.
-// Service-role ile çalışır → RLS baypas.
-// ──────────────────────────────────────────
+// Account deletion required by Apple.
+//
+// User-scoped client: calls delete_user_data so auth.uid() is populated.
+// Service-role client: deletes the auth.users row after database cleanup.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization,content-type',
+};
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization,content-type',
-      },
-    });
+    return new Response('ok', { headers: CORS_HEADERS });
+  }
+
+  if (req.method !== 'POST') {
+    return json({ error: 'METHOD_NOT_ALLOWED', message: 'method not allowed' }, 405);
   }
 
   try {
     const authHeader = req.headers.get('authorization');
-    if (!authHeader) {
-      return json({ error: 'missing authorization header' }, 401);
-    }
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
-
-    // 1. Verify the calling user
-    const { data: { user }, error: userError } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', ''),
-    );
-
-    if (userError || !user) {
-      return json({ error: 'invalid auth token' }, 401);
-    }
-
-    const userId = user.id;
-
-    // 2. Check for founder groups with other real members
-    //    Find groups where this user is founder (created_by)
-    //    AND there are other active real members (user_id IS NOT NULL, user_id != this user)
-    const { data: founderGroups, error: founderError } = await supabase
-      .from('groups')
-      .select(`
-        id,
-        name,
-        group_members!inner (
-          id,
-          user_id,
-          is_active
-        )
-      `)
-      .eq('created_by', userId)
-      .eq('group_members.is_active', true)
-      .neq('group_members.user_id', userId)
-      .not('group_members.user_id', 'is', null);
-
-    if (founderError) throw founderError;
-
-    if (founderGroups && founderGroups.length > 0) {
-      // There are groups where user is founder with other real members
-      const groupNames = founderGroups.map((g: any) => g.name).join(', ');
+    if (!authHeader?.startsWith('Bearer ')) {
       return json({
-        error: 'FOUNDER_GROUPS_EXIST',
-        message: `Aşağıdaki gruplarda kurucusunuz: ${groupNames}. Her birinde yönetimi devredin ya da grubu silin.`,
-        groups: founderGroups.map((g: any) => ({ id: g.id, name: g.name })),
-      }, 409);
+        error: 'MISSING_AUTHORIZATION',
+        message: 'missing authorization header',
+      }, 401);
+    }
+    const accessToken = authHeader.slice('Bearer '.length);
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+      console.error('[delete-account] Missing Supabase environment variables');
+      return json({
+        error: 'SERVER_CONFIGURATION_ERROR',
+        message: 'account deletion is temporarily unavailable',
+      }, 500);
     }
 
-    // 3. Delete the auth user — cascade handles:
-    //    - profiles (on delete cascade)
-    //    - group_members where user_id = this user (on delete cascade from profiles?
-    //      actually it's nullable so no direct cascade — but auth.users delete cascades to profiles)
-    //    - groups where created_by = this user (wait, this is a regular FK, not cascade)
-    //
-    //    Actually, we need to be careful. Let's check the schema:
-    //    - profiles.id references auth.users(id) on delete cascade ✅
-    //    - groups.created_by references profiles(id) — NO cascade, just references
-    //    - group_members.user_id references profiles(id) — nullable, NO cascade
-    //
-    //    So deleting auth.users cascades to profiles, but profiles → groups has no cascade.
-    //    Groups where the user is founder would be orphaned (created_by points to deleted profile).
-    //
-    //    BUT we already checked above — user cannot delete if they're founder of groups with members.
-    //    If user is founder of a group with NO other members (solo group), it's safe to delete.
-    //    We should delete those solo groups first, THEN delete the user.
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
 
-    // 3a. Delete groups where user is the ONLY member (solo founder groups)
-    const { data: soloGroups } = await supabase
-      .from('groups')
-      .select('id')
-      .eq('created_by', userId);
+    const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
 
-    if (soloGroups && soloGroups.length > 0) {
-      // Count real members per group
-      for (const g of soloGroups) {
-        const { data: members } = await supabase
-          .from('group_members')
-          .select('id, user_id, is_active')
-          .eq('group_id', g.id)
-          .eq('is_active', true)
-          .neq('user_id', userId)
-          .not('user_id', 'is', null);
+    // Verify the caller before passing their ID into the SECURITY DEFINER RPC.
+    const { data: { user }, error: userError } = await userClient.auth.getUser(accessToken);
+    if (userError || !user) {
+      console.warn('[delete-account] Invalid auth token:', userError?.message);
+      return json({ error: 'INVALID_AUTH_TOKEN', message: 'invalid auth token' }, 401);
+    }
 
-        if (!members || members.length === 0) {
-          // Solo group — delete it (cascade handles expenses, etc.)
-          await supabase.from('groups').delete().eq('id', g.id);
-        }
+    // Database cleanup is atomic inside delete_user_data. This must use the
+    // caller's Authorization header so auth.uid() equals target_user_id.
+    const { error: cleanupError } = await userClient.rpc('delete_user_data', {
+      target_user_id: user.id,
+    });
+
+    if (cleanupError) {
+      const founderGroups = parseFounderGroups(cleanupError.message);
+      if (founderGroups) {
+        return json({
+          error: 'FOUNDER_GROUPS_EXIST',
+          message: `Aşağıdaki gruplarda kurucusunuz: ${founderGroups}. Her birinde yönetimi devredin ya da grubu silin.`,
+          groups: founderGroups.split(',').map((name) => ({ name: name.trim() })),
+        }, 409);
       }
+
+      if (cleanupError.message.includes('UNAUTHORIZED')) {
+        return json({
+          error: 'UNAUTHORIZED',
+          message: 'account deletion is not authorized',
+        }, 403);
+      }
+
+      console.error('[delete-account] Database cleanup failed:', cleanupError);
+      return json({
+        error: 'DATA_CLEANUP_FAILED',
+        message: 'account data could not be deleted',
+      }, 500);
     }
 
-    // 4. Delete the auth user — cascade deletes profiles
-    const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
-
+    // The RPC is idempotent. If this step fails, retrying account deletion
+    // reruns cleanup safely and then retries deletion of the auth user.
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
     if (deleteError) {
-      console.error('[delete-account] Failed to delete user:', deleteError);
-      throw deleteError;
+      console.error('[delete-account] Auth user deletion failed:', deleteError);
+      return json({
+        error: 'AUTH_USER_DELETE_FAILED',
+        message: 'account data was deleted, but the login record could not be removed; please retry',
+      }, 500);
     }
 
     return json({ success: true });
-  } catch (err: any) {
-    console.error('[delete-account]', err);
-    return json({ error: err?.message ?? 'internal server error' }, 500);
+  } catch (error: unknown) {
+    console.error('[delete-account] Unexpected error:', error);
+    return json({
+      error: 'INTERNAL_SERVER_ERROR',
+      message: getErrorMessage(error),
+    }, 500);
   }
 });
+
+function parseFounderGroups(message: string): string | null {
+  const marker = 'FOUNDER_GROUPS_EXIST:';
+  const markerIndex = message.indexOf(marker);
+  if (markerIndex < 0) return null;
+
+  const groupNames = message.slice(markerIndex + marker.length).trim();
+  return groupNames || null;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return 'internal server error';
+}
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
+      ...CORS_HEADERS,
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
     },
   });
 }
