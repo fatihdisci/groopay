@@ -58,7 +58,7 @@ Detaylar için: [`BUGFIX-CILA.md`](BUGFIX-CILA.md)
 
 ## Önemli Mimari Kararlar (güncel — Haziran 2026)
 
-1. **Auth:** `lib/auth/AuthContext.tsx` — Google OAuth, production misafir girişi ve Apple girişi birlikte aktif. Apple iOS'ta `expo-apple-authentication` + `signInWithIdToken` ile native modal kullanır; Android'de web OAuth devam eder. Misafir hesap Pro satın almadan önce web OAuth veya native Apple ID token ile `linkIdentity` üzerinden aynı user ID üzerinde yükseltilir; mevcut grup ve masraf verileri korunur.
+1. **Auth:** `lib/auth/AuthContext.tsx` — Google OAuth, production misafir girişi ve Apple girişi birlikte aktif. Apple iOS'ta `expo-apple-authentication` + `signInWithIdToken` ile native modal kullanır; Android'de web OAuth devam eder. Misafir hesap Pro satın almadan önce web OAuth veya native Apple ID token ile `linkIdentity` üzerinden aynı user ID üzerinde yükseltilir; mevcut grup ve masraf verileri korunur. Token refresh sorunu çözüldü: AppState listener + manuel `refreshSession()`. İki-client mimarisi korunur ve `autoRefreshToken: false` kalır.
 2. **Hayalet üye:** `group_members.user_id = NULL`. Claim → aynı satıra `user_id` yazılır.
 3. **Para:** ASLA float, integer kuruş + Postgres numeric.
 4. **FX:** Masraf orijinal para biriminde saklanır. Çevrim sadece görüntüleme (canlı kur, kaydedilmez).
@@ -212,6 +212,7 @@ npx expo start --tunnel --clear
 | Üye yönetimi | ✅ Inline panel + toggle |
 | Yeni Grup / Gruba Katıl | ✅ Modal bottom sheet |
 | Grup silme FK | ✅ Migration 0014 |
+| Auth token refresh | ✅ Cold start + AppState foreground manuel refresh |
 
 ---
 
@@ -231,4 +232,4 @@ npx expo start --tunnel --clear
 
 ---
 
-*Son güncelleme: 2026-06-07 — B117 atomik hesap silme eklendi*
+*Son güncelleme: 2026-06-07 — B118 manuel auth token refresh eklendi*

@@ -33,6 +33,7 @@ export function getSupabaseAccessToken(): string | null {
 // ── Storage keys for manual persistence ──
 export const STORAGE_KEY_ACCESS_TOKEN = 'groopay-access-token';
 export const STORAGE_KEY_REFRESH_TOKEN = 'groopay-refresh-token';
+export const STORAGE_KEY_TOKEN_EXPIRES_AT = 'groopay-token-expires-at';
 
 // Keep the SB key for backward compatibility with any stored sessions
 export const SUPABASE_STORAGE_KEY = (() => {

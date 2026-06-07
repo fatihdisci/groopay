@@ -2777,3 +2777,35 @@ npx supabase functions deploy revenuecat-webhook
 | `npm test` 87/87 geçti | ✅ |
 
 *Son güncelleme: 2026-06-07 — B117 eklendi*
+
+---
+
+### ✅ B118: Cold start ve foreground auth token refresh
+
+**Sorun:**
+- `supabaseAuth` istemcisinde React Native `setSession()` / `getSession()` takılma sorununu önlemek için `autoRefreshToken: false` kullanılıyordu.
+- Access token yaklaşık bir saat sonra sona erdiğinde cold start akışı refresh token'ı kullanmadan saklanan tokenları siliyor, foreground dönüşünde ise hiç token kontrolü yapmıyordu.
+- Kullanıcı uygulamayı arka plandan açtığında veya uzun süre sonra geri döndüğünde otomatik çıkış yapmış gibi görünüyordu.
+
+**Yapılan:**
+- İki-client Supabase mimarisi ve `autoRefreshToken: false` kararı korundu.
+- Access token expiry değeri AsyncStorage'a kaydedildi; token sona ermeden 15 dakika önce manuel refresh gerekli kabul ediliyor.
+- Cold start akışına `supabaseAuth.auth.refreshSession({ refresh_token })` eklendi.
+- `AppState` listener ile `background` / `inactive` durumundan `active` durumuna dönüşte token kontrolü ve gerektiğinde manuel refresh eklendi.
+- Başarılı refresh sonrası yeni access/refresh token ve expiry AsyncStorage'a yazılıyor; `setSupabaseAccessToken()` ile DB client anında yeni JWT'yi kullanıyor.
+- Eşzamanlı AppState event'leri promise kilidi ve 5 saniyelik debounce ile tek refresh isteğine indirildi.
+- Refresh isteğine 10 saniyelik timeout eklendi. Ağ/servis hatasında tokenlar temizlenmiyor; son doğrulanmış auth snapshot'ı cold start için korunuyor.
+- Refresh token kesin olarak geçersizse auth state temizleniyor, giriş ekranına yönlendiriliyor ve i18n "Oturum sona erdi" mesajı gösteriliyor.
+- Google/Apple OAuth, native Apple identity linking ve anonim giriş akışlarının davranışı değiştirilmedi; yalnızca oluşan session'ların expiry bilgisi de saklanıyor.
+
+**Değişen dosyalar:** `lib/auth/AuthContext.tsx`, `lib/supabase/client.ts`, `locales/tr.json`, `locales/en.json`, `CLAUDE.md`, `SESSION-OZET.md`, `BUGFIX-CILA.md`
+
+**Test:**
+1. `npx tsc --noEmit`
+2. `npm test`
+3. Giriş yaptıktan sonra uygulamayı 45 dakikadan uzun süre arka planda bırak; geri dönüşte kullanıcı ve RLS korumalı veriler korunmalı.
+4. Uygulamayı sona ermeye yakın token ile cold start et; `[auth] Access token refreshed` log'u görülmeli.
+5. Ağı kapatıp uygulamayı foreground'a getir; kullanıcı çıkış yapmamalı.
+6. Geçersiz refresh token ile aç; giriş ekranı ve yerelleştirilmiş oturum sonu mesajı görülmeli.
+
+*Son güncelleme: 2026-06-07 — B118 eklendi*

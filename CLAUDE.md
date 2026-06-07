@@ -71,6 +71,11 @@
 ## Auth (Phase 8)
 - Guest (anonymous) sign-in is active in production alongside Google and Apple sign-in.
 - Apple Sign In uses `expo-apple-authentication` + `signInWithIdToken` natively on iOS; Android keeps the Supabase web OAuth flow.
+- Supabase keeps the two-client architecture: `supabaseAuth` owns auth operations, while `supabase` injects the current access token into DB requests.
+- `supabaseAuth.auth.autoRefreshToken` MUST remain `false`; automatic refresh and session restoration previously caused React Native hangs.
+- Access tokens are refreshed manually with `supabaseAuth.auth.refreshSession({ refresh_token })` on cold start and when the app returns to the foreground near expiry.
+- Successful refreshes must update both AsyncStorage and `setSupabaseAccessToken()` so DB requests immediately use the new JWT.
+- Transient network refresh failures must preserve the stored session. Only a confirmed invalid refresh token signs the user out.
 - Guests keep full access to core group, expense, balance, and invite flows.
 - Before a Pro purchase, guests must link Google or Apple. Web OAuth and native Apple ID-token linking both use `linkIdentity` to upgrade the same `auth.users` row, so the user ID and existing data are preserved.
 - If identity linking fails, do not fall back to a new OAuth user and do not start the purchase.

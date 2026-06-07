@@ -1,10 +1,22 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
+import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
-import type { Session, User } from '@supabase/supabase-js';
+import { Alert, AppState, Platform } from 'react-native';
+import {
+  isAuthRetryableFetchError,
+  type Session,
+  type User,
+} from '@supabase/supabase-js';
 import i18n from '@/lib/i18n';
 import {
   supabase,
@@ -12,6 +24,7 @@ import {
   setSupabaseAccessToken,
   STORAGE_KEY_ACCESS_TOKEN,
   STORAGE_KEY_REFRESH_TOKEN,
+  STORAGE_KEY_TOKEN_EXPIRES_AT,
 } from '@/lib/supabase/client';
 import { AVATAR_COLORS } from '@/constants/avatarColors';
 import type { ProfileRow } from '@/lib/supabase/types';
@@ -30,6 +43,10 @@ import type { Profile, OAuthProvider } from './types';
 
 const STORAGE_KEY_ONBOARDED = 'groopay:onboarded';
 const STORAGE_KEY_DEMO_GROUP = 'groopay:demo_group';
+const STORAGE_KEY_AUTH_SNAPSHOT = 'groopay:auth-snapshot';
+const TOKEN_REFRESH_WINDOW_SECONDS = 15 * 60;
+const REFRESH_DEBOUNCE_MS = 5000;
+const REFRESH_TIMEOUT_MS = 10000;
 
 interface AuthContextValue {
   user: Profile | null;
@@ -92,11 +109,149 @@ interface CompletedOAuthSignIn {
   profileNeedsRetry: boolean;
 }
 
+interface StoredAuthTokens {
+  accessToken: string | null;
+  refreshToken: string | null;
+  expiresAt: number | null;
+}
+
+interface StoredAuthSnapshot {
+  profile: Profile;
+  isAnonymous: boolean;
+}
+
+type RefreshResult =
+  | { status: 'success'; session: Session }
+  | { status: 'network-error' }
+  | { status: 'invalid-session' }
+  | { status: 'skipped' };
+
+async function getStoredAuthTokens(): Promise<StoredAuthTokens> {
+  const entries = await AsyncStorage.multiGet([
+    STORAGE_KEY_ACCESS_TOKEN,
+    STORAGE_KEY_REFRESH_TOKEN,
+    STORAGE_KEY_TOKEN_EXPIRES_AT,
+  ]);
+  const expiresAtValue = entries[2][1];
+  const parsedExpiresAt = expiresAtValue ? Number(expiresAtValue) : Number.NaN;
+
+  return {
+    accessToken: entries[0][1],
+    refreshToken: entries[1][1],
+    expiresAt: Number.isFinite(parsedExpiresAt) ? parsedExpiresAt : null,
+  };
+}
+
+async function persistAuthTokens(
+  accessToken: string,
+  refreshToken: string | null,
+  expiresAt: number | null,
+): Promise<void> {
+  setSupabaseAccessToken(accessToken);
+
+  const entries: [string, string][] = [[STORAGE_KEY_ACCESS_TOKEN, accessToken]];
+  if (refreshToken) {
+    entries.push([STORAGE_KEY_REFRESH_TOKEN, refreshToken]);
+  }
+  if (expiresAt) {
+    entries.push([STORAGE_KEY_TOKEN_EXPIRES_AT, String(expiresAt)]);
+  }
+  await AsyncStorage.multiSet(entries);
+
+  const keysToRemove: string[] = [];
+  if (!refreshToken) keysToRemove.push(STORAGE_KEY_REFRESH_TOKEN);
+  if (!expiresAt) keysToRemove.push(STORAGE_KEY_TOKEN_EXPIRES_AT);
+  if (keysToRemove.length > 0) {
+    await AsyncStorage.multiRemove(keysToRemove);
+  }
+}
+
+async function clearStoredAuthTokens(): Promise<void> {
+  setSupabaseAccessToken(null);
+  await AsyncStorage.multiRemove([
+    STORAGE_KEY_ACCESS_TOKEN,
+    STORAGE_KEY_REFRESH_TOKEN,
+    STORAGE_KEY_TOKEN_EXPIRES_AT,
+  ]);
+}
+
+function isProfile(value: unknown): value is Profile {
+  if (typeof value !== 'object' || value === null) return false;
+  return (
+    'id' in value
+    && typeof value.id === 'string'
+    && 'display_name' in value
+    && typeof value.display_name === 'string'
+    && 'avatar_color' in value
+    && typeof value.avatar_color === 'string'
+    && 'locale' in value
+    && typeof value.locale === 'string'
+    && 'preferred_currency' in value
+    && (typeof value.preferred_currency === 'string' || value.preferred_currency === null)
+    && 'user_pro' in value
+    && typeof value.user_pro === 'boolean'
+    && 'user_pro_purchased_at' in value
+    && (typeof value.user_pro_purchased_at === 'string' || value.user_pro_purchased_at === null)
+  );
+}
+
+async function persistAuthSnapshot(
+  profile: Profile,
+  isAnonymous: boolean,
+): Promise<void> {
+  await AsyncStorage.setItem(
+    STORAGE_KEY_AUTH_SNAPSHOT,
+    JSON.stringify({ profile, isAnonymous }),
+  );
+}
+
+async function getStoredAuthSnapshot(): Promise<StoredAuthSnapshot | null> {
+  const value = await AsyncStorage.getItem(STORAGE_KEY_AUTH_SNAPSHOT);
+  if (!value) return null;
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (
+      typeof parsed === 'object'
+      && parsed !== null
+      && 'profile' in parsed
+      && isProfile(parsed.profile)
+      && 'isAnonymous' in parsed
+      && typeof parsed.isAnonymous === 'boolean'
+    ) {
+      return {
+        profile: parsed.profile,
+        isAnonymous: parsed.isAnonymous,
+      };
+    }
+  } catch {
+    // Ignore malformed legacy cache entries.
+  }
+  return null;
+}
+
+function shouldRefreshToken(expiresAt: number | null): boolean {
+  if (!expiresAt) return true;
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  return expiresAt <= nowSeconds + TOKEN_REFRESH_WINDOW_SECONDS;
+}
+
+function isTransientRefreshError(error: unknown): boolean {
+  if (isAuthRetryableFetchError(error)) return true;
+  if (typeof error !== 'object' || error === null) return false;
+
+  const status = 'status' in error && typeof error.status === 'number'
+    ? error.status
+    : null;
+  return status === 0 || status === 429 || (status !== null && status >= 500);
+}
+
 async function completeTokenSignIn(
   authUser: User,
   accessToken: string,
   refreshToken: string | null,
   expectedUserId?: string,
+  expiresAt: number | null = null,
 ): Promise<CompletedOAuthSignIn> {
   if (expectedUserId && authUser.id !== expectedUserId) {
     throw new Error('Identity linking returned a different user');
@@ -105,11 +260,7 @@ async function completeTokenSignIn(
     throw new Error('Identity linking did not complete');
   }
 
-  setSupabaseAccessToken(accessToken);
-  await AsyncStorage.setItem(STORAGE_KEY_ACCESS_TOKEN, accessToken);
-  if (refreshToken) {
-    await AsyncStorage.setItem(STORAGE_KEY_REFRESH_TOKEN, refreshToken);
-  }
+  await persistAuthTokens(accessToken, refreshToken, expiresAt);
 
   const profile = await fetchProfile(authUser.id);
   if (profile) {
@@ -153,6 +304,8 @@ async function completeOAuthSignIn(
   const callbackError = params.get('error_description') ?? params.get('error');
   const accessToken = params.get('access_token');
   const refreshToken = params.get('refresh_token');
+  const expiresInValue = params.get('expires_in');
+  const expiresIn = expiresInValue ? Number(expiresInValue) : Number.NaN;
 
   if (callbackError) {
     throw new Error(callbackError);
@@ -171,6 +324,9 @@ async function completeOAuthSignIn(
     accessToken,
     refreshToken,
     expectedUserId,
+    Number.isFinite(expiresIn)
+      ? Math.floor(Date.now() / 1000) + expiresIn
+      : null,
   );
 }
 
@@ -210,31 +366,159 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isOnboarded, setIsOnboarded] = useState(false);
+  const refreshPromiseRef = useRef<Promise<RefreshResult> | null>(null);
+  const lastRefreshAttemptRef = useRef(0);
+  const appStateRef = useRef(AppState.currentState);
+
+  const expireSession = useCallback(async (showMessage: boolean): Promise<void> => {
+    await clearStoredAuthTokens();
+    await AsyncStorage.multiRemove([
+      STORAGE_KEY_AUTH_SNAPSHOT,
+      STORAGE_KEY_ONBOARDED,
+    ]);
+    setUser(null);
+    setIsAnonymous(false);
+    setIsOnboarded(false);
+    router.replace('/(auth)/sign-in');
+
+    if (showMessage) {
+      Alert.alert(
+        i18n.t('auth.sessionExpiredTitle'),
+        i18n.t('auth.sessionExpiredMessage'),
+      );
+    }
+  }, []);
+
+  const restoreCachedAuthState = useCallback(async (): Promise<boolean> => {
+    const [snapshot, storedOnboarded] = await Promise.all([
+      getStoredAuthSnapshot(),
+      AsyncStorage.getItem(STORAGE_KEY_ONBOARDED),
+    ]);
+    if (!snapshot) return false;
+
+    setUser(snapshot.profile);
+    setIsAnonymous(snapshot.isAnonymous);
+    setIsOnboarded(storedOnboarded === 'true');
+    return true;
+  }, []);
+
+  const refreshStoredSession = useCallback(async (): Promise<RefreshResult> => {
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
+    }
+
+    const now = Date.now();
+    if (now - lastRefreshAttemptRef.current < REFRESH_DEBOUNCE_MS) {
+      return { status: 'skipped' };
+    }
+    lastRefreshAttemptRef.current = now;
+
+    const refreshPromise = (async (): Promise<RefreshResult> => {
+      const { refreshToken } = await getStoredAuthTokens();
+      if (!refreshToken) {
+        return { status: 'invalid-session' };
+      }
+
+      try {
+        const result = await Promise.race([
+          supabaseAuth.auth.refreshSession({ refresh_token: refreshToken }),
+          new Promise<null>((resolve) => {
+            setTimeout(() => resolve(null), REFRESH_TIMEOUT_MS);
+          }),
+        ]);
+
+        if (!result) {
+          console.warn('[auth] Token refresh timed out; keeping stored session');
+          return { status: 'network-error' };
+        }
+        if (result.error) {
+          if (isTransientRefreshError(result.error)) {
+            console.warn('[auth] Token refresh deferred due to network:', result.error.message);
+            return { status: 'network-error' };
+          }
+          console.warn('[auth] Refresh token is invalid:', result.error.message);
+          return { status: 'invalid-session' };
+        }
+        if (!result.data.session) {
+          return { status: 'invalid-session' };
+        }
+
+        const session = result.data.session;
+        await persistAuthTokens(
+          session.access_token,
+          session.refresh_token,
+          session.expires_at ?? null,
+        );
+        console.log('[auth] Access token refreshed');
+        return { status: 'success', session };
+      } catch (error: unknown) {
+        if (isTransientRefreshError(error)) {
+          console.warn('[auth] Token refresh deferred due to network');
+          return { status: 'network-error' };
+        }
+        console.warn('[auth] Token refresh failed:', error);
+        return { status: 'network-error' };
+      }
+    })();
+
+    refreshPromiseRef.current = refreshPromise;
+    try {
+      return await refreshPromise;
+    } finally {
+      refreshPromiseRef.current = null;
+    }
+  }, []);
 
   // ── Restore session on mount (cold start) ──
   useEffect(() => {
     (async () => {
       try {
         console.log('[auth] Cold start: restoring token from storage…');
-        const storedToken = await AsyncStorage.getItem(STORAGE_KEY_ACCESS_TOKEN);
+        const storedTokens = await getStoredAuthTokens();
+        let storedToken = storedTokens.accessToken;
 
         if (storedToken) {
-          // Set the token so accessToken callback uses it
           setSupabaseAccessToken(storedToken);
 
-          // Verify the token is still valid
+          if (shouldRefreshToken(storedTokens.expiresAt)) {
+            const refreshResult = await refreshStoredSession();
+            if (refreshResult.status === 'success') {
+              storedToken = refreshResult.session.access_token;
+            } else if (refreshResult.status === 'invalid-session') {
+              await expireSession(true);
+              return;
+            } else if (refreshResult.status === 'network-error') {
+              await restoreCachedAuthState();
+              return;
+            } else {
+              storedToken = (await getStoredAuthTokens()).accessToken;
+              if (!storedToken) return;
+            }
+          }
+
           const { data: userData, error: userError } = await supabaseAuth.auth.getUser(storedToken);
 
           if (userError || !userData?.user) {
-            console.log('[auth] Stored token expired, clearing…');
-            setSupabaseAccessToken(null);
-            await AsyncStorage.multiRemove([STORAGE_KEY_ACCESS_TOKEN, STORAGE_KEY_REFRESH_TOKEN]);
+            if (isTransientRefreshError(userError)) {
+              console.warn('[auth] User verification deferred due to network');
+              await restoreCachedAuthState();
+              return;
+            }
+            await expireSession(true);
           } else {
             console.log('[auth] Token valid, user:', userData.user.id);
             setIsAnonymous(userData.user.is_anonymous ?? false);
             const profile = await fetchProfile(userData.user.id);
             if (profile) {
-              setUser(profileRowToProfile(profile));
+              const mappedProfile = profileRowToProfile(profile);
+              setUser(mappedProfile);
+              await persistAuthSnapshot(
+                mappedProfile,
+                userData.user.is_anonymous ?? false,
+              );
+            } else {
+              await restoreCachedAuthState();
+              return;
             }
 
             const storedOnboarded = await AsyncStorage.getItem(STORAGE_KEY_ONBOARDED);
@@ -250,15 +534,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       }
     })();
-  }, []);
+  }, [expireSession, refreshStoredSession, restoreCachedAuthState]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const wasInBackground = appStateRef.current === 'background'
+        || appStateRef.current === 'inactive';
+      appStateRef.current = nextState;
+
+      if (!wasInBackground || nextState !== 'active') return;
+
+      void (async () => {
+        try {
+          const storedTokens = await getStoredAuthTokens();
+          if (!storedTokens.accessToken || !shouldRefreshToken(storedTokens.expiresAt)) {
+            return;
+          }
+
+          const refreshResult = await refreshStoredSession();
+          if (refreshResult.status === 'invalid-session') {
+            await expireSession(true);
+          }
+        } catch (error: unknown) {
+          console.warn('[auth] Foreground token check failed:', error);
+        }
+      })();
+    });
+
+    return () => subscription.remove();
+  }, [expireSession, refreshStoredSession]);
 
   const applyCompletedSignIn = useCallback((completed: CompletedOAuthSignIn) => {
     setUser(completed.profile);
     setIsAnonymous(completed.isAnonymous);
+    void persistAuthSnapshot(completed.profile, completed.isAnonymous);
     if (completed.profileNeedsRetry) {
       setTimeout(async () => {
         const retry = await fetchProfile(completed.userId);
-        if (retry) setUser(profileRowToProfile(retry));
+        if (retry) {
+          const mappedProfile = profileRowToProfile(retry);
+          setUser(mappedProfile);
+          await persistAuthSnapshot(mappedProfile, completed.isAnonymous);
+        }
       }, 1500);
     }
   }, []);
@@ -332,6 +649,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             data.session.access_token,
             data.session.refresh_token,
             anonymousUserId,
+            data.session.expires_at ?? null,
           );
           applyCompletedSignIn(completed);
           return true;
@@ -355,6 +673,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           data.user,
           data.session.access_token,
           data.session.refresh_token,
+          undefined,
+          data.session.expires_at ?? null,
         );
         applyCompletedSignIn(completed);
         return true;
@@ -442,11 +762,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (data.user && data.session) {
       setIsAnonymous(true);
-      setSupabaseAccessToken(data.session.access_token);
-      await AsyncStorage.setItem(STORAGE_KEY_ACCESS_TOKEN, data.session.access_token);
-      if (data.session.refresh_token) {
-        await AsyncStorage.setItem(STORAGE_KEY_REFRESH_TOKEN, data.session.refresh_token);
-      }
+      await persistAuthTokens(
+        data.session.access_token,
+        data.session.refresh_token,
+        data.session.expires_at ?? null,
+      );
 
       await new Promise((r) => setTimeout(r, 300));
       let profile = await fetchProfile(data.user.id);
@@ -470,7 +790,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile = newProfile as ProfileRow;
       }
 
-      setUser(profileRowToProfile(profile));
+      const mappedProfile = profileRowToProfile(profile);
+      setUser(mappedProfile);
+      await persistAuthSnapshot(mappedProfile, true);
 
       const hasGroups = await syncOnboardingFlag(data.user.id);
       if (!hasGroups) setIsOnboarded(false);
@@ -478,12 +800,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    // Clear our token holder
-    setSupabaseAccessToken(null);
-    // Clear stored tokens
+    await clearStoredAuthTokens();
     await AsyncStorage.multiRemove([
-      STORAGE_KEY_ACCESS_TOKEN,
-      STORAGE_KEY_REFRESH_TOKEN,
+      STORAGE_KEY_AUTH_SNAPSHOT,
       STORAGE_KEY_ONBOARDED,
     ]);
     setUser(null);
@@ -522,8 +841,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const updated = { ...user, ...updates };
       setUser(updated);
+      await persistAuthSnapshot(updated, isAnonymous);
     },
-    [user],
+    [isAnonymous, user],
   );
 
   const setOnboarded = useCallback(async () => {

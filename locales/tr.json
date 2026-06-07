@@ -277,7 +277,9 @@
     "appleUnavailable": "Apple ile giriş bu cihazda kullanılamıyor.",
     "appleTokenMissing": "Apple kimlik doğrulama bilgisi alınamadı. Lütfen tekrar deneyin.",
     "appleSessionMissing": "Apple oturumu oluşturulamadı. Lütfen tekrar deneyin.",
-    "appleUpgradeMismatch": "Misafir hesabı Apple hesabına güvenli şekilde bağlanamadı. Verilerin korunuyor; lütfen tekrar deneyin."
+    "appleUpgradeMismatch": "Misafir hesabı Apple hesabına güvenli şekilde bağlanamadı. Verilerin korunuyor; lütfen tekrar deneyin.",
+    "sessionExpiredTitle": "Oturum sona erdi",
+    "sessionExpiredMessage": "Güvenliğiniz için yeniden giriş yapmanız gerekiyor."
   },
   "onboarding": {
     "skip": "Atla",
