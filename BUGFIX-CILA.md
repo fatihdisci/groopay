@@ -2809,3 +2809,34 @@ npx supabase functions deploy revenuecat-webhook
 6. Geçersiz refresh token ile aç; giriş ekranı ve yerelleştirilmiş oturum sonu mesajı görülmeli.
 
 *Son güncelleme: 2026-06-07 — B118 eklendi*
+
+---
+
+### ✅ B119: Web sitesi ve yasal sayfalara İngilizce dil seçeneği
+
+**Sorun:**
+- `https://groopay.vercel.app/`, gizlilik politikası ve kullanım koşulları yalnızca Türkçe sunuluyordu.
+- App Store Connect, inceleme için İngilizce bir privacy policy URL'si istiyordu.
+- Web ve uygulama içi legal metinlerde birden fazla eski iletişim e-posta adresi kullanılıyordu.
+
+**Yapılan:**
+- Ana sayfa, gizlilik politikası ve kullanım koşullarına erişilebilir `TR / EN` dil seçici eklendi.
+- İngilizce ana sayfa ve tam İngilizce legal metinler oluşturuldu.
+- Vercel rewrite'larına İngilizce rotalar eklendi:
+  - `https://groopay.vercel.app/en`
+  - `https://groopay.vercel.app/en/privacy`
+  - `https://groopay.vercel.app/en/terms`
+- App Store Connect privacy policy alanında kullanılacak URL `https://groopay.vercel.app/en/privacy` olarak belirlendi.
+- Türkçe ve İngilizce web sayfaları ile uygulama içi legal metinlerde iletişim adresi `behavest@proton.me` olarak tekilleştirildi.
+- `eas.json` içindeki Apple Developer giriş hesabı bir iletişim adresi olmadığı için değiştirilmedi.
+
+**Değişen dosyalar:** `public/index.html`, `public/privacy.html`, `public/terms.html`, `public/en/index.html`, `public/en/privacy.html`, `public/en/terms.html`, `vercel.json`, `privacy.html`, `terms.html`, `locales/tr.json`, `locales/en.json`, `SESSION-OZET.md`, `BUGFIX-CILA.md`
+
+**Test:**
+1. `/`, `/privacy`, `/terms` sayfalarında `TR` seçili olmalı ve `EN` doğru İngilizce sayfaya gitmeli.
+2. `/en`, `/en/privacy`, `/en/terms` sayfalarında `EN` seçili olmalı ve `TR` doğru Türkçe sayfaya gitmeli.
+3. Altı Vercel rotasının hedef HTML dosyaları mevcut olmalı.
+4. Repo genelinde eski public iletişim adresi kalmamalı.
+5. `npx tsc --noEmit` ve `npm test` temiz geçmeli.
+
+*Son güncelleme: 2026-06-07 — B119 eklendi*

@@ -213,6 +213,7 @@ npx expo start --tunnel --clear
 | Yeni Grup / Gruba Katıl | ✅ Modal bottom sheet |
 | Grup silme FK | ✅ Migration 0014 |
 | Auth token refresh | ✅ Cold start + AppState foreground manuel refresh |
+| Web legal sayfaları | ✅ TR/EN; App Store privacy URL: `/en/privacy` |
 
 ---
 
@@ -232,4 +233,4 @@ npx expo start --tunnel --clear
 
 ---
 
-*Son güncelleme: 2026-06-07 — B118 manuel auth token refresh eklendi*
+*Son güncelleme: 2026-06-07 — B119 web ve legal TR/EN desteği eklendi*

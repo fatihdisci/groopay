@@ -31,6 +31,14 @@
       box-shadow: 0 20px 60px rgba(79, 70, 229, 0.25);
     }
 
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
     .back-link {
       display: inline-flex;
       align-items: center;
@@ -39,11 +47,37 @@
       text-decoration: none;
       font-size: 14px;
       font-weight: 600;
-      margin-bottom: 32px;
       transition: opacity 0.2s;
     }
 
     .back-link:hover { opacity: 0.7; }
+
+    .language-switcher {
+      display: flex;
+      gap: 4px;
+      padding: 3px;
+      border: 1px solid #C7D2FE;
+      border-radius: 10px;
+      background: #EEF2FF;
+    }
+
+    .language-link {
+      min-width: 44px;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 7px;
+      color: #6366F1;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .language-link[aria-current="page"] {
+      color: #FFFFFF;
+      background: #4F46E5;
+    }
 
     h1 {
       font-size: 32px;
@@ -103,7 +137,13 @@
 </head>
 <body>
   <div class="container">
-    <a class="back-link" href="/">← Groopay</a>
+    <div class="top-bar">
+      <a class="back-link" href="/">← Groopay</a>
+      <nav class="language-switcher" aria-label="Dil seçimi">
+        <a class="language-link" href="/privacy" lang="tr" aria-current="page">TR</a>
+        <a class="language-link" href="/en/privacy" lang="en">EN</a>
+      </nav>
+    </div>
     <h1>Gizlilik Politikası</h1>
     <p class="updated">Son güncelleme: 5 Haziran 2026</p>
 
@@ -144,7 +184,7 @@
 
     <section>
       <h2>6. İletişim</h2>
-      <p>Sorularınız için: <a href="mailto:info@groopay.com">info@groopay.com</a></p>
+      <p>Sorularınız için: <a href="mailto:behavest@proton.me">behavest@proton.me</a></p>
     </section>
   </div>
 </body>
