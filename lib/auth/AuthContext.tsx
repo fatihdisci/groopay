@@ -46,7 +46,8 @@ const STORAGE_KEY_DEMO_GROUP = 'groopay:demo_group';
 const STORAGE_KEY_AUTH_SNAPSHOT = 'groopay:auth-snapshot';
 const TOKEN_REFRESH_WINDOW_SECONDS = 15 * 60;
 const REFRESH_DEBOUNCE_MS = 5000;
-const REFRESH_TIMEOUT_MS = 10000;
+/** Fire proactive refresh 10 min before the typical 1 h token expiry. */
+const PROACTIVE_REFRESH_INTERVAL_MS = 50 * 60 * 1000; // 50 minutes
 
 interface AuthContextValue {
   user: Profile | null;
@@ -340,16 +341,13 @@ async function restoreAuthSessionForIdentityLinking(): Promise<Session | null> {
 
   if (!storedAccessToken || !storedRefreshToken) return null;
 
-  const sessionResult = await Promise.race([
-    supabaseAuth.auth.setSession({
-      access_token: storedAccessToken,
-      refresh_token: storedRefreshToken,
-    }),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
-  ]);
+  const { data, error } = await supabaseAuth.auth.setSession({
+    access_token: storedAccessToken,
+    refresh_token: storedRefreshToken,
+  });
 
-  if (!sessionResult || sessionResult.error) return null;
-  return sessionResult.data.session;
+  if (error || !data.session) return null;
+  return data.session;
 }
 
 function isAppleSignInCancellation(error: unknown): boolean {
@@ -369,6 +367,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshPromiseRef = useRef<Promise<RefreshResult> | null>(null);
   const lastRefreshAttemptRef = useRef(0);
   const appStateRef = useRef(AppState.currentState);
+  const proactiveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const expireSession = useCallback(async (showMessage: boolean): Promise<void> => {
     await clearStoredAuthTokens();
@@ -420,30 +419,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const result = await Promise.race([
-          supabaseAuth.auth.refreshSession({ refresh_token: refreshToken }),
-          new Promise<null>((resolve) => {
-            setTimeout(() => resolve(null), REFRESH_TIMEOUT_MS);
-          }),
-        ]);
+        const { data, error } = await supabaseAuth.auth.refreshSession({ refresh_token: refreshToken });
 
-        if (!result) {
-          console.warn('[auth] Token refresh timed out; keeping stored session');
-          return { status: 'network-error' };
-        }
-        if (result.error) {
-          if (isTransientRefreshError(result.error)) {
-            console.warn('[auth] Token refresh deferred due to network:', result.error.message);
+        if (error) {
+          if (isTransientRefreshError(error)) {
+            console.warn('[auth] Token refresh deferred due to network:', error.message);
             return { status: 'network-error' };
           }
-          console.warn('[auth] Refresh token is invalid:', result.error.message);
+          console.warn('[auth] Refresh token is invalid:', error.message);
           return { status: 'invalid-session' };
         }
-        if (!result.data.session) {
+        if (!data.session) {
           return { status: 'invalid-session' };
         }
 
-        const session = result.data.session;
+        const session = data.session;
         await persistAuthTokens(
           session.access_token,
           session.refresh_token,
@@ -468,6 +458,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshPromiseRef.current = null;
     }
   }, []);
+
+  // ── Proactive foreground token refresh (every 50 min) ──
+  const proactiveTokenRefresh = useCallback(async (): Promise<void> => {
+    try {
+      const storedTokens = await getStoredAuthTokens();
+      if (!storedTokens.accessToken) return;
+
+      // Validate current token first to avoid unnecessary refresh-token rotations.
+      const { data: userData, error: userError } = await supabaseAuth.auth.getUser(
+        storedTokens.accessToken,
+      );
+
+      if (!userError && userData?.user) {
+        // Token still valid — nothing to do.
+        return;
+      }
+
+      // Token is expired or invalid; attempt a refresh.
+      console.log('[AuthContext] Proactive token refresh');
+      const refreshResult = await refreshStoredSession();
+      if (refreshResult.status === 'invalid-session') {
+        await expireSession(true);
+      }
+    } catch (error: unknown) {
+      console.warn('[auth] Proactive token check failed:', error);
+    }
+  }, [expireSession, refreshStoredSession]);
 
   // ── Restore session on mount (cold start) ──
   useEffect(() => {
@@ -563,6 +580,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => subscription.remove();
   }, [expireSession, refreshStoredSession]);
+
+  // ── Proactive foreground refresh interval ──
+  // Runs every 50 min while the user is signed in, so a token that expires
+  // after 1 h never goes stale while the app stays in the foreground.
+  useEffect(() => {
+    if (!user) {
+      if (proactiveIntervalRef.current) {
+        clearInterval(proactiveIntervalRef.current);
+        proactiveIntervalRef.current = null;
+      }
+      return;
+    }
+
+    proactiveIntervalRef.current = setInterval(() => {
+      void proactiveTokenRefresh();
+    }, PROACTIVE_REFRESH_INTERVAL_MS);
+
+    return () => {
+      if (proactiveIntervalRef.current) {
+        clearInterval(proactiveIntervalRef.current);
+        proactiveIntervalRef.current = null;
+      }
+    };
+  }, [user, proactiveTokenRefresh]);
 
   const applyCompletedSignIn = useCallback((completed: CompletedOAuthSignIn) => {
     setUser(completed.profile);
