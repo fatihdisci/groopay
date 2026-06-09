@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -292,6 +293,27 @@ export default function PaywallScreen() {
         )}
       </TouchableOpacity>
 
+      {/* Legal links */}
+      <View style={styles.legalLinks}>
+        <TouchableOpacity
+          onPress={() => Linking.openURL('https://groopay.app/privacy')}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          accessibilityRole="link"
+          accessibilityLabel={t('paywall.privacyPolicy')}
+        >
+          <Text style={styles.legalLinkText}>{t('paywall.privacyPolicy')}</Text>
+        </TouchableOpacity>
+        <Text style={styles.legalLinkText}> · </Text>
+        <TouchableOpacity
+          onPress={() => Linking.openURL('https://groopay.app/terms')}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          accessibilityRole="link"
+          accessibilityLabel={t('paywall.terms')}
+        >
+          <Text style={styles.legalLinkText}>{t('paywall.terms')}</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Dev build notice */}
       {!isRevenueCatAvailable() && (
         <View style={styles.devNotice}>
@@ -400,6 +422,16 @@ const styles = StyleSheet.create({
     gap: 6, paddingVertical: 8, marginBottom: 16,
   },
   devNoticeText: { fontFamily: Typography.fontBody, fontSize: 12, color: Colors.warning },
+
+  // Legal links
+  legalLinks: {
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
+    paddingVertical: 12, paddingHorizontal: 24,
+  },
+  legalLinkText: {
+    fontFamily: Typography.fontBody, fontSize: 11,
+    color: Colors.textTertiary,
+  },
 
   // Fine print
   finePrint: {

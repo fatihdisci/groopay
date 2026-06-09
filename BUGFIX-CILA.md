@@ -2840,3 +2840,29 @@ npx supabase functions deploy revenuecat-webhook
 5. `npx tsc --noEmit` ve `npm test` temiz geçmeli.
 
 *Son güncelleme: 2026-06-07 — B119 eklendi*
+
+---
+
+### ✅ B120: Paywall yasal linkler + Apple 3.1.2(c) uyumluluğu
+
+**Sorun:**
+- Paywall ekranında Gizlilik Politikası ve Kullanım Koşulları bağlantıları yoktu.
+- Apple 3.1.2(c) gereği abonelik adı, süresi ve fiyatı satın alma butonunun üstünde görünür olmalı.
+
+**Yapılan:**
+- Paywall alt kısmına (restore butonu ile finePrint arasına) ortalanmış yasal link satırı eklendi:
+  - "Gizlilik Politikası" → `Linking.openURL('https://groopay.app/privacy')`
+  - "Kullanım Koşulları" → `Linking.openURL('https://groopay.app/terms')`
+- Linkler ` · ` ayracı ile ayrıldı, 11px `textTertiary` renkte, `accessibilityRole="link"` ile.
+- `locales/tr.json` ve `locales/en.json` dosyalarına `paywall.privacyPolicy` ve `paywall.terms` anahtarları eklendi.
+- Apple 3.1.2(c) kontrolü yapıldı: abonelik başlığı (`paywall.userProTitle`), süre (`paywall.monthly`) ve fiyat (RevenueCat `priceString`) — üçü de CTA butonunun üzerinde, fiyat kartı içinde gösteriliyor ✅.
+
+**Değişen dosyalar:** `app/paywall.tsx`, `locales/tr.json`, `locales/en.json`
+
+**Test:**
+1. Paywall açılınca en altta "Gizlilik Politikası · Kullanım Koşulları" görünmeli.
+2. Linklere tıklayınca ilgili URL tarayıcıda açılmalı.
+3. Fiyat kartında "Pro'ya Geç" (veya "Go Pro"), "aylık" (veya "monthly") ve fiyat görünmeli.
+4. `npx tsc --noEmit` temiz geçmeli.
+
+*Son güncelleme: 2026-06-09 — B120 eklendi*

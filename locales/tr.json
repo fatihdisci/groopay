@@ -342,7 +342,9 @@
     "guestUpgradeFailed": "Hesap bağlanamadı. Google veya Apple hesabın başka bir kullanıcıya bağlı olabilir. Misafir verilerin korunuyor ve satın alma başlatılmadı.",
     "alreadyPro": "Zaten Pro'sunuz!",
     "alreadyProSub": "Tüm Pro özellikleri hesabınızda aktif.",
-    "finePrint": "Satın alımlar Apple/Google üzerinden işlenir. Geri yükleme her zaman yapılabilir."
+    "finePrint": "Satın alımlar Apple/Google üzerinden işlenir. Geri yükleme her zaman yapılabilir.",
+    "privacyPolicy": "Gizlilik Politikası",
+    "terms": "Kullanım Koşulları"
   },
   "pro": {
     "locked": "Pro Özelliği",

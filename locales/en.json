@@ -345,7 +345,9 @@
     "guestUpgradeFailed": "The account could not be linked. Your Google or Apple account may already belong to another user. Your guest data is safe and the purchase was not started.",
     "alreadyPro": "You're already Pro!",
     "alreadyProSub": "All Pro features are active on your account.",
-    "finePrint": "Purchases are processed through Apple/Google. Restoration is always available."
+    "finePrint": "Purchases are processed through Apple/Google. Restoration is always available.",
+    "privacyPolicy": "Privacy Policy",
+    "terms": "Terms of Use"
   },
   "pro": {
     "locked": "Pro Feature",
