@@ -11,7 +11,7 @@
     "ios": {
       "bundleIdentifier": "com.groopay.app",
       "supportsTablet": false,
-      "buildNumber": "1",
+      "buildNumber": "5",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -56,6 +56,12 @@
       },
       "router": {},
       "privacyPolicyUrl": "https://groopay.vercel.app/privacy"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/514dc8d4-d0a3-4ffb-a307-96e4d9eb6475"
     }
   }
 }

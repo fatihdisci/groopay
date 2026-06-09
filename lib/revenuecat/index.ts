@@ -12,7 +12,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 // react-native-purchases native calls fail gracefully in Expo Go;
 // the import itself works fine (JS bundle), only native methods throw.
-import Purchases from 'react-native-purchases';
+import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import type { CustomerInfo, PurchasesOfferings, PurchasesPackage } from 'react-native-purchases';
 
 // ── RevenueCat API key validation ──
@@ -78,6 +78,10 @@ export async function initRevenueCat(appUserId: string): Promise<void> {
   }
 
   try {
+    if (__DEV__) {
+      await Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
+    }
+
     await Purchases.configure({
       apiKey,
       appUserID: appUserId,
@@ -133,6 +137,8 @@ export async function getOfferings(): Promise<OfferingsResult | null> {
 
   try {
     const offerings: PurchasesOfferings = await Purchases.getOfferings();
+    console.log('[RC] offerings:', JSON.stringify(offerings.current));
+    console.log('[RC] availablePackages:', offerings.current?.availablePackages);
     const current = offerings.current;
     if (!current) return null;
 
@@ -144,6 +150,7 @@ export async function getOfferings(): Promise<OfferingsResult | null> {
       userPro: userProPkg ? mapPackage(userProPkg) : null,
     };
   } catch (e: any) {
+    console.error('[RC] getOfferings error:', e);
     console.log('[rc] getOfferings failed:', e?.message);
     return null;
   }

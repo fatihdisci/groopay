@@ -10,13 +10,15 @@
       "distribution": "internal",
       "env": {
         "APP_VARIANT": "development"
-      }
+      },
+      "channel": "development"
     },
     "development:ios": {
       "extends": "development",
       "ios": {
         "simulator": false
-      }
+      },
+      "channel": "development:ios"
     },
     "preview": {
       "distribution": "internal",
@@ -37,21 +39,23 @@
       "extends": "production",
       "ios": {
         "image": "latest"
-      }
+      },
+      "channel": "production:ios"
     },
     "production:android": {
       "extends": "production",
       "android": {
         "buildType": "app-bundle"
-      }
+      },
+      "channel": "production:android"
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "appleId": "YOUR_APPLE_ID_EMAIL",
-        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "YOUR_APPLE_TEAM_ID"
+        "appleId": "av.fatihdisci@gmail.com",
+        "ascAppId": "6776313459",
+        "appleTeamId": "8XPP7Z37GF"
       },
       "android": {
         "track": "internal",
