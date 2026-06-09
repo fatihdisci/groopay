@@ -2866,3 +2866,33 @@ npx supabase functions deploy revenuecat-webhook
 4. `npx tsc --noEmit` temiz geçmeli.
 
 *Son güncelleme: 2026-06-09 — B120 eklendi*
+
+---
+
+### ✅ B121: Platforma özel mağaza referansları kaldırıldı
+
+**Sorun:**
+Yasal metinlerde (gizlilik politikası, kullanım koşulları) ve paywall finePrint'te "Apple App Store", "Google Play", "App Store/Play Store", "Apple/Google" gibi platforma özel mağaza adları geçiyordu.
+
+**Yapılan:**
+- `locales/tr.json` (4 değişiklik):
+  - Gizlilik politikası: "Apple App Store veya Google Play tarafından" → "uygulama mağazası tarafından"
+  - Kullanım koşulları: "Apple App Store veya Google Play üzerinden" → "uygulama mağazası üzerinden"
+  - Kullanım koşulları: "App Store/Play Store politikaları" → "uygulama mağazası politikaları"
+  - Kullanım koşulları: "Apple App Store politikası gereği" → "Uygulama mağazası politikası gereği"
+  - Paywall finePrint: "Apple/Google üzerinden" → "uygulama mağazası üzerinden"
+- `locales/en.json` (5 değişiklik):
+  - Privacy: "Apple App Store or Google Play" → "the app store"
+  - Terms: "Apple App Store or Google Play" → "the app store"
+  - Terms: "App Store/Play Store policies" → "app store policies"
+  - Terms: "Apple App Store policy" → "app store policy"
+  - Paywall finePrint: "Apple/Google" → "the app store"
+- Teknik `Platform.OS === 'android'` kontrolleri, build config dosyaları ve env değişken adlarına dokunulmadı.
+
+**Değişen dosyalar:** `locales/tr.json`, `locales/en.json`
+
+**Test:**
+1. `npx tsc --noEmit` temiz.
+2. Hiçbir locale dosyasında "Google Play", "Play Store", "Apple App Store", "App Store/Play Store" veya "Apple/Google" geçmemeli.
+
+*Son güncelleme: 2026-06-09 — B121 eklendi*

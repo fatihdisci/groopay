@@ -342,7 +342,7 @@
     "guestUpgradeFailed": "Hesap bağlanamadı. Google veya Apple hesabın başka bir kullanıcıya bağlı olabilir. Misafir verilerin korunuyor ve satın alma başlatılmadı.",
     "alreadyPro": "Zaten Pro'sunuz!",
     "alreadyProSub": "Tüm Pro özellikleri hesabınızda aktif.",
-    "finePrint": "Satın alımlar Apple/Google üzerinden işlenir. Geri yükleme her zaman yapılabilir.",
+    "finePrint": "Satın alımlar uygulama mağazası üzerinden işlenir. Geri yükleme her zaman yapılabilir.",
     "privacyPolicy": "Gizlilik Politikası",
     "terms": "Kullanım Koşulları"
   },
@@ -454,7 +454,7 @@
         },
         {
           "heading": "2. Topladığımız Veriler",
-          "body": "Hesap ve Profil Bilgileri\nUygulamaya Google veya Apple hesabınızla giriş yaparsınız. E-posta adresiniz ve adınız kimlik doğrulama amacıyla sistemimize aktarılır. Şifre saklamayız.\n\nGrup ve Masraf Verileri\nOluşturduğunuz gruplar, eklediğiniz masraflar, bölüşüm bilgileri ve ödeme geçmişi hesabınıza bağlı olarak saklanır. Bu veriler yalnızca ilgili grubun üyeleriyle paylaşılır.\n\nTercihler\nDil tercihiniz, varsayılan para biriminiz ve profil görüntü bilgileri (ad, avatar rengi) saklanır.\n\nAbonelik Bilgileri\nPro aboneliğinizin durumu (aktif/pasif) uygulamamızın veritabanında tutulur. Ödeme bilgileri (kart numarası, fatura adresi vb.) yalnızca Apple App Store veya Google Play tarafından işlenir; bu verilere erişimimiz bulunmamaktadır.\n\nCihaz ve Bildirim Verileri\nBildirim izni vermeniz durumunda push bildirimleri göndermek amacıyla cihaz token'ınız saklanır. Bildirim iznini istediğiniz zaman cihaz ayarlarından iptal edebilirsiniz."
+          "body": "Hesap ve Profil Bilgileri\nUygulamaya Google veya Apple hesabınızla giriş yaparsınız. E-posta adresiniz ve adınız kimlik doğrulama amacıyla sistemimize aktarılır. Şifre saklamayız.\n\nGrup ve Masraf Verileri\nOluşturduğunuz gruplar, eklediğiniz masraflar, bölüşüm bilgileri ve ödeme geçmişi hesabınıza bağlı olarak saklanır. Bu veriler yalnızca ilgili grubun üyeleriyle paylaşılır.\n\nTercihler\nDil tercihiniz, varsayılan para biriminiz ve profil görüntü bilgileri (ad, avatar rengi) saklanır.\n\nAbonelik Bilgileri\nPro aboneliğinizin durumu (aktif/pasif) uygulamamızın veritabanında tutulur. Ödeme bilgileri (kart numarası, fatura adresi vb.) yalnızca uygulama mağazası tarafından işlenir; bu verilere erişimimiz bulunmamaktadır.\n\nCihaz ve Bildirim Verileri\nBildirim izni vermeniz durumunda push bildirimleri göndermek amacıyla cihaz token'ınız saklanır. Bildirim iznini istediğiniz zaman cihaz ayarlarından iptal edebilirsiniz."
         },
         {
           "heading": "3. Toplamadığımız Veriler",
@@ -474,7 +474,7 @@
         },
         {
           "heading": "7. Veri Saklama ve Silme",
-          "body": "Verileriniz hesabınız aktif olduğu sürece saklanır. Hesabınızı silmek istediğinizde Hesap ekranındaki “Hesabımı Sil” seçeneğini kullanabilirsiniz. Bu işlem tüm kişisel verilerinizi, grup üyeliklerinizi ve masraf geçmişinizi kalıcı olarak siler.\n\nApple App Store politikası gereği uygulama içi hesap silme zorunludur ve bu işlev uygulamada mevcuttur."
+          "body": "Verileriniz hesabınız aktif olduğu sürece saklanır. Hesabınızı silmek istediğinizde Hesap ekranındaki “Hesabımı Sil” seçeneğini kullanabilirsiniz. Bu işlem tüm kişisel verilerinizi, grup üyeliklerinizi ve masraf geçmişinizi kalıcı olarak siler.\n\nUygulama mağazası politikası gereği uygulama içi hesap silme zorunludur ve bu işlev uygulamada mevcuttur."
         },
         {
           "heading": "8. Çocukların Gizliliği",
@@ -508,7 +508,7 @@
         },
         {
           "heading": "4. Ücretsiz ve Pro Üyelik",
-          "body": "Ücretsiz plan:\n- En fazla 5 grup oluşturabilirsiniz (demo grup hariç).\n- Tüm temel özellikler (masraf ekleme, bakiye görme, ödeme işaretleme) kullanılabilir.\n- Gruplar sınırsız üye alabilir; grup oluşturma sınırlıdır.\n\nPro üyelik (aylık abonelik):\n- Sınırsız grup oluşturma\n- Gelişmiş panel ve analiz özellikleri\n- Abonelik Apple App Store veya Google Play üzerinden yönetilir.\n- İptal ettiğinizde erişim dönem sonuna kadar devam eder; sonrasında ücretsiz plana geçilir.\n- Abonelik ücretleri iade edilmez; aksi App Store/Play Store politikaları geçerlidir."
+          "body": "Ücretsiz plan:\n- En fazla 5 grup oluşturabilirsiniz (demo grup hariç).\n- Tüm temel özellikler (masraf ekleme, bakiye görme, ödeme işaretleme) kullanılabilir.\n- Gruplar sınırsız üye alabilir; grup oluşturma sınırlıdır.\n\nPro üyelik (aylık abonelik):\n- Sınırsız grup oluşturma\n- Gelişmiş panel ve analiz özellikleri\n- Abonelik uygulama mağazası üzerinden yönetilir.\n- İptal ettiğinizde erişim dönem sonuna kadar devam eder; sonrasında ücretsiz plana geçilir.\n- Abonelik ücretleri iade edilmez; aksi uygulama mağazası politikaları geçerlidir."
         },
         {
           "heading": "5. Kullanıcı İçeriği",

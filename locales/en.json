@@ -345,7 +345,7 @@
     "guestUpgradeFailed": "The account could not be linked. Your Google or Apple account may already belong to another user. Your guest data is safe and the purchase was not started.",
     "alreadyPro": "You're already Pro!",
     "alreadyProSub": "All Pro features are active on your account.",
-    "finePrint": "Purchases are processed through Apple/Google. Restoration is always available.",
+    "finePrint": "Purchases are processed through the app store. Restoration is always available.",
     "privacyPolicy": "Privacy Policy",
     "terms": "Terms of Use"
   },
@@ -453,7 +453,7 @@
         },
         {
           "heading": "2. Data We Collect",
-          "body": "Account and Profile Information\nYou sign in to the app with your Google or Apple account. Your email address and name are imported into the system for authentication purposes. We do not store passwords.\n\nGroup and Expense Data\nGroups you create, expenses you add, split details, and payment history are stored linked to your account. This data is shared only with the members of the relevant group.\n\nPreferences\nYour language preference, default currency, and profile display information (name, avatar color) are stored.\n\nSubscription Information\nThe status of your Pro subscription (active/inactive) is stored in our database. Payment details (card number, billing address, etc.) are processed exclusively by Apple App Store or Google Play; we do not have access to this data.\n\nDevice and Notification Data\nIf you grant notification permission, your device push token is stored to send push notifications. You can revoke notification permission at any time from your device settings."
+          "body": "Account and Profile Information\nYou sign in to the app with your Google or Apple account. Your email address and name are imported into the system for authentication purposes. We do not store passwords.\n\nGroup and Expense Data\nGroups you create, expenses you add, split details, and payment history are stored linked to your account. This data is shared only with the members of the relevant group.\n\nPreferences\nYour language preference, default currency, and profile display information (name, avatar color) are stored.\n\nSubscription Information\nThe status of your Pro subscription (active/inactive) is stored in our database. Payment details (card number, billing address, etc.) are processed exclusively by the app store; we do not have access to this data.\n\nDevice and Notification Data\nIf you grant notification permission, your device push token is stored to send push notifications. You can revoke notification permission at any time from your device settings."
         },
         {
           "heading": "3. Data We Do Not Collect",
@@ -473,7 +473,7 @@
         },
         {
           "heading": "7. Data Retention and Deletion",
-          "body": "Your data is retained for as long as your account is active. If you wish to delete your account, you can use the “Delete My Account” option on the Account screen. This action permanently deletes all your personal data, group memberships, and expense history.\n\nIn accordance with Apple App Store policy, in-app account deletion is mandatory and this feature is available in the app."
+          "body": "Your data is retained for as long as your account is active. If you wish to delete your account, you can use the “Delete My Account” option on the Account screen. This action permanently deletes all your personal data, group memberships, and expense history.\n\nIn accordance with app store policy, in-app account deletion is mandatory and this feature is available in the app."
         },
         {
           "heading": "8. Children's Privacy",
@@ -507,7 +507,7 @@
         },
         {
           "heading": "4. Free and Pro Membership",
-          "body": "Free plan:\n- You may create up to 5 groups (excluding demo groups).\n- All core features are available (adding expenses, viewing balances, marking payments).\n- Groups may have unlimited members; only group creation is limited.\n\nPro membership (monthly subscription):\n- Unlimited group creation\n- Advanced dashboard and analytics features\n- Subscription is managed through Apple App Store or Google Play.\n- Upon cancellation, access continues until the end of the billing period; you then revert to the free plan.\n- Subscription fees are non-refundable except as required by App Store/Play Store policies."
+          "body": "Free plan:\n- You may create up to 5 groups (excluding demo groups).\n- All core features are available (adding expenses, viewing balances, marking payments).\n- Groups may have unlimited members; only group creation is limited.\n\nPro membership (monthly subscription):\n- Unlimited group creation\n- Advanced dashboard and analytics features\n- Subscription is managed through the app store.\n- Upon cancellation, access continues until the end of the billing period; you then revert to the free plan.\n- Subscription fees are non-refundable except as required by app store policies."
         },
         {
           "heading": "5. User Content",
