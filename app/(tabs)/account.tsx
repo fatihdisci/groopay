@@ -563,8 +563,14 @@ export default function AccountScreen() {
         accessibilityRole="button"
         accessibilityLabel={t('account.deleteAccount')}
       >
-        <Ionicons name="trash-outline" size={16} color={Colors.textTertiary} />
-        <Text style={styles.deleteAccountText}>{t('account.deleteAccount')}</Text>
+        <View style={styles.deleteAccountInner}>
+          <Ionicons name="warning-outline" size={20} color={Colors.debt} />
+          <View style={styles.deleteAccountTextGroup}>
+            <Text style={styles.deleteAccountTitle}>{t('account.deleteAccount')}</Text>
+            <Text style={styles.deleteAccountSub}>{t('account.deleteAccountDesc')}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.debt} />
+        </View>
       </TouchableOpacity>
 
       {/* ── YASAL ── */}
@@ -794,11 +800,34 @@ const styles = StyleSheet.create({
   exportButtonText: { fontFamily: Typography.fontBodyBold, fontSize: Typography.size.sm, color: Colors.primary },
   // Delete account
   deleteAccountButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: Spacing.sm, paddingVertical: Spacing.sm,
     marginBottom: 40,
+    marginHorizontal: Spacing.base,
   },
-  deleteAccountText: { fontFamily: Typography.fontBody, fontSize: Typography.size.xs, color: Colors.textTertiary },
+  deleteAccountInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.base,
+    backgroundColor: Colors.debtLight,
+    borderRadius: Radius.lg,
+    borderWidth: 1.5,
+    borderColor: 'rgba(244, 63, 94, 0.25)',
+  },
+  deleteAccountTextGroup: {
+    flex: 1,
+  },
+  deleteAccountTitle: {
+    fontFamily: Typography.fontBodyBold,
+    fontSize: Typography.size.sm,
+    color: Colors.debtDark,
+  },
+  deleteAccountSub: {
+    fontFamily: Typography.fontBody,
+    fontSize: Typography.size.xs,
+    color: Colors.debt,
+    marginTop: 2,
+  },
   // Modal
   modalOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,

@@ -429,6 +429,7 @@
     "exportData": "Verilerimi İndir",
     "exportError": "Veri dışa aktarılamadı",
     "deleteAccount": "Hesabımı Sil",
+    "deleteAccountDesc": "Tüm verileriniz kalıcı olarak silinir",
     "deleteWarning": "Hesabın ve tüm verilerin (gruplar, masraflar, üyelikler) kalıcı olarak silinecek. Bu işlem GERİ ALINAMAZ.",
     "deleteFinalTitle": "Son Onay",
     "deleteFinalConfirm": "Devam etmek için aşağıya SİL yazın:",

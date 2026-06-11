@@ -40,6 +40,10 @@ yarn-error.*
 # Supabase CLI temp
 supabase/.temp/
 
+# EAS local builds
+*.ipa
+*.tar.gz
+
 # generated native folders
 /ios
 /android

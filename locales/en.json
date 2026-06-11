@@ -428,6 +428,7 @@
     "exportData": "Export My Data",
     "exportError": "Could not export data",
     "deleteAccount": "Delete My Account",
+    "deleteAccountDesc": "All your data will be permanently erased",
     "deleteWarning": "Your account and all data (groups, expenses, memberships) will be permanently deleted. This CANNOT be undone.",
     "deleteFinalTitle": "Final Confirmation",
     "deleteFinalConfirm": "Type DELETE below to continue:",

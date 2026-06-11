@@ -2895,4 +2895,26 @@ Yasal metinlerde (gizlilik politikası, kullanım koşulları) ve paywall finePr
 1. `npx tsc --noEmit` temiz.
 2. Hiçbir locale dosyasında "Google Play", "Play Store", "Apple App Store", "App Store/Play Store" veya "Apple/Google" geçmemeli.
 
-*Son güncelleme: 2026-06-09 — B121 eklendi*
+*Son güncelleme: 2026-06-11 — B122 eklendi*
+
+---
+
+### ✅ B122: Hesap silme butonu belirgin ve ciddi hale getirildi
+
+**Sorun:**
+Profil sayfasındaki "Hesabımı Sil" butonu `textTertiary` renkte, `xs` boyutta, sade bir yazı linki gibi görünüyordu. Kritik/destroy işlem için yeterince ciddi ve belirgin değildi.
+
+**Yapılan:**
+- Buton tasarımı tamamen yenilendi: kırmızı tonlu arka plan kartı (`debtLight`), kırmızı kenarlık, `debtDark` başlık, `debt` alt açıklama
+- İkon `trash-outline` → `warning-outline` olarak değişti, sağda `chevron-forward` eklendi
+- Başlık + alt açıklama iki satırlı yapı: "Hesabımı Sil" + "Tüm verileriniz kalıcı olarak silinir"
+- `deleteAccountDesc` i18n anahtarı eklendi (tr + en)
+- `activeOpacity` kaldırıldı (kart stili butonlarda anlamsız)
+- Min touch target korundu (iç padding yeterli), accessibility label korundu
+
+**Değişen dosyalar:** `app/(tabs)/account.tsx`, `locales/tr.json`, `locales/en.json`
+
+**Test:**
+1. `npx tsc --noEmit` temiz.
+2. Hesap sayfasında buton kırmızı kart olarak görünmeli, başlık + alt açıklama + chevron ile.
+3. Butona tıklayınca iki aşamalı silme onay modalı açılmaya devam etmeli.
