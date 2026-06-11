@@ -40,7 +40,7 @@ function getInitials(name: string): string {
 }
 
 export default function AccountScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, updateProfile, signOut } = useAuth();
   const { isUserPro } = usePro();
   const router = useRouter();
@@ -199,6 +199,9 @@ export default function AccountScreen() {
   // ── Delete Account Flow ──
   const [deleteStep, setDeleteStep] = useState<'none' | 'confirm1' | 'confirm2'>('none');
   const [deleteInput, setDeleteInput] = useState('');
+
+  // Locale-aware confirmation keyword
+  const deleteKeyword = i18n.language === 'en' ? 'DELETE' : 'SİL';
 
   const handleDeleteAccount = async () => {
     if (!user) return;
@@ -566,8 +569,8 @@ export default function AccountScreen() {
         <View style={styles.deleteAccountInner}>
           <Ionicons name="warning-outline" size={20} color={Colors.debt} />
           <View style={styles.deleteAccountTextGroup}>
-            <Text style={styles.deleteAccountTitle}>{t('account.deleteAccount')}</Text>
-            <Text style={styles.deleteAccountSub}>{t('account.deleteAccountDesc')}</Text>
+            <Text style={styles.deleteAccountTitle} numberOfLines={2}>{t('account.deleteAccount')}</Text>
+            <Text style={styles.deleteAccountSub} numberOfLines={1}>{t('account.deleteAccountDesc')}</Text>
           </View>
           <Ionicons name="chevron-forward" size={18} color={Colors.debt} />
         </View>
@@ -610,14 +613,14 @@ export default function AccountScreen() {
               <Text style={styles.modalCancelText}>{t('account.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={[styles.modalConfirm, { backgroundColor: Colors.debt }]} onPress={confirmDeleteStep1}>
-              <Text style={styles.modalConfirmText}>{t('account.deleteAccount')}</Text>
+              <Text style={styles.modalConfirmText} numberOfLines={2}>{t('account.deleteAccount')}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </View>
     )}
 
-    {/* Step 2: Final confirmation — type SİL */}
+    {/* Step 2: Final confirmation — type locale-aware keyword */}
     {deleteStep === 'confirm2' && (
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
@@ -628,7 +631,7 @@ export default function AccountScreen() {
             style={styles.modalInput}
             value={deleteInput}
             onChangeText={setDeleteInput}
-            placeholder="SİL"
+            placeholder={deleteKeyword}
             placeholderTextColor={Colors.textTertiary}
             autoCapitalize="characters"
             autoFocus
@@ -638,11 +641,11 @@ export default function AccountScreen() {
               <Text style={styles.modalCancelText}>{t('account.cancel')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.modalConfirm, { backgroundColor: deleteInput === 'SİL' ? Colors.debt : Colors.textTertiary }]}
+              style={[styles.modalConfirm, { backgroundColor: deleteInput === deleteKeyword ? Colors.debt : Colors.textTertiary }]}
               onPress={executeDeleteAccount}
-              disabled={deleteInput !== 'SİL'}
+              disabled={deleteInput !== deleteKeyword}
             >
-              <Text style={styles.modalConfirmText}>{t('account.deleteAccount')}</Text>
+              <Text style={styles.modalConfirmText} numberOfLines={2}>{t('account.deleteAccount')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -821,12 +824,14 @@ const styles = StyleSheet.create({
     fontFamily: Typography.fontBodyBold,
     fontSize: Typography.size.sm,
     color: Colors.debtDark,
+    flexShrink: 1,
   },
   deleteAccountSub: {
     fontFamily: Typography.fontBody,
     fontSize: Typography.size.xs,
     color: Colors.debt,
     marginTop: 2,
+    flexShrink: 1,
   },
   // Modal
   modalOverlay: {
@@ -860,5 +865,5 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md, borderRadius: radii.lg,
     minHeight: minTouchTarget,
   },
-  modalConfirmText: { fontSize: fontSizes.md, color: 'white', fontWeight: '700' },
+  modalConfirmText: { fontSize: fontSizes.md, color: 'white', fontWeight: '700', flexShrink: 1, textAlign: 'center' },
 });

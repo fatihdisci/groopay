@@ -2918,3 +2918,30 @@ Profil sayfasındaki "Hesabımı Sil" butonu `textTertiary` renkte, `xs` boyutta
 1. `npx tsc --noEmit` temiz.
 2. Hesap sayfasında buton kırmızı kart olarak görünmeli, başlık + alt açıklama + chevron ile.
 3. Butona tıklayınca iki aşamalı silme onay modalı açılmaya devam etmeli.
+
+*Son güncelleme: 2026-06-11 — B122 eklendi*
+
+---
+
+### ✅ B123: Hesap silme onay modalı İngilizce locale desteği ve buton yazı taşması düzeltildi
+
+**Sorun:**
+1. Hesap silme 2. aşama onay modalında placeholder ve doğrulama anahtar kelimesi her zaman Türkçe `"SİL"` olarak hardcoded'dı. İngilizce kullanan kullanıcı `account.deleteFinalConfirm` mesajında "Type DELETE below to continue:" görürken, `"DELETE"` yazdığında buton aktif olmuyordu (çünkü karşılaştırma her zaman `'SİL'` ile yapılıyordu).
+2. "Delete My Account" ve "Hesabımı Sil" yazıları bazı ekran boyutlarında buton içinde taşma yapıyordu.
+
+**Yapılan:**
+- `useTranslation()` hook'una `i18n` eklendi, locale-aware `deleteKeyword` hesaplandı: `i18n.language === 'en' ? 'DELETE' : 'SİL'`
+- Modal 2. aşama: placeholder, `deleteInput` karşılaştırması ve `disabled` kontrolü `deleteKeyword` ile dinamik yapıldı
+- Silme butonu (`deleteAccountButton`): `deleteAccountTitle` ve `deleteAccountSub` stillerine `flexShrink: 1` eklendi, JSX'te `numberOfLines` eklendi (başlık: 2, alt: 1)
+- Modal confirm butonları: `modalConfirmText` stiline `flexShrink: 1` ve `textAlign: 'center'` eklendi, JSX'te `numberOfLines={2}` eklendi
+- Step 1 ve Step 2 onay butonları `numberOfLines={2}` ile metin taşması önlendi
+
+**Değişen dosyalar:** `app/(tabs)/account.tsx`
+
+**Test:**
+1. `npx tsc --noEmit` temiz.
+2. İngilizce dilde: Hesap → Delete My Account → onay modalı 2. aşamada placeholder "DELETE" olmalı, "DELETE" yazınca buton kırmızı aktif olmalı, başka yazınca gri pasif kalmalı.
+3. Türkçe dilde: placeholder "SİL" olmalı, "SİL" yazınca aktif olmalı.
+4. Buton içindeki "Delete My Account" / "Hesabımı Sil" yazıları farklı ekran boyutlarında taşmamalı.
+
+*Son güncelleme: 2026-06-11 — B123 eklendi*
