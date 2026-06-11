@@ -336,6 +336,7 @@
     "activationTimeout": "Your purchase was confirmed by the App Store but hasn't appeared on your account yet. Please try \"Restore purchases\" in a few minutes.",
     "purchaseNotVerified": "Your purchase could not be completed or verified. Please try Restore Purchases to try again.",
     "purchaseFailed": "The purchase could not be completed. Please try again.",
+    "purchaseTimeout": "The transaction timed out. If your subscription started, try 'Restore purchases'.",
     "accountSyncError": "We couldn't verify your account. Please restart the app and try again.",
     "restoreTitle": "Restore",
     "restoreSuccess": "Your purchases have been restored.",

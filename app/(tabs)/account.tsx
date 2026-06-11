@@ -21,6 +21,7 @@ import { useAuth, AVATAR_COLORS } from '@/lib/auth';
 import { getAvatarHeaderGradient } from '@/constants/avatarColors';
 import { usePro } from '@/hooks/usePro';
 import { isRevenueCatAvailable, initRevenueCat, restorePurchases } from '@/lib/revenuecat';
+import { syncProStatus } from '@/lib/revenuecat/syncProStatus';
 import { supabase, getSupabaseAccessToken } from '@/lib/supabase/client';
 import { getUserCurrencies } from '@/lib/supabase/queries';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -149,11 +150,22 @@ export default function AccountScreen() {
       if (result.error === 'account_mismatch') {
         Alert.alert(t('paywall.errorTitle'), t('paywall.accountSyncError'));
       } else if (result.success) {
-        const activated = await refreshProfile();
+        let activated = await refreshProfile();
+        if (!activated && (await syncProStatus())) {
+          await refreshProfile();
+          activated = true;
+        }
         Alert.alert(
           t('paywall.restoreTitle'),
           activated ? t('paywall.restoreSuccess') : t('paywall.activationTimeout'),
         );
+      } else if (await syncProStatus()) {
+        // Restore boş/başarısız görünse bile sunucu tarafı sync RC'de aktif
+        // abonelik bulabilir (kaçan webhook event'i senaryosu).
+        await refreshProfile();
+        Alert.alert(t('paywall.restoreTitle'), t('paywall.restoreSuccess'));
+      } else if (result.error === 'restore_timeout') {
+        Alert.alert(t('paywall.restoreTitle'), t('paywall.purchaseTimeout'));
       } else {
         Alert.alert(t('paywall.restoreTitle'), t('paywall.restoreEmpty'));
       }

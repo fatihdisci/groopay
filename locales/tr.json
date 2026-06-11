@@ -333,6 +333,7 @@
     "activationTimeout": "Satın alımınız App Store tarafından onaylandı ancak hesabınızda henüz görünmüyor. Lütfen birkaç dakika sonra \"Satın alımları geri yükle\"yi deneyin.",
     "purchaseNotVerified": "Satın alma tamamlanmadı veya doğrulanamadı. Lütfen Satın alımları geri yükle ile tekrar deneyin.",
     "purchaseFailed": "Satın alma işlemi tamamlanamadı. Lütfen tekrar deneyin.",
+    "purchaseTimeout": "İşlem zaman aşımına uğradı. Aboneliğiniz başladıysa 'Satın alımları geri yükle'yi deneyin.",
     "accountSyncError": "Hesap bilgileriniz doğrulanamadı. Lütfen uygulamayı yeniden başlatıp tekrar deneyin.",
     "restoreTitle": "Geri Yükle",
     "restoreSuccess": "Satın alımlarınız geri yüklendi.",

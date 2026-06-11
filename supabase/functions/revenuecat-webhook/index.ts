@@ -3,7 +3,8 @@
 // Faz 7: RevenueCat'ten gelen tüm olayları işler.
 //
 // ✅ GRANT events (purchase/renewal/uncancel) → user_pro = true
-// ✅ REVOKE events (expiration/cancel/refund) → user_pro = false
+// ✅ REVOKE events (expiration/refund) → user_pro = false
+// ✅ TRANSFER → eski sahipten al, yeni sahibe ver (transferred_from/to)
 // ✅ BILLING_ISSUE → log only (grace period sonra)
 // ✅ Expiration-based safety net: expiration geçmişse → otomatik false
 //
@@ -29,6 +30,7 @@ const GRANT_EVENTS = [
 /** Bu event'ler Pro erişimini KALDIRIR */
 const REVOKE_EVENTS = [
   'EXPIRATION',           // abonelik süresi doldu
+  'REFUND',               // Apple/Google iadesi — erişim derhal kalkar
 ];
 
 /** Bu event şimdilik sadece loglanır, user_pro'ya dokunulmaz */
@@ -50,6 +52,8 @@ interface RevenueCatEvent {
     }>;
     purchased_at_ms: number;
     expiration_at_ms?: number;
+    transferred_from?: string[];
+    transferred_to?: string[];
   };
 }
 
@@ -88,6 +92,42 @@ Deno.serve(async (req: Request) => {
     const entitlements = event.entitlement_ids ?? [];
     const expirationMs = event.expiration_at_ms;
     const nowMs = Date.now();
+
+    // ── 2b. TRANSFER — abonelik başka App User ID'ye taşındı ──
+    // TRANSFER event'inde app_user_id / entitlement_ids güvenilir değildir;
+    // kimlik transferred_to / transferred_from dizilerindedir.
+    if (eventType === 'TRANSFER') {
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      );
+
+      const toIds = (event.transferred_to ?? []).filter((v) => UUID_PATTERN.test(v));
+      const fromIds = (event.transferred_from ?? []).filter((v) => UUID_PATTERN.test(v));
+
+      // Eski sahip(ler)den Pro'yu kaldır — profil varsa
+      for (const fromId of fromIds) {
+        await supabase.from('profiles').update({ user_pro: false }).eq('id', fromId);
+      }
+
+      // Yeni sahibe Pro ver — profil varsa
+      let granted: string | null = null;
+      for (const toId of toIds) {
+        const { data } = await supabase
+          .from('profiles')
+          .update({
+            user_pro: true,
+            user_pro_purchased_at: new Date(event.purchased_at_ms ?? Date.now()).toISOString(),
+          })
+          .eq('id', toId)
+          .select('id')
+          .maybeSingle();
+        if (data) granted = data.id;
+      }
+
+      console.log('[rc-webhook] TRANSFER processed | from:', fromIds.join(','), '| to:', toIds.join(','), '| granted:', granted);
+      return json({ success: true, action: 'transfer_processed', granted_to: granted });
+    }
 
     // ── 3. Classify event ──
     const isGrant = GRANT_EVENTS.includes(eventType);

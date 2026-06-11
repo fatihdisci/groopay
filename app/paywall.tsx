@@ -25,6 +25,7 @@ import {
   restorePurchases,
   type OfferingsResult,
 } from '@/lib/revenuecat';
+import { syncProStatus } from '@/lib/revenuecat/syncProStatus';
 import { usePro } from '@/hooks/usePro';
 import { Colors, Typography, Spacing, Radius, Shadows } from '@/constants/theme';
 
@@ -106,8 +107,14 @@ export default function PaywallScreen() {
 
   // RevenueCat webhook → DB activation can take longer than a few seconds
   // (especially in sandbox/TestFlight) — poll up to ~30 s.
+  // syncProStatus pulls the truth from RevenueCat REST API server-side,
+  // so a missed webhook event no longer blocks activation.
   const waitForProActivation = async (): Promise<boolean> => {
     for (let attempt = 0; attempt < 15; attempt += 1) {
+      if (attempt % 3 === 0 && (await syncProStatus())) {
+        await refreshProfile();
+        return true;
+      }
       if (await refreshProfile()) return true;
       await new Promise<void>((resolve) => {
         setTimeout(resolve, 2000);
@@ -155,6 +162,8 @@ export default function PaywallScreen() {
           { text: t('paywall.ok'), onPress: () => router.back() },
         ],
       );
+    } else if (result.error === 'purchase_timeout') {
+      Alert.alert(t('paywall.errorTitle'), t('paywall.purchaseTimeout'));
     } else if (result.error !== 'cancelled') {
       console.log('[paywall] purchase error:', result.error);
       Alert.alert(t('paywall.errorTitle'), t('paywall.purchaseFailed'));
@@ -306,6 +315,19 @@ export default function PaywallScreen() {
             { text: t('paywall.ok'), onPress: () => router.back() },
           ],
         );
+      } else if (await syncProStatus()) {
+        // Restore başarısız/boş görünse bile sunucu tarafı sync RC'de aktif
+        // abonelik bulabilir (kaçan webhook event'i senaryosu).
+        await refreshProfile();
+        Alert.alert(
+          t('paywall.restoreTitle'),
+          t('paywall.restoreSuccess'),
+          [
+            { text: t('paywall.ok'), onPress: () => router.back() },
+          ],
+        );
+      } else if (result.error === 'restore_timeout') {
+        Alert.alert(t('paywall.restoreTitle'), t('paywall.purchaseTimeout'));
       } else {
         Alert.alert(t('paywall.restoreTitle'), t('paywall.restoreEmpty'));
       }
@@ -370,7 +392,7 @@ export default function PaywallScreen() {
         style={styles.header}
       >
         <View style={styles.diamondIcon}>
-          <Ionicons name="diamond" size={40} color="white" />
+          <Ionicons name="diamond" size={28} color="white" />
         </View>
         <Text style={styles.title}>{t('paywall.title')}</Text>
         <Text style={styles.subtitle}>{t('paywall.subtitle')}</Text>
@@ -488,40 +510,41 @@ export default function PaywallScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#4F46E5' },
   content: {
+    flexGrow: 1,
     paddingHorizontal: 0, paddingTop: 0, paddingBottom: 48,
     backgroundColor: Colors.background,
     maxWidth: 600, width: '100%', alignSelf: 'center',
   },
   closeButton: { position: 'absolute', top: 16, right: 16, padding: 8, zIndex: 10 },
 
-  // Header
+  // Header — compact: CTA + legal links must fit on a 390×844 screen without scrolling
   header: {
     alignItems: 'center',
-    paddingTop: 56,
-    paddingBottom: 36,
+    paddingTop: 34,
+    paddingBottom: 22,
     paddingHorizontal: 28,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
     marginBottom: 36,
   },
   diamondIcon: {
-    width: 80, height: 80, borderRadius: 40,
+    width: 56, height: 56, borderRadius: 28,
     backgroundColor: 'rgba(255,255,255,0.18)',
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.sm,
   },
-  title: { fontFamily: Typography.fontDisplayBold, fontSize: 28, color: 'white', textAlign: 'center' },
+  title: { fontFamily: Typography.fontDisplayBold, fontSize: 24, color: 'white', textAlign: 'center' },
   subtitle: { fontFamily: Typography.fontBody, fontSize: 15, color: 'rgba(255,255,255,0.82)', marginTop: 8, textAlign: 'center', lineHeight: 22 },
 
-  // Features — open rows
-  featuresSection: { marginHorizontal: 24, marginBottom: 32 },
+  // Features — open rows (~52px per row)
+  featuresSection: { marginHorizontal: 24, marginBottom: 20 },
   featureRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 16, gap: 14,
+    paddingVertical: 8, gap: 14,
   },
   featureRowBorder: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: Colors.border },
   featureIcon: {
-    width: 44, height: 44, borderRadius: 14,
+    width: 36, height: 36, borderRadius: 12,
     backgroundColor: Colors.primaryGhost,
     alignItems: 'center', justifyContent: 'center',
   },
@@ -531,11 +554,11 @@ const styles = StyleSheet.create({
   priceCard: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
-    padding: 20,
+    padding: 16,
     marginHorizontal: 24,
     ...Shadows.md,
   },
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   priceLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   priceTitle: { fontFamily: Typography.fontDisplayMedium, fontSize: 18, color: Colors.textPrimary },
   monthlyBadge: {
@@ -551,7 +574,7 @@ const styles = StyleSheet.create({
   // Limit note
   limitNote: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginTop: 12, padding: 12,
+    marginTop: 8, padding: 10,
     backgroundColor: '#FFF7ED', borderRadius: Radius.sm,
   },
   limitNoteText: { flex: 1, fontFamily: Typography.fontBodyMedium, fontSize: 13, color: Colors.warning },
@@ -560,11 +583,11 @@ const styles = StyleSheet.create({
   ctaButton: {
     backgroundColor: Colors.primary,
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 44,
-    marginTop: 16,
+    minHeight: 50,
+    marginTop: 8,
     marginHorizontal: 24,
     ...Shadows.md,
   },
@@ -588,8 +611,8 @@ const styles = StyleSheet.create({
   // Legal links — ABOVE CTA, clearly visible before tapping purchase (Apple 3.1.2(c))
   legalLinks: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-    paddingVertical: 16, paddingHorizontal: 24,
-    marginTop: 0, marginBottom: 4,
+    paddingVertical: 8, paddingHorizontal: 24,
+    marginTop: 0, marginBottom: 0,
   },
   legalLinkText: {
     fontFamily: Typography.fontBodyMedium, fontSize: 14,

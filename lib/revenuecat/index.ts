@@ -104,6 +104,23 @@ function hasUserPro(customerInfo: CustomerInfo): boolean {
     || customerInfo.activeSubscriptions.includes(USER_PRO_PRODUCT_ID);
 }
 
+// StoreKit sheet'i kullanıcı zaten aboneyken hiç resolve olmayabiliyor —
+// purchase/restore promise'leri timeout ile sarılır. (B119'daki "Promise.race
+// kaldırıldı" kuralı Supabase token refresh içindi; StoreKit için güvenli.)
+const TIMEOUT_SENTINEL = Symbol('rc-timeout');
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | typeof TIMEOUT_SENTINEL> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<typeof TIMEOUT_SENTINEL>((resolve) => {
+    timer = setTimeout(() => resolve(TIMEOUT_SENTINEL), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 // ── Public status ──
 
 export function isRevenueCatAvailable(): boolean {
@@ -369,7 +386,12 @@ export async function purchaseUserPro(offeringId: string, expectedUserId: string
     console.log('[rc] product id:', pkg.product?.identifier);
     console.log('[rc] product price:', pkg.product?.priceString);
 
-    const { customerInfo } = await Purchases.purchasePackage(pkg);
+    const purchaseOutcome = await withTimeout(Purchases.purchasePackage(pkg), 90_000);
+    if (purchaseOutcome === TIMEOUT_SENTINEL) {
+      console.log('[rc] purchasePackage timed out after 90s');
+      return { success: false, error: 'purchase_timeout' };
+    }
+    const { customerInfo } = purchaseOutcome;
     const hasPro = hasUserPro(customerInfo);
 
     console.log('[rc] purchase returned');
@@ -409,7 +431,12 @@ export async function restorePurchases(expectedUserId: string): Promise<Purchase
   }
 
   try {
-    const customerInfo: CustomerInfo = await Purchases.restorePurchases();
+    const restoreOutcome = await withTimeout(Purchases.restorePurchases(), 60_000);
+    if (restoreOutcome === TIMEOUT_SENTINEL) {
+      console.log('[rc] restorePurchases timed out after 60s');
+      return { success: false, error: 'restore_timeout' };
+    }
+    const customerInfo: CustomerInfo = restoreOutcome;
     const hasActive = hasUserPro(customerInfo);
     console.log('[rc] restore returned');
     console.log('[rc] customerInfo originalAppUserId:', customerInfo.originalAppUserId);
