@@ -3173,3 +3173,57 @@ Apple inceleyicisi bu mesajı "app displays an error when attempting to buy a su
 - [x] 87/87 test geçti
 
 *Son güncelleme: 2026-06-11 — B125 eklendi*
+
+---
+
+### B124/B125 EK: Paywall legal links moved above purchase CTA + CTA label spacing
+
+**Tarih:** 2026-06-11
+
+**Sorun:**
+1. B124'te yasal linkler CTA altında konumlandırılmıştı. App Review 3.1.2(c) gereği linkler **satın alma butonunun üstünde**, kullanıcı satın almaya basmadan önce görünür olmalı.
+2. CTA butonunda fiyat metni bitişik görünüyordu: "Pro'ya Geç₺99,99" — okunaklı değil.
+3. iPad geniş ekranda içerik aşırı yayılıyordu.
+
+**Yapılan:**
+
+1. **Yasal linkler CTA üstüne taşındı** (`app/paywall.tsx`):
+   - Yeni sıralama: Price Card → **Legal Links** → CTA Button → Restore → Fine Print
+   - Apple inceleyicisi satın alma butonuna basmadan Gizlilik Politikası ve Kullanım Koşulları linklerini görür.
+
+2. **CTA fiyat etiketi aralığı** (`app/paywall.tsx`):
+   - `userProPrice` değeri `" — ₺99,99"` formatında em-dash ile ayrıldı
+   - Sonuç: **"Pro'ya Geç — ₺99,99"** (okunaklı, profesyonel)
+   - Fiyat yoksa: sadece **"Pro'ya Geç"**
+
+3. **iPad/iPhone layout** (`app/paywall.tsx`):
+   - Content container'a `maxWidth: 600` + `alignSelf: 'center'` eklendi
+   - Geniş ekranda içerik ortalanır, aşırı yayılmaz
+   - Legal link'ler her ekran boyutunda CTA üstünde kalır
+
+4. **Legal link görünürlüğü** (stil güncellemesi):
+   - fontSize: 13 → **14**
+   - color: Colors.primary (mor, altı çizili) — korundu
+   - marginTop: 0, marginBottom: 4 (price card ile CTA arasında kompakt)
+
+**Değişen dosyalar:**
+- `app/paywall.tsx` — legal link sıralaması, CTA fiyat formatı, content maxWidth
+- `BUGFIX-CILA.md` — bu kayıt
+
+**Test:**
+1. `npx tsc --noEmit` ✅ temiz
+2. `npm test` ✅ 87/87 test geçti
+3. Paywall açılınca sıralama: kart → **yasal linkler** → CTA → geri yükle
+4. CTA: "Pro'ya Geç — ₺99,99" (fiyat varken), "Pro'ya Geç" (fiyat yokken)
+5. iPad/iPhone 6.5": yasal linkler CTA üstünde, scroll gerektirmeden görünür
+6. Link tıklama: `openLinkOrAlert` ile URL açılır veya Alert fallback
+
+**Kontrol tablosu:**
+- [x] Legal linkler CTA üstünde (Apple 3.1.2(c) sıralaması)
+- [x] CTA fiyatı em-dash ile ayrık
+- [x] Content maxWidth 600 → iPad ortalanır
+- [x] Legal link fontSize 14
+- [x] tsc temiz
+- [x] 87/87 test geçti
+
+*Son güncelleme: 2026-06-11 — B124/B125 EK eklendi*

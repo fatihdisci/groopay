@@ -356,31 +356,11 @@ export default function PaywallScreen() {
         )}
       </View>
 
-      {/* CTA Button */}
-      <TouchableOpacity
-        style={[styles.ctaButton, isPurchaseDisabled && styles.ctaButtonDisabled]}
-        onPress={handlePurchaseUserPro}
-        disabled={isPurchaseDisabled}
-        activeOpacity={0.85}
-        accessibilityRole="button"
-        accessibilityLabel={t('paywall.purchaseUserPro', { price: userProPrice || '' })}
-      >
-        {purchasing === 'user' ? (
-          <ActivityIndicator size="small" color="white" />
-        ) : (
-          <Text style={styles.ctaButtonText}>
-            {offeringsLoaded
-              ? t('paywall.purchaseUserPro', { price: userProPrice || '' })
-              : t('paywall.loading')}
-          </Text>
-        )}
-      </TouchableOpacity>
-
-      {/* Legal links — directly under CTA (Apple 3.1.2(c): must be visible without scrolling) */}
+      {/* Legal links — ABOVE purchase CTA (Apple 3.1.2(c): must be visible before tapping purchase) */}
       <View style={styles.legalLinks}>
         <TouchableOpacity
           onPress={() => openLinkOrAlert('https://groopay.app/privacy', t('paywall.privacyPolicy'))}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="link"
           accessibilityLabel={t('paywall.privacyPolicy')}
         >
@@ -389,13 +369,33 @@ export default function PaywallScreen() {
         <Text style={styles.legalLinkSeparator}> · </Text>
         <TouchableOpacity
           onPress={() => openLinkOrAlert('https://groopay.app/terms', t('paywall.terms'))}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="link"
           accessibilityLabel={t('paywall.terms')}
         >
           <Text style={styles.legalLinkText}>{t('paywall.terms')}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* CTA Button */}
+      <TouchableOpacity
+        style={[styles.ctaButton, isPurchaseDisabled && styles.ctaButtonDisabled]}
+        onPress={handlePurchaseUserPro}
+        disabled={isPurchaseDisabled}
+        activeOpacity={0.85}
+        accessibilityRole="button"
+        accessibilityLabel={t('paywall.purchaseUserPro', { price: userProPrice ? ` — ${userProPrice}` : '' })}
+      >
+        {purchasing === 'user' ? (
+          <ActivityIndicator size="small" color="white" />
+        ) : (
+          <Text style={styles.ctaButtonText}>
+            {offeringsLoaded
+              ? t('paywall.purchaseUserPro', { price: userProPrice ? ` — ${userProPrice}` : '' })
+              : t('paywall.loading')}
+          </Text>
+        )}
+      </TouchableOpacity>
 
       {/* Restore */}
       <TouchableOpacity
@@ -428,7 +428,11 @@ export default function PaywallScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#4F46E5' },
-  content: { paddingHorizontal: 0, paddingTop: 0, paddingBottom: 48, backgroundColor: Colors.background },
+  content: {
+    paddingHorizontal: 0, paddingTop: 0, paddingBottom: 48,
+    backgroundColor: Colors.background,
+    maxWidth: 600, width: '100%', alignSelf: 'center',
+  },
   closeButton: { position: 'absolute', top: 16, right: 16, padding: 8, zIndex: 10 },
 
   // Header
@@ -522,19 +526,19 @@ const styles = StyleSheet.create({
   },
   devNoticeText: { fontFamily: Typography.fontBody, fontSize: 12, color: Colors.warning },
 
-  // Legal links — more visible, directly under CTA (Apple 3.1.2(c))
+  // Legal links — ABOVE CTA, clearly visible before tapping purchase (Apple 3.1.2(c))
   legalLinks: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
     paddingVertical: 16, paddingHorizontal: 24,
-    marginTop: 8, marginBottom: 8,
+    marginTop: 0, marginBottom: 4,
   },
   legalLinkText: {
-    fontFamily: Typography.fontBodyMedium, fontSize: 13,
+    fontFamily: Typography.fontBodyMedium, fontSize: 14,
     color: Colors.primary,
     textDecorationLine: 'underline',
   },
   legalLinkSeparator: {
-    fontFamily: Typography.fontBody, fontSize: 13,
+    fontFamily: Typography.fontBody, fontSize: 14,
     color: Colors.textTertiary,
     marginHorizontal: 8,
   },
