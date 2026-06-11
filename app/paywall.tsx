@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -37,7 +38,7 @@ const PRO_FEATURES: ProFeature[] = [
 export default function PaywallScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { isAnonymous, signInWithProvider } = useAuth();
+  const { isAnonymous, guestUpgradeForPurchase, signInWithExistingOAuthAccount } = useAuth();
   const { isUserPro } = usePro();
 
   const params = useLocalSearchParams<{ context?: string; groupId?: string }>();
@@ -60,6 +61,18 @@ export default function PaywallScreen() {
       clearTimeout(timeout);
       setOfferings(off);
       setOfferingsLoaded(true);
+      if (__DEV__) {
+        console.log('[paywall] offerings loaded:', !!off);
+        console.log('[paywall] userPro:', off?.userPro ? {
+          id: off.userPro.id,
+          title: off.userPro.title,
+          price: off.userPro.price,
+          priceString: off.userPro.priceString,
+          currencyCode: off.userPro.currencyCode,
+        } : 'null');
+        console.log('[paywall] isRevenueCatAvailable:', isRevenueCatAvailable());
+        console.log('[paywall] platform:', Platform.OS, Platform.Version);
+      }
     })();
 
     return () => {
@@ -67,6 +80,19 @@ export default function PaywallScreen() {
       clearTimeout(timeout);
     };
   }, []);
+
+  const openLinkOrAlert = async (url: string, label: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert(t('common.close'), `${label}: ${url}`);
+      }
+    } catch {
+      Alert.alert(t('common.close'), `${label}: ${url}`);
+    }
+  };
 
   const purchaseUserProNow = async () => {
     if (!offerings?.userPro?.id) {
@@ -94,11 +120,84 @@ export default function PaywallScreen() {
   const handleGuestUpgrade = async (provider: OAuthProvider) => {
     setPurchasing('user');
     try {
-      const upgraded = await signInWithProvider(provider);
-      if (!upgraded) return;
-      await purchaseUserProNow();
+      const upgradeResult = await guestUpgradeForPurchase(provider);
+
+      if (__DEV__) {
+        console.log('[paywall] guestUpgradeForPurchase result:', {
+          status: upgradeResult.status,
+          provider: upgradeResult.provider,
+          hasAppleCredential: !!(upgradeResult.appleRetryToken && upgradeResult.appleRetryNonce),
+        });
+      }
+
+      // ── Success: identity linked, proceed to purchase ──
+      if (upgradeResult.status === 'linked') {
+        if (__DEV__) console.log('[paywall] guestUpgradePath: linked, purchaseStarted: true');
+        await purchaseUserProNow();
+        return;
+      }
+
+      // ── User cancelled OAuth ──
+      if (upgradeResult.status === 'cancelled') {
+        if (__DEV__) console.log('[paywall] guestUpgradePath: cancelled, purchaseStarted: false');
+        return;
+      }
+
+      // ── Identity already linked to another account ──
+      if (upgradeResult.status === 'already_exists') {
+        if (__DEV__) console.log('[paywall] guestUpgradePath: already_exists, showing confirmation');
+        // Show friendly confirmation instead of technical error
+        const userChoice = await new Promise<'continue' | 'cancel'>((resolve) => {
+          Alert.alert(
+            t('paywall.existingAccountTitle'),
+            t('paywall.existingAccountMessage'),
+            [
+              { text: t('paywall.cancelUpgrade'), style: 'cancel', onPress: () => resolve('cancel') },
+              { text: t('paywall.continueWithExistingAccount'), onPress: () => resolve('continue') },
+            ],
+          );
+        });
+
+        if (userChoice === 'cancel') {
+          if (__DEV__) console.log('[paywall] guestUpgradePath: existing_account_cancelled, purchaseStarted: false');
+          return;
+        }
+
+        // User confirmed — sign in with the existing account
+        if (__DEV__) console.log('[paywall] guestUpgradePath: existing_account_confirmed, signing in...');
+        const signedIn = await signInWithExistingOAuthAccount(
+          provider,
+          upgradeResult.appleRetryToken,
+          upgradeResult.appleRetryNonce,
+        );
+
+        if (signedIn) {
+          if (__DEV__) {
+            console.log('[paywall] guestUpgradePath: existing_account_confirmed, purchaseStarted: true');
+            console.log('[paywall]   old anonymous user_id preserved, new user_id now active');
+          }
+          await purchaseUserProNow();
+        } else {
+          // Sign-in with existing account failed (e.g. Apple credential expired)
+          if (__DEV__) console.log('[paywall] guestUpgradePath: existing_account_confirmed but sign-in failed');
+          if (provider === 'apple') {
+            Alert.alert(t('paywall.appleRetryTitle'), t('paywall.appleRetryMessage'));
+          }
+        }
+        return;
+      }
+
+      // ── Other error: show a clean message, not a raw technical error ──
+      if (__DEV__) {
+        console.log('[paywall] guestUpgradePath: failed');
+        console.log('[paywall]   error:', upgradeResult.errorMessage);
+      }
+      Alert.alert(t('paywall.errorTitle'), t('paywall.guestUpgradeFailed'));
     } catch (error: unknown) {
-      console.error('[paywall] Guest identity upgrade failed:', error);
+      if (__DEV__) {
+        console.log('[paywall] guestUpgradePath: failed (unexpected throw)');
+        console.log('[paywall]   error:', error);
+      }
       Alert.alert(t('paywall.errorTitle'), t('paywall.guestUpgradeFailed'));
     } finally {
       setPurchasing(null);
@@ -277,6 +376,27 @@ export default function PaywallScreen() {
         )}
       </TouchableOpacity>
 
+      {/* Legal links — directly under CTA (Apple 3.1.2(c): must be visible without scrolling) */}
+      <View style={styles.legalLinks}>
+        <TouchableOpacity
+          onPress={() => openLinkOrAlert('https://groopay.app/privacy', t('paywall.privacyPolicy'))}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="link"
+          accessibilityLabel={t('paywall.privacyPolicy')}
+        >
+          <Text style={styles.legalLinkText}>{t('paywall.privacyPolicy')}</Text>
+        </TouchableOpacity>
+        <Text style={styles.legalLinkSeparator}> · </Text>
+        <TouchableOpacity
+          onPress={() => openLinkOrAlert('https://groopay.app/terms', t('paywall.terms'))}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="link"
+          accessibilityLabel={t('paywall.terms')}
+        >
+          <Text style={styles.legalLinkText}>{t('paywall.terms')}</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Restore */}
       <TouchableOpacity
         style={styles.restoreButton}
@@ -292,27 +412,6 @@ export default function PaywallScreen() {
           <Text style={styles.restoreText}>{t('paywall.restore')}</Text>
         )}
       </TouchableOpacity>
-
-      {/* Legal links */}
-      <View style={styles.legalLinks}>
-        <TouchableOpacity
-          onPress={() => Linking.openURL('https://groopay.app/privacy')}
-          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-          accessibilityRole="link"
-          accessibilityLabel={t('paywall.privacyPolicy')}
-        >
-          <Text style={styles.legalLinkText}>{t('paywall.privacyPolicy')}</Text>
-        </TouchableOpacity>
-        <Text style={styles.legalLinkText}> · </Text>
-        <TouchableOpacity
-          onPress={() => Linking.openURL('https://groopay.app/terms')}
-          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-          accessibilityRole="link"
-          accessibilityLabel={t('paywall.terms')}
-        >
-          <Text style={styles.legalLinkText}>{t('paywall.terms')}</Text>
-        </TouchableOpacity>
-      </View>
 
       {/* Dev build notice */}
       {!isRevenueCatAvailable() && (
@@ -423,14 +522,21 @@ const styles = StyleSheet.create({
   },
   devNoticeText: { fontFamily: Typography.fontBody, fontSize: 12, color: Colors.warning },
 
-  // Legal links
+  // Legal links — more visible, directly under CTA (Apple 3.1.2(c))
   legalLinks: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-    paddingVertical: 12, paddingHorizontal: 24,
+    paddingVertical: 16, paddingHorizontal: 24,
+    marginTop: 8, marginBottom: 8,
   },
   legalLinkText: {
-    fontFamily: Typography.fontBody, fontSize: 11,
+    fontFamily: Typography.fontBodyMedium, fontSize: 13,
+    color: Colors.primary,
+    textDecorationLine: 'underline',
+  },
+  legalLinkSeparator: {
+    fontFamily: Typography.fontBody, fontSize: 13,
     color: Colors.textTertiary,
+    marginHorizontal: 8,
   },
 
   // Fine print

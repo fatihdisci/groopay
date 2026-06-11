@@ -15,3 +15,13 @@ export interface AuthState {
 }
 
 export type OAuthProvider = 'google' | 'apple';
+
+/** Result of guest → OAuth upgrade attempt in the purchase flow. */
+export interface GuestUpgradeResult {
+  status: 'linked' | 'cancelled' | 'already_exists' | 'error';
+  provider: OAuthProvider;
+  /** iOS Apple: preserved credential so the paywall can retry sign-in without re-prompting. */
+  appleRetryToken?: string;
+  appleRetryNonce?: string;
+  errorMessage?: string;
+}

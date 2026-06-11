@@ -315,7 +315,7 @@
       "unlimitedGroups": "Sınırsız grup oluştur",
       "categoryAnalytics": "Kategori bazlı analiz ve özet"
     },
-    "userProTitle": "Pro'ya Geç",
+    "userProTitle": "Groopay Pro",
     "userProDesc": "Aylık abonelik — tüm gruplarında Pro",
     "userProDetail": "Tüm gruplarında Pro özellikleri + sınırsız grup oluşturma + kişisel dashboard ve kategori analizi.",
     "monthly": "aylık",
@@ -324,7 +324,7 @@
     "recommended": "Önerilen",
     "limitNote": "5 grup limitine ulaştınız. Pro'ya geçerek sınırsız grup oluşturun.",
     "loading": "Yükleniyor...",
-    "priceError": "Fiyat bilgisi alınamadı",
+    "priceError": "Fiyat bilgisi alınamadı. Lütfen daha sonra tekrar deneyin.",
     "ok": "Tamam",
     "successTitle": "Başarılı",
     "userProSuccess": "Pro'ya yükseltildiniz! Tüm Pro özellikleri aktif.",
@@ -344,7 +344,13 @@
     "alreadyProSub": "Tüm Pro özellikleri hesabınızda aktif.",
     "finePrint": "Satın alımlar uygulama mağazası üzerinden işlenir. Geri yükleme her zaman yapılabilir.",
     "privacyPolicy": "Gizlilik Politikası",
-    "terms": "Kullanım Koşulları"
+    "terms": "Kullanım Koşulları",
+    "existingAccountTitle": "Bu hesap zaten kayıtlı",
+    "existingAccountMessage": "Seçtiğin Apple veya Google hesabı mevcut bir Groopay hesabına bağlı görünüyor. Bu hesapla devam edersen misafir oturumundan çıkılır ve Pro satın alma mevcut hesabınla devam eder. Misafir verilerin bu hesaba taşınmaz.",
+    "continueWithExistingAccount": "Mevcut Hesapla Devam Et",
+    "cancelUpgrade": "Vazgeç",
+    "appleRetryTitle": "Giriş yapılamadı",
+    "appleRetryMessage": "Apple hesabınla giriş yapılamadı. Lütfen tekrar dene."
   },
   "pro": {
     "locked": "Pro Özelliği",

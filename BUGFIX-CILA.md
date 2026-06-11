@@ -2945,3 +2945,231 @@ Profil sayfasındaki "Hesabımı Sil" butonu `textTertiary` renkte, `xs` boyutta
 4. Buton içindeki "Delete My Account" / "Hesabımı Sil" yazıları farklı ekran boyutlarında taşmamalı.
 
 *Son güncelleme: 2026-06-11 — B123 eklendi*
+
+---
+
+### ✅ B124: App Review paywall yasal linkler + IAP purchase error düzeltmesi
+
+**Apple Reddi (11 Haziran 2026 — Version 1.0 (14)):**
+1. **Guideline 3.1.2(c):** Paywall/abonelik satın alma akışında işlevsel Gizlilik Politikası ve Kullanım Koşulları bağlantıları yoktu (iPad Air 11-inch M3, iPadOS 26.5'te test edildi).
+2. **Guideline 2.1(b):** In-App Purchase, inceleyici abonelik satın almaya çalıştığında hata gösterdi.
+
+**Kök Nedenler:**
+
+1. **RevenueCat offering → package mapping hatası (IAP purchase error asıl sebebi):**
+   `lib/revenuecat/index.ts` — `getOfferings()`: `userProPkg` `current.annual` (yıllık) paket tipine eşlenmişti. Oysa **User Pro aylık (monthly)** bir abonelik. RevenueCat offering'inde annual paket olmadığı için `null` dönüyor, fallback olarak `current.availablePackages[0]` kullanılıyordu. Bu da yanlış veya null paket ID'sine yol açıp `purchaseUserPro` içinde `'Offering package not found'` hatasına sebep oluyordu.
+
+2. **Yasal linkler aşağıda kalıyordu:**
+   B120'de eklenen yasal linkler restore butonunun ALTINDAYDI. iPad geniş ekranda içerik ekrana sığdığı için scroll ihtiyacı olmuyor, linkler ekranın en altında kalıyordu. Apple inceleyicisi tarafından görünmez addedilebilirdi.
+
+3. **Abonelik bilgileri eksikti:**
+   `paywall.userProTitle` "Pro'ya Geç" / "Go Pro" yazıyordu — bu bir CTA ifadesi, abonelik adı değil. Apple 3.1.2(c) abonelik adının, süresinin ve fiyatının satın alma öncesinde açıkça görünmesini zorunlu tutar.
+
+4. **`Linking.openURL` hata işleme yoktu:**
+   URL açılamadığında kullanıcıya hiçbir geri bildirim verilmiyordu.
+
+**Yapılan:**
+
+### 1. RevenueCat IAP düzeltmesi (`lib/revenuecat/index.ts`)
+- **`getOfferings()`**: `userProPkg` mapping `current.annual` → `current.monthly` olarak düzeltildi. User Pro aylık abonelik olduğu için doğru paket artık `current.monthly`'ten geliyor.
+- `groupProPkg` da aynı şekilde `current.monthly` kullanıyor (UI'da gizli, ileriye dönük).
+- Tüm `console.log` çağrıları `__DEV__` guard'ına alındı (production'da log yok):
+  - Offerings yüklendi/yüklenmedi
+  - Current offering identifier
+  - Available packages (identifier, packageType, productId, priceString)
+  - Native module durumu
+- **`purchaseUserPro()`**: `__DEV__` modda satın alma öncesi paket bilgileri (identifier, productId, priceString), hata durumunda error code + message + detay loglanıyor.
+- **`getOfferings()`** catch: `__DEV__` modda error message loglanıyor.
+
+### 2. Paywall yasal linkler (`app/paywall.tsx`)
+- Yasal linkler restore butonunun altından **CTA butonunun hemen altına** taşındı (restore butonundan önce).
+- `Linking.openURL` çağrıları `openLinkOrAlert` helper fonksiyonuna taşındı:
+  - `Linking.canOpenURL` ile destek kontrolü yapılır
+  - Başarısız olursa Alert ile URL gösterilir (kullanıcı manuel kopyalayabilir)
+- **Görünürlük artırıldı:**
+  - Font boyutu: 11px → 13px
+  - Renk: `textTertiary` → `primary` (mor), altı çizili link stili
+  - Font weight: `fontBody` → `fontBodyMedium`
+  - Separator için ayrı `legalLinkSeparator` stili (marginHorizontal: 8)
+  - hitSlop: 6 → 10 (her yönde)
+  - paddingVertical: 12 → 16, marginTop/Bottom eklendi
+- **Abonelik bilgileri:**
+  - `paywall.userProTitle`: "Pro'ya Geç" → "Groopay Pro" (abonelik adı)
+  - "aylık" / "monthly" badge'i (süre)
+  - RevenueCat `priceString` (fiyat) — üçü de CTA üstünde görünür ✅
+- **`__DEV__` diagnostics:** Offerings yükleme durumu, userPro detayları, RevenueCat availability, platform bilgisi.
+- İmport: `Platform` eklendi.
+
+### 3. Fiyat bilgisi yoksa durumu
+- `paywall.priceError` metni daha açıklayıcı hale getirildi:
+  - TR: "Fiyat bilgisi alınamadı. Lütfen daha sonra tekrar deneyin."
+  - EN: "Price unavailable. Please try again later."
+- **CTA her zaman aktif** (sadece loading/purchasing sırasında disabled) — priceString gecikse bile kullanıcı satın alabilir. Bu davranış zaten doğruydu, değiştirilmedi.
+
+### 4. Platforma özel mağaza referansları (public HTML)
+B121 locale dosyalarını temizlemişti ama public HTML'ler kalmıştı. Şu dosyalar düzeltildi:
+- `privacy.html:88` — "Apple App Store veya Google Play tarafından" → "uygulama mağazası tarafından"
+- `privacy.html:126` — "Apple App Store politikası gereği" → "Uygulama mağazası politikası gereği"
+- `terms.html:102` — "Apple App Store veya Google Play üzerinden" → "uygulama mağazası üzerinden", "App Store/Play Store politikaları" → "uygulama mağazası politikaları"
+- `public/terms.html:162` — "Apple App Store üzerinden" → "uygulama mağazası üzerinden", "App Store ayarlarından" → "mağaza ayarlarından"
+- `public/en/terms.html:95` — "Apple App Store or Google Play" → "the app store"
+
+### 5. App Review Notes
+Aşağıdaki bilgiler App Store Connect Review Notes'a eklenmelidir:
+- **Privacy Policy:** Paywall ekranında CTA butonunun hemen altında, uygulama içi Hesap > Yasal bölümünde, ve https://groopay.app/privacy adresinde
+- **Terms of Use:** Paywall ekranında CTA butonunun hemen altında, uygulama içi Hesap > Yasal bölümünde, ve https://groopay.app/terms adresinde
+- **Paywall nasıl açılır:** Panel sekmesi → "Pro'ya Geç" CTA (blur'lu kartta), veya Hesap → "Pro'ya Geç", veya 5 grup limitinde FAB tıklayınca
+- **Hesap silme nasıl test edilir:** Hesap → en alta kaydır → "Hesabımı Sil" kırmızı kart → çift onay (SİL/DELETE yaz)
+- **Product ID:** `com.groopay.app.userpro` (User Pro monthly subscription)
+
+**Değişen dosyalar:**
+- `lib/revenuecat/index.ts` — offering mapping fix + `__DEV__` diagnostics
+- `app/paywall.tsx` — legal link sıralaması + `openLinkOrAlert` + `__DEV__` diagnostics + stiller
+- `locales/tr.json` — `paywall.userProTitle`, `paywall.priceError`
+- `locales/en.json` — `paywall.userProTitle`, `paywall.priceError`
+- `privacy.html` — 2 platform referansı temizlendi
+- `terms.html` — 2 platform referansı temizlendi
+- `public/terms.html` — 2 platform referansı temizlendi
+- `public/en/terms.html` — 1 platform referansı temizlendi
+
+**Test:**
+1. `npx tsc --noEmit` ✅ temiz
+2. `npm test` ✅ 87/87 test geçti
+3. `rg "Google Play|Play Store|Apple App Store|App Store/Play Store|Apple/Google" locales app public privacy.html terms.html` ✅ 0 eşleşme
+4. Paywall açılınca CTA butonunun hemen altında "Gizlilik Politikası · Kullanım Koşulları" görünmeli.
+5. Linklere tıklayınca ilgili URL tarayıcıda açılmalı, açılamazsa Alert gösterilmeli.
+6. Fiyat kartında "Groopay Pro", "aylık"/"monthly" badge'i ve fiyat görünmeli.
+7. Fiyat yüklenemezse "Fiyat bilgisi alınamadı. Lütfen daha sonra tekrar deneyin." gösterilmeli, CTA aktif kalmalı.
+8. iPad geniş ekranda yasal linkler scroll olmadan görünmeli.
+9. `__DEV__` modda console'da offerings, userPro, platform bilgileri loglanmalı.
+10. Production build'de `__DEV__` log'ları görünmemeli.
+11. IAP satın alma hatasız çalışmalı (iPad Air M3, iPadOS 26.5).
+
+**Kontrol tablosu:**
+- [x] `userProPkg`: `current.annual` → `current.monthly` (IAP fix)
+- [x] `__DEV__` guard: tüm RevenueCat console.log'ları
+- [x] `__DEV__` diagnostics: offerings + purchase error logları
+- [x] Legal linkler: CTA altına taşındı
+- [x] `openLinkOrAlert`: Linking.canOpenURL + Alert fallback
+- [x] Legal link stili: 13px primary underline, daha geniş hitSlop
+- [x] `userProTitle`: "Groopay Pro" (abonelik adı)
+- [x] `priceError`: açıklayıcı mesaj
+- [x] Public HTML: 5 platform referansı temizlendi
+- [x] tsc temiz
+- [x] 87/87 test geçti
+- [x] Platform referans grep: 0 eşleşme
+
+*Son güncelleme: 2026-06-11 — B125 eklendi*
+
+---
+
+### ✅ B125: Guest Pro upgrade no longer blocks IAP purchase
+
+**Apple Review Riski (B124 devamı):**
+B124, RevenueCat monthly package mapping hatasını düzeltti. Ancak ayrı bir App Review riski kaldı: Misafir kullanıcı paywall'dan Apple/Google ile giriş yapıp Pro satın almak istediğinde, `linkIdentity` "identity already linked to another user" hatası verirse, kullanıcıya şu teknik hata gösteriliyordu:
+
+> "Hesap bağlanamadı. Google veya Apple hesabın başka bir kullanıcıya bağlı olabilir. Misafir verilerin korunuyor ve satın alma başlatılmadı."
+
+Apple inceleyicisi bu mesajı "app displays an error when attempting to buy a subscription" olarak yorumlayıp IAP'i başarısız sayabilirdi.
+
+**Kök Neden:**
+`signInWithProvider` → `linkIdentity` başarısız olduğunda her zaman exception fırlatıyordu. Paywall'daki `handleGuestUpgrade` bu exception'ı yakalayıp `paywall.guestUpgradeFailed` Alert'ini gösteriyordu. "Already linked" durumu ile gerçek ağ/kimlik hatası arasında ayrım yoktu.
+
+**Yapılan:**
+
+### 1. Yeni Auth fonksiyonları (`lib/auth/AuthContext.tsx`)
+
+**`isAlreadyLinkedError(error)` yardımcı fonksiyonu:**
+- Supabase `identity_already_exists` error code'unu kontrol eder
+- Message içinde "already" + "linked"/"exists"/"registered" kelimelerini arar
+- Her iki dildeki (TR/EN) hata mesajlarını yakalar
+
+**`guestUpgradeForPurchase(provider)` — yeni context fonksiyonu:**
+- Misafir → OAuth yükseltme akışını yönetir
+- `linkIdentity` başarısız olduğunda exception fırlatmak yerine `GuestUpgradeResult` döner:
+  - `{ status: 'linked' }` — başarılı, satın almaya devam edebilir
+  - `{ status: 'cancelled' }` — kullanıcı OAuth'u iptal etti
+  - `{ status: 'already_exists', appleRetryToken?, appleRetryNonce? }` — identity başka hesaba bağlı
+  - `{ status: 'error', errorMessage }` — diğer hatalar
+- **iOS Apple:** `linkIdentity` "already linked" hatası verirse, Apple credential'ı (`identityToken` + `nonce`) saklar. Bu sayede kullanıcı onay verirse `signInWithIdToken` ile tekrar Apple auth'u gerektirmeden mevcut hesaba giriş yapılabilir.
+- **Google/web OAuth:** `linkIdentity` veya callback URL'de "already linked" hatası tespit edilirse `already_exists` döner (credential saklanmaz — web OAuth'da token tüketilir).
+
+**`signInWithExistingOAuthAccount(provider, appleToken?, appleNonce?)` — retry fonksiyonu:**
+- Kullanıcı "already exists" dialog'unda onay verince çağrılır
+- **Apple:** `signInWithIdToken` ile saklanan credential'ı kullanarak giriş yapar (yeniden Apple auth istemez)
+- **Google:** `signInWithOAuth` + `WebBrowser` ile yeni OAuth akışı başlatır (bu sefer `linkIdentity` değil, doğrudan giriş)
+- Başarılı girişte session + token + profile güncellenir
+
+**`__DEV__` logging:**
+- `guestUpgradePath`: linked | existing_account_confirmed | existing_account_cancelled | failed
+- `provider`
+- Old anonymous user_id (already_exists durumunda)
+- Resulting user_id (linked durumunda)
+- `purchaseStarted` true/false
+
+### 2. Paywall güncellemesi (`app/paywall.tsx`)
+
+**`handleGuestUpgrade` yeniden yazıldı:**
+1. `guestUpgradeForPurchase(provider)` çağrılır
+2. Her `status` için farklı davranış:
+   - **linked** → `purchaseUserProNow()` (eskisi gibi)
+   - **cancelled** → hiçbir şey yapma, hata gösterme
+   - **already_exists** → "Bu hesap zaten kayıtlı" dialog'u:
+     - **Vazgeç** → misafir kal, satın alma başlatılmaz, hata gösterilmez
+     - **Mevcut Hesapla Devam Et** → `signInWithExistingOAuthAccount` → başarılıysa `purchaseUserProNow()`
+     - Apple credential yeniden kullanılamazsa → "Giriş yapılamadı. Lütfen tekrar dene." (teknik hata değil)
+   - **error** → temiz hata mesajı (eskisi gibi ama artık "already linked" buraya düşmez)
+3. Beklenmeyen exception'lar try/catch ile yakalanır, temiz mesaj gösterilir
+
+### 3. i18n (`locales/tr.json`, `locales/en.json`)
+
+6 yeni anahtar (`paywall` namespace):
+- `existingAccountTitle` — "Bu hesap zaten kayıtlı" / "This account already exists"
+- `existingAccountMessage` — açıklayıcı mesaj (misafir verileri taşınmaz uyarısıyla)
+- `continueWithExistingAccount` — "Mevcut Hesapla Devam Et" / "Continue with Existing Account"
+- `cancelUpgrade` — "Vazgeç" / "Cancel"
+- `appleRetryTitle` — "Giriş yapılamadı" / "Sign in failed"
+- `appleRetryMessage` — "Lütfen tekrar dene." / "Please try again."
+
+### 4. Types (`lib/auth/types.ts`)
+
+- `GuestUpgradeResult` interface eklendi
+- `AuthContext` interface'ine `guestUpgradeForPurchase` ve `signInWithExistingOAuthAccount` eklendi
+
+**Değişen dosyalar:**
+- `lib/auth/types.ts` — `GuestUpgradeResult` interface
+- `lib/auth/AuthContext.tsx` — `isAlreadyLinkedError`, `guestUpgradeForPurchase`, `signInWithExistingOAuthAccount` + context value
+- `lib/auth/index.ts` — yeni export yok (context'ten geliyor)
+- `app/paywall.tsx` — `handleGuestUpgrade` yeniden yazıldı, `signInWithProvider` → `guestUpgradeForPurchase` + `signInWithExistingOAuthAccount`
+- `locales/tr.json` — 6 yeni paywall anahtarı
+- `locales/en.json` — 6 yeni paywall anahtarı
+
+**Test:**
+
+1. `npx tsc --noEmit` ✅ temiz
+2. `npm test` ✅ 87/87 test geçti
+
+**Manuel test checklist:**
+- [ ] Guest + fresh Apple identity → link success → purchase sheet opens
+- [ ] Guest + already-linked Apple identity → friendly "Bu hesap zaten kayıtlı" dialog → onayla → sign in → purchase sheet opens
+- [ ] Guest + already-linked Apple identity → iptal → stays guest, no purchase, no error Alert
+- [ ] Guest + already-linked Google identity → friendly dialog → onayla → web OAuth → sign in → purchase sheet opens
+- [ ] Guest + already-linked Google identity → iptal → stays guest, no purchase
+- [ ] Signed-in non-guest → Pro CTA directly opens purchase sheet
+- [ ] No "Hesap bağlanamadı / purchase not started" Alert appears in paywall purchase path
+
+**Kontrol tablosu:**
+- [x] `isAlreadyLinkedError`: code + message pattern matching
+- [x] `guestUpgradeForPurchase`: iOS Apple + Google/web OAuth paths
+- [x] Apple credential preservation for retry without re-auth
+- [x] Google "already linked" detection in callback URL params
+- [x] Friendly confirmation dialog replaces technical error
+- [x] Cancel → stay guest, no purchase
+- [x] Confirm → sign in with existing account → purchase auto-continues
+- [x] Apple retry failure → friendly message, not technical error
+- [x] `__DEV__` logging: guestUpgradePath, provider, user_ids, purchaseStarted
+- [x] Existing `signInWithProvider` unchanged (non-paywall flows unaffected)
+- [x] tsc temiz
+- [x] 87/87 test geçti
+
+*Son güncelleme: 2026-06-11 — B125 eklendi*

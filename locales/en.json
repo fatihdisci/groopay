@@ -318,7 +318,7 @@
       "unlimitedGroups": "Create unlimited groups",
       "categoryAnalytics": "Category-based analytics and summary"
     },
-    "userProTitle": "Go Pro",
+    "userProTitle": "Groopay Pro",
     "userProDesc": "Monthly subscription — Pro in all your groups",
     "userProDetail": "Pro features in all your groups + unlimited group creation + personal dashboard and category analytics.",
     "monthly": "monthly",
@@ -327,7 +327,7 @@
     "recommended": "Recommended",
     "limitNote": "You've reached the 5-group limit. Go Pro for unlimited groups.",
     "loading": "Loading...",
-    "priceError": "Price unavailable",
+    "priceError": "Price unavailable. Please try again later.",
     "ok": "OK",
     "successTitle": "Success",
     "userProSuccess": "Upgraded to Pro! All Pro features are now active.",
@@ -347,7 +347,13 @@
     "alreadyProSub": "All Pro features are active on your account.",
     "finePrint": "Purchases are processed through the app store. Restoration is always available.",
     "privacyPolicy": "Privacy Policy",
-    "terms": "Terms of Use"
+    "terms": "Terms of Use",
+    "existingAccountTitle": "This account already exists",
+    "existingAccountMessage": "The Apple or Google account you selected appears to be linked to an existing Groopay account. If you continue with this account, your guest session will end and the Pro purchase will continue with the existing account. Your guest data will not be moved to this account.",
+    "continueWithExistingAccount": "Continue with Existing Account",
+    "cancelUpgrade": "Cancel",
+    "appleRetryTitle": "Sign in failed",
+    "appleRetryMessage": "Could not sign in with your Apple account. Please try again."
   },
   "pro": {
     "locked": "Pro Feature",

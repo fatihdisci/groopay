@@ -133,25 +133,39 @@ function mapPackage(pkg: PurchasesPackage) {
  * Returns null if native module unavailable or no offerings.
  */
 export async function getOfferings(): Promise<OfferingsResult | null> {
-  if (!_nativeAvailable) return null;
+  if (!_nativeAvailable) {
+    if (__DEV__) console.log('[rc] getOfferings skipped: native module unavailable');
+    return null;
+  }
 
   try {
     const offerings: PurchasesOfferings = await Purchases.getOfferings();
-    console.log('[RC] offerings:', JSON.stringify(offerings.current));
-    console.log('[RC] availablePackages:', offerings.current?.availablePackages);
     const current = offerings.current;
+
+    if (__DEV__) {
+      console.log('[rc] offerings loaded:', !!current);
+      console.log('[rc] current offering identifier:', current?.identifier ?? 'null');
+      console.log('[rc] available packages:', current?.availablePackages?.map(p => ({
+        identifier: p.identifier,
+        packageType: p.packageType,
+        productId: p.product?.identifier ?? 'null',
+        priceString: p.product?.priceString ?? 'null',
+      })) ?? 'null');
+    }
+
     if (!current) return null;
 
+    // User Pro is a monthly subscription — map to current.monthly.
+    // Group Pro (deprecated in UI, kept for future use) also maps to monthly.
+    const userProPkg = current.monthly ?? current.availablePackages[0] ?? null;
     const groupProPkg = current.monthly ?? current.availablePackages[0] ?? null;
-    const userProPkg = current.annual ?? current.availablePackages[0] ?? null;
 
     return {
       groupPro: groupProPkg ? mapPackage(groupProPkg) : null,
       userPro: userProPkg ? mapPackage(userProPkg) : null,
     };
   } catch (e: any) {
-    console.error('[RC] getOfferings error:', e);
-    console.log('[rc] getOfferings failed:', e?.message);
+    if (__DEV__) console.error('[rc] getOfferings error:', e?.message);
     return null;
   }
 }
@@ -206,13 +220,33 @@ export async function purchaseUserPro(offeringId: string): Promise<PurchaseResul
   try {
     const offerings = await Purchases.getOfferings();
     const pkg = offerings.current?.availablePackages.find((p) => p.identifier === offeringId);
-    if (!pkg) return { success: false, error: 'Offering package not found' };
+    if (!pkg) {
+      if (__DEV__) {
+        console.log('[rc] purchaseUserPro: package not found for offeringId:', offeringId);
+        console.log('[rc] available package identifiers:', offerings.current?.availablePackages?.map(p => p.identifier));
+      }
+      return { success: false, error: 'Offering package not found' };
+    }
+
+    if (__DEV__) {
+      console.log('[rc] purchaseUserPro: purchasing package', {
+        identifier: pkg.identifier,
+        productId: pkg.product?.identifier,
+        priceString: pkg.product?.priceString,
+      });
+    }
 
     const { customerInfo } = await Purchases.purchasePackage(pkg);
     const hasPro = customerInfo.entitlements.active['user_pro'] !== undefined;
+    if (__DEV__) console.log('[rc] purchaseUserPro: success=', hasPro);
     return { success: hasPro };
   } catch (e: any) {
     if (e?.userCancelled) return { success: false, error: 'cancelled' };
+    if (__DEV__) {
+      console.log('[rc] purchaseUserPro error code:', e?.code);
+      console.log('[rc] purchaseUserPro error message:', e?.message);
+      console.log('[rc] purchaseUserPro error:', JSON.stringify(e, Object.getOwnPropertyNames(e)));
+    }
     return { success: false, error: e?.message ?? 'Purchase failed' };
   }
 }

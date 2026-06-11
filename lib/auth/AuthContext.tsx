@@ -28,7 +28,7 @@ import {
 } from '@/lib/supabase/client';
 import { AVATAR_COLORS } from '@/constants/avatarColors';
 import type { ProfileRow } from '@/lib/supabase/types';
-import type { Profile, OAuthProvider } from './types';
+import type { Profile, OAuthProvider, GuestUpgradeResult } from './types';
 
 // ──────────────────────────────────────
 // Faz 8: Google + Apple OAuth and production guest auth.
@@ -56,6 +56,13 @@ interface AuthContextValue {
   isOnboarded: boolean;
   signIn: () => Promise<void>;
   signInWithProvider: (provider: OAuthProvider) => Promise<boolean>;
+  /** Guest → OAuth upgrade for purchase flow. Detects identity-already-linked
+   *  and returns it as a status rather than throwing a technical error. */
+  guestUpgradeForPurchase: (provider: OAuthProvider) => Promise<GuestUpgradeResult>;
+  /** Sign in with an existing OAuth account (not linkIdentity).
+   *  Apple: uses the preserved token from a prior guestUpgradeForPurchase call.
+   *  Google: opens a fresh OAuth sign-in (not identity linking). */
+  signInWithExistingOAuthAccount: (provider: OAuthProvider, appleToken?: string, appleNonce?: string) => Promise<boolean>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Pick<Profile, 'display_name' | 'avatar_color' | 'locale' | 'preferred_currency'>>) => Promise<void>;
   setOnboarded: () => Promise<void>;
@@ -357,6 +364,18 @@ function isAppleSignInCancellation(error: unknown): boolean {
     'code' in error &&
     error.code === 'ERR_REQUEST_CANCELED'
   );
+}
+
+/** Detect Supabase "identity already linked to another user" errors
+ *  so we can offer a friendly "continue with existing account" path
+ *  instead of a technical error that blocks the IAP purchase flow. */
+function isAlreadyLinkedError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const code = 'code' in error ? (error as Record<string, unknown>).code : null;
+  if (code === 'identity_already_exists') return true;
+  const message = 'message' in error ? String((error as Record<string, unknown>).message) : '';
+  const lower = message.toLowerCase();
+  return lower.includes('already') && (lower.includes('linked') || lower.includes('exists') || lower.includes('registered'));
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -792,6 +811,228 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return false;
   }, [applyCompletedSignIn, isAnonymous]);
 
+  // ── GUEST → PRO PURCHASE UPGRADE ──
+  // Unlike signInWithProvider, this function detects identity-already-linked
+  // errors and returns them as a structured result instead of throwing.
+  // This prevents a technical error Alert from blocking the IAP purchase sheet.
+
+  const signInWithExistingOAuthAccount = useCallback(async (
+    provider: OAuthProvider,
+    appleToken?: string,
+    appleNonce?: string,
+  ): Promise<boolean> => {
+    if (provider === 'apple' && appleToken && appleNonce && Platform.OS === 'ios') {
+      const { data, error } = await supabaseAuth.auth.signInWithIdToken({
+        provider: 'apple',
+        token: appleToken,
+        nonce: appleNonce,
+      });
+      if (error) throw error;
+      if (!data.user || !data.session) throw new Error(i18n.t('auth.appleSessionMissing'));
+
+      const completed = await completeTokenSignIn(
+        data.user,
+        data.session.access_token,
+        data.session.refresh_token,
+        undefined,
+        data.session.expires_at ?? null,
+      );
+      applyCompletedSignIn(completed);
+      return true;
+    }
+
+    // Google / web OAuth: fresh sign-in (not linkIdentity)
+    const { data, error } = await supabaseAuth.auth.signInWithOAuth({
+      provider,
+      options: {
+        skipBrowserRedirect: true,
+        redirectTo: 'groopay://auth/callback',
+      },
+    });
+
+    if (error) throw error;
+    if (!data?.url) return false;
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, 'groopay://auth/callback');
+    if (result.type === 'success' && result.url) {
+      const completed = await completeOAuthSignIn(result.url);
+      applyCompletedSignIn(completed);
+      return true;
+    }
+    return false;
+  }, [applyCompletedSignIn]);
+
+  const guestUpgradeForPurchase = useCallback(async (
+    provider: OAuthProvider,
+  ): Promise<GuestUpgradeResult> => {
+    // ── Restore anonymous session for identity linking ──
+    let authSession: Session | null = null;
+    try {
+      const { data: { session } } = await supabaseAuth.auth.getSession();
+      authSession = session;
+    } catch { /* ignore */ }
+
+    // ── iOS Native Apple ──
+    if (provider === 'apple' && Platform.OS === 'ios') {
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAvailable) {
+        return { status: 'error', provider, errorMessage: i18n.t('auth.appleUnavailable') };
+      }
+
+      const rawNonce = Crypto.randomUUID();
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
+
+      try {
+        const credential = await AppleAuthentication.signInAsync({
+          nonce: hashedNonce,
+          requestedScopes: [
+            AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+            AppleAuthentication.AppleAuthenticationScope.EMAIL,
+          ],
+        });
+
+        if (!credential.identityToken) {
+          return { status: 'error', provider, errorMessage: i18n.t('auth.appleTokenMissing') };
+        }
+
+        if (!authSession?.user?.is_anonymous) {
+          authSession = await restoreAuthSessionForIdentityLinking();
+        }
+        if (!authSession?.user?.is_anonymous) {
+          return { status: 'error', provider, errorMessage: i18n.t('auth.appleSessionMissing') };
+        }
+
+        const anonymousUserId = authSession.user.id;
+        const { data, error } = await supabaseAuth.auth.linkIdentity({
+          provider: 'apple',
+          token: credential.identityToken,
+          nonce: rawNonce,
+        });
+
+        if (error) {
+          if (isAlreadyLinkedError(error)) {
+            if (__DEV__) {
+              console.log('[auth] guestUpgradeForPurchase apple: identity already linked — returning credential for retry');
+              console.log('[auth]   old anonymous user_id:', anonymousUserId);
+            }
+            // Preserve credential so the paywall can call signInWithIdToken later
+            return {
+              status: 'already_exists',
+              provider,
+              appleRetryToken: credential.identityToken,
+              appleRetryNonce: rawNonce,
+            };
+          }
+          console.error('[auth] Native Apple identity linking failed:', error.message);
+          return { status: 'error', provider, errorMessage: error.message };
+        }
+
+        if (!data.user || !data.session) {
+          return { status: 'error', provider, errorMessage: i18n.t('auth.appleSessionMissing') };
+        }
+        if (data.user.id !== anonymousUserId || data.user.is_anonymous !== false) {
+          await restoreAuthSessionForIdentityLinking();
+          return { status: 'error', provider, errorMessage: i18n.t('auth.appleUpgradeMismatch') };
+        }
+
+        const completed = await completeTokenSignIn(
+          data.user,
+          data.session.access_token,
+          data.session.refresh_token,
+          anonymousUserId,
+          data.session.expires_at ?? null,
+        );
+        applyCompletedSignIn(completed);
+        if (__DEV__) {
+          console.log('[auth] guestUpgradeForPurchase apple: linked, user_id:', completed.userId);
+        }
+        return { status: 'linked', provider };
+      } catch (error: unknown) {
+        if (isAppleSignInCancellation(error)) {
+          console.log('[auth] Native Apple sign-in cancelled by user');
+          return { status: 'cancelled', provider };
+        }
+        throw error;
+      }
+    }
+
+    // ── Google / web OAuth guest upgrade ──
+    if (!authSession?.user?.is_anonymous) {
+      authSession = await restoreAuthSessionForIdentityLinking();
+    }
+    if (!authSession?.user?.is_anonymous) {
+      return { status: 'error', provider, errorMessage: 'Anonymous session unavailable' };
+    }
+
+    const anonymousUserId = authSession.user.id;
+    const { data: linkData, error: linkError } = await supabaseAuth.auth.linkIdentity({
+      provider,
+      options: {
+        skipBrowserRedirect: true,
+        redirectTo: 'groopay://auth/callback',
+      },
+    });
+
+    if (linkError) {
+      if (isAlreadyLinkedError(linkError)) {
+        if (__DEV__) {
+          console.log('[auth] guestUpgradeForPurchase google: linkIdentity returned already-linked');
+          console.log('[auth]   old anonymous user_id:', anonymousUserId);
+        }
+        return { status: 'already_exists', provider };
+      }
+      console.error('[auth] linkIdentity failed:', linkError.message);
+      return { status: 'error', provider, errorMessage: linkError.message };
+    }
+
+    if (!linkData.url) {
+      return { status: 'error', provider, errorMessage: 'Identity linking URL was not returned' };
+    }
+
+    const result = await WebBrowser.openAuthSessionAsync(
+      linkData.url,
+      'groopay://auth/callback',
+    );
+    if (result.type !== 'success' || !result.url) {
+      return { status: 'cancelled', provider };
+    }
+
+    // Check the callback URL for identity-already-linked errors
+    try {
+      const hashIndex = result.url.indexOf('#');
+      if (hashIndex >= 0) {
+        const params = new URLSearchParams(result.url.slice(hashIndex + 1));
+        const cbError = params.get('error_description') ?? params.get('error');
+        if (cbError && isAlreadyLinkedError({ message: cbError })) {
+          if (__DEV__) {
+            console.log('[auth] guestUpgradeForPurchase google: callback indicates identity already linked');
+            console.log('[auth]   old anonymous user_id:', anonymousUserId);
+          }
+          return { status: 'already_exists', provider };
+        }
+      }
+
+      const linkedUser = await completeOAuthSignIn(result.url, anonymousUserId);
+      applyCompletedSignIn(linkedUser);
+      if (__DEV__) {
+        console.log('[auth] guestUpgradeForPurchase google: linked, user_id:', linkedUser.userId);
+      }
+      return { status: 'linked', provider };
+    } catch (error: unknown) {
+      if (isAlreadyLinkedError(error)) {
+        if (__DEV__) {
+          console.log('[auth] guestUpgradeForPurchase google: completeOAuthSignIn threw already-linked');
+          console.log('[auth]   old anonymous user_id:', anonymousUserId);
+        }
+        return { status: 'already_exists', provider };
+      }
+      throw error;
+    }
+  }, [applyCompletedSignIn]);
+
   // ── GUEST SIGN-IN ──
   const signIn = useCallback(async () => {
     const { data, error } = await supabaseAuth.auth.signInAnonymously();
@@ -901,6 +1142,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isOnboarded,
         signIn,
         signInWithProvider,
+        guestUpgradeForPurchase,
+        signInWithExistingOAuthAccount,
         signOut,
         updateProfile,
         setOnboarded,
