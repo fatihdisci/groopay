@@ -1,0 +1,8 @@
+project_id = "groopay"
+
+# RevenueCat calls this webhook with its own Authorization secret (not a
+# Supabase JWT). Platform-level JWT verification MUST stay off, otherwise
+# every webhook event is rejected with 401 before the function runs and
+# user_pro is never activated. The function verifies the secret itself.
+[functions.revenuecat-webhook]
+verify_jwt = false

@@ -20,6 +20,9 @@ export type OAuthProvider = 'google' | 'apple';
 export interface GuestUpgradeResult {
   status: 'linked' | 'cancelled' | 'already_exists' | 'error';
   provider: OAuthProvider;
+  /** Supabase auth user id after a successful link — RevenueCat must be
+   *  logged in as this id before the purchase starts. */
+  userId?: string;
   /** iOS Apple: preserved credential so the paywall can retry sign-in without re-prompting. */
   appleRetryToken?: string;
   appleRetryNonce?: string;

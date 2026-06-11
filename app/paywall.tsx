@@ -19,6 +19,7 @@ import { useAuth } from '@/lib/auth';
 import type { OAuthProvider } from '@/lib/auth';
 import {
   isRevenueCatAvailable,
+  initRevenueCat,
   getOfferings,
   purchaseUserPro,
   restorePurchases,
@@ -38,7 +39,13 @@ const PRO_FEATURES: ProFeature[] = [
 export default function PaywallScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { isAnonymous, guestUpgradeForPurchase, signInWithExistingOAuthAccount } = useAuth();
+  const {
+    user,
+    isAnonymous,
+    guestUpgradeForPurchase,
+    signInWithExistingOAuthAccount,
+    refreshProfile,
+  } = useAuth();
   const { isUserPro } = usePro();
 
   const params = useLocalSearchParams<{ context?: string; groupId?: string }>();
@@ -94,7 +101,19 @@ export default function PaywallScreen() {
     }
   };
 
-  const purchaseUserProNow = async () => {
+  // RevenueCat webhook → DB activation can take longer than a few seconds
+  // (especially in sandbox/TestFlight) — poll up to ~15 s.
+  const waitForProActivation = async (): Promise<boolean> => {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      if (await refreshProfile()) return true;
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 1500);
+      });
+    }
+    return false;
+  };
+
+  const purchaseUserProNow = async (expectedUserId?: string) => {
     if (!offerings?.userPro?.id) {
       Alert.alert(t('paywall.unavailable'), t('paywall.noProduct'));
       return false;
@@ -104,13 +123,27 @@ export default function PaywallScreen() {
       return false;
     }
 
+    // The purchase must be attributed to the CURRENT Supabase user.
+    // After a guest → existing-account switch the RevenueCat SDK may still
+    // be logged in as the old anonymous user; await the logIn here so the
+    // webhook grants Pro to the right profile.
+    const purchaseUserId = expectedUserId ?? user?.id;
+    if (purchaseUserId) {
+      await initRevenueCat(purchaseUserId);
+    }
+
     const result = await purchaseUserPro(offerings.userPro.id);
     if (result.devBuildRequired) {
       Alert.alert(t('paywall.devBuildTitle'), t('paywall.devBuildMessage'));
     } else if (result.success) {
-      Alert.alert(t('paywall.successTitle'), t('paywall.userProSuccess'), [
-        { text: t('paywall.ok'), onPress: () => router.back() },
-      ]);
+      const activated = await waitForProActivation();
+      Alert.alert(
+        t('paywall.successTitle'),
+        activated ? t('paywall.userProSuccess') : t('paywall.activationPending'),
+        [
+          { text: t('paywall.ok'), onPress: () => router.back() },
+        ],
+      );
     } else if (result.error !== 'cancelled') {
       Alert.alert(t('paywall.errorTitle'), result.error);
     }
@@ -133,7 +166,7 @@ export default function PaywallScreen() {
       // ── Success: identity linked, proceed to purchase ──
       if (upgradeResult.status === 'linked') {
         if (__DEV__) console.log('[paywall] guestUpgradePath: linked, purchaseStarted: true');
-        await purchaseUserProNow();
+        await purchaseUserProNow(upgradeResult.userId);
         return;
       }
 
@@ -165,18 +198,18 @@ export default function PaywallScreen() {
 
         // User confirmed — sign in with the existing account
         if (__DEV__) console.log('[paywall] guestUpgradePath: existing_account_confirmed, signing in...');
-        const signedIn = await signInWithExistingOAuthAccount(
+        const signedInUserId = await signInWithExistingOAuthAccount(
           provider,
           upgradeResult.appleRetryToken,
           upgradeResult.appleRetryNonce,
         );
 
-        if (signedIn) {
+        if (signedInUserId) {
           if (__DEV__) {
             console.log('[paywall] guestUpgradePath: existing_account_confirmed, purchaseStarted: true');
-            console.log('[paywall]   old anonymous user_id preserved, new user_id now active');
+            console.log('[paywall]   purchasing as user_id:', signedInUserId);
           }
-          await purchaseUserProNow();
+          await purchaseUserProNow(signedInUserId);
         } else {
           // Sign-in with existing account failed (e.g. Apple credential expired)
           if (__DEV__) console.log('[paywall] guestUpgradePath: existing_account_confirmed but sign-in failed');
@@ -240,13 +273,23 @@ export default function PaywallScreen() {
 
     setPurchasing('restore');
     try {
+      // Restore links the App Store receipt to the RevenueCat app user —
+      // make sure that is the current Supabase user before restoring.
+      if (user?.id) {
+        await initRevenueCat(user.id);
+      }
       const result = await restorePurchases();
       if (result.devBuildRequired) {
         Alert.alert(t('paywall.devBuildTitle'), t('paywall.devBuildMessage'));
       } else if (result.success) {
-        Alert.alert(t('paywall.restoreTitle'), t('paywall.restoreSuccess'), [
-          { text: t('paywall.ok'), onPress: () => router.back() },
-        ]);
+        const activated = await waitForProActivation();
+        Alert.alert(
+          t('paywall.restoreTitle'),
+          activated ? t('paywall.restoreSuccess') : t('paywall.activationPending'),
+          [
+            { text: t('paywall.ok'), onPress: () => router.back() },
+          ],
+        );
       } else {
         Alert.alert(t('paywall.restoreTitle'), t('paywall.restoreEmpty'));
       }

@@ -331,6 +331,7 @@
     "ok": "OK",
     "successTitle": "Success",
     "userProSuccess": "Upgraded to Pro! All Pro features are now active.",
+    "activationPending": "Your purchase is complete. Pro access is being verified and will activate automatically within a few seconds.",
     "restoreTitle": "Restore",
     "restoreSuccess": "Your purchases have been restored.",
     "restoreEmpty": "No purchases found to restore.",

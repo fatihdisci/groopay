@@ -61,9 +61,12 @@ interface AuthContextValue {
   guestUpgradeForPurchase: (provider: OAuthProvider) => Promise<GuestUpgradeResult>;
   /** Sign in with an existing OAuth account (not linkIdentity).
    *  Apple: uses the preserved token from a prior guestUpgradeForPurchase call.
-   *  Google: opens a fresh OAuth sign-in (not identity linking). */
-  signInWithExistingOAuthAccount: (provider: OAuthProvider, appleToken?: string, appleNonce?: string) => Promise<boolean>;
+   *  Google: opens a fresh OAuth sign-in (not identity linking).
+   *  Returns the signed-in Supabase user id, or null on cancel/failure —
+   *  callers must re-login RevenueCat with this id before purchasing. */
+  signInWithExistingOAuthAccount: (provider: OAuthProvider, appleToken?: string, appleNonce?: string) => Promise<string | null>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<boolean>;
   updateProfile: (updates: Partial<Pick<Profile, 'display_name' | 'avatar_color' | 'locale' | 'preferred_currency'>>) => Promise<void>;
   setOnboarded: () => Promise<void>;
 }
@@ -383,10 +386,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isOnboarded, setIsOnboarded] = useState(false);
+  // Always-current user for long-running async flows (e.g. the paywall's
+  // post-purchase polling) that would otherwise capture a stale closure
+  // after a guest → existing-account switch.
+  const userRef = useRef<Profile | null>(null);
+  const isAnonymousRef = useRef(false);
   const refreshPromiseRef = useRef<Promise<RefreshResult> | null>(null);
   const lastRefreshAttemptRef = useRef(0);
   const appStateRef = useRef(AppState.currentState);
   const proactiveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    userRef.current = user;
+    isAnonymousRef.current = isAnonymous;
+  }, [user, isAnonymous]);
 
   const expireSession = useCallback(async (showMessage: boolean): Promise<void> => {
     await clearStoredAuthTokens();
@@ -625,6 +638,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user, proactiveTokenRefresh]);
 
   const applyCompletedSignIn = useCallback((completed: CompletedOAuthSignIn) => {
+    // Update refs synchronously: purchase flows continue in the same async
+    // chain and must see the new user before React re-renders.
+    userRef.current = completed.profile;
+    isAnonymousRef.current = completed.isAnonymous;
     setUser(completed.profile);
     setIsAnonymous(completed.isAnonymous);
     void persistAuthSnapshot(completed.profile, completed.isAnonymous);
@@ -820,7 +837,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     provider: OAuthProvider,
     appleToken?: string,
     appleNonce?: string,
-  ): Promise<boolean> => {
+  ): Promise<string | null> => {
     if (provider === 'apple' && appleToken && appleNonce && Platform.OS === 'ios') {
       const { data, error } = await supabaseAuth.auth.signInWithIdToken({
         provider: 'apple',
@@ -838,7 +855,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         data.session.expires_at ?? null,
       );
       applyCompletedSignIn(completed);
-      return true;
+      return completed.userId;
     }
 
     // Google / web OAuth: fresh sign-in (not linkIdentity)
@@ -851,15 +868,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     if (error) throw error;
-    if (!data?.url) return false;
+    if (!data?.url) return null;
 
     const result = await WebBrowser.openAuthSessionAsync(data.url, 'groopay://auth/callback');
     if (result.type === 'success' && result.url) {
       const completed = await completeOAuthSignIn(result.url);
       applyCompletedSignIn(completed);
-      return true;
+      return completed.userId;
     }
-    return false;
+    return null;
   }, [applyCompletedSignIn]);
 
   const guestUpgradeForPurchase = useCallback(async (
@@ -949,7 +966,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (__DEV__) {
           console.log('[auth] guestUpgradeForPurchase apple: linked, user_id:', completed.userId);
         }
-        return { status: 'linked', provider };
+        return { status: 'linked', provider, userId: completed.userId };
       } catch (error: unknown) {
         if (isAppleSignInCancellation(error)) {
           console.log('[auth] Native Apple sign-in cancelled by user');
@@ -1020,7 +1037,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (__DEV__) {
         console.log('[auth] guestUpgradeForPurchase google: linked, user_id:', linkedUser.userId);
       }
-      return { status: 'linked', provider };
+      return { status: 'linked', provider, userId: linkedUser.userId };
     } catch (error: unknown) {
       if (isAlreadyLinkedError(error)) {
         if (__DEV__) {
@@ -1092,6 +1109,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsOnboarded(false);
   }, []);
 
+  const refreshProfile = useCallback(async (): Promise<boolean> => {
+    // Read via refs so long-running callers (paywall activation polling)
+    // always refresh the CURRENT user, even after an account switch.
+    const currentUser = userRef.current;
+    if (!currentUser) return false;
+
+    const profile = await fetchProfile(currentUser.id);
+    if (!profile) return false;
+
+    const mappedProfile = profileRowToProfile(profile);
+    userRef.current = mappedProfile;
+    setUser(mappedProfile);
+    await persistAuthSnapshot(mappedProfile, isAnonymousRef.current);
+    return mappedProfile.user_pro;
+  }, []);
+
   const updateProfile = useCallback(
     async (updates: Partial<Pick<Profile, 'display_name' | 'avatar_color' | 'locale' | 'preferred_currency'>>) => {
       if (!user) return;
@@ -1145,6 +1178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         guestUpgradeForPurchase,
         signInWithExistingOAuthAccount,
         signOut,
+        refreshProfile,
         updateProfile,
         setOnboarded,
       }}

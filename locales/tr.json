@@ -328,6 +328,7 @@
     "ok": "Tamam",
     "successTitle": "Başarılı",
     "userProSuccess": "Pro'ya yükseltildiniz! Tüm Pro özellikleri aktif.",
+    "activationPending": "Satın alımınız tamamlandı. Pro erişiminiz doğrulanıyor; birkaç saniye içinde otomatik olarak aktif olacak.",
     "restoreTitle": "Geri Yükle",
     "restoreSuccess": "Satın alımlarınız geri yüklendi.",
     "restoreEmpty": "Geri yüklenecek satın alım bulunamadı.",

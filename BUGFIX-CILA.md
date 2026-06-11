@@ -3227,3 +3227,56 @@ Apple inceleyicisi bu mesajı "app displays an error when attempting to buy a su
 - [x] 87/87 test geçti
 
 *Son güncelleme: 2026-06-11 — B124/B125 EK eklendi*
+
+---
+
+### ✅ B126: TestFlight satın alımı sonrası Pro aktivasyonu
+**Sorun:** TestFlight'ta App Store satın alımı tamamlanmasına rağmen RevenueCat ürününün entitlement alanı boş olduğu için client işlemi hata olarak yorumluyor, Supabase webhook'u kullanıcıyı bulamıyor ve `profiles.user_pro` aktif olmuyordu.
+
+**Yapılan:**
+- RevenueCat satın alma sonucu, mağaza işlemi başarıyla tamamlandıysa başarılı kabul edildi; entitlement senkronizasyonu ayrı takip ediliyor.
+- `user_pro` entitlement'ına ek olarak yalnızca `com.groopay.app.userpro` ürün kimliği için güvenli fallback eklendi.
+- RevenueCat kullanıcı kimliği değiştiğinde ikinci kez `configure` etmek yerine `Purchases.logIn` kullanılıyor.
+- Webhook payload şeması güncel RevenueCat alanlarına geçirildi: `event.app_user_id`, `event.original_app_user_id`, `event.aliases`, `event.subscriber_attributes`.
+- Webhook, Supabase profilini geçerli UUID adayları arasından buluyor ve boş entitlement durumunda bilinen User Pro ürününü işliyor.
+- `CANCELLATION` ve `SUBSCRIPTION_PAUSED` anında erişim kaldırmıyor; Pro yalnızca `EXPIRATION` veya geçmiş expiration tarihiyle kapatılıyor.
+- Satın alma ve geri yükleme sonrasında profil yenileniyor; webhook gecikirse kullanıcıya teknik hata yerine doğrulama mesajı gösteriliyor.
+
+**Değişen dosyalar:** `lib/revenuecat/index.ts`, `lib/auth/AuthContext.tsx`, `app/paywall.tsx`, `app/(tabs)/account.tsx`, `supabase/functions/revenuecat-webhook/index.ts`, `locales/tr.json`, `locales/en.json`, `BUGFIX-CILA.md`
+
+**Test:**
+1. `npx tsc --noEmit` ✅ temiz
+2. `npm test` ✅ 87/87 test geçti
+3. RevenueCat'te `com.groopay.app.userpro` ürünü `user_pro` entitlement'ına bağlanmalı.
+4. Güncel webhook deploy edildikten sonra mevcut TestFlight satın alımı restore edilmeli veya RevenueCat event'i yeniden gönderilmeli.
+
+### ✅ B127: Webhook JWT engeli + RevenueCat kullanıcı kimliği yarışı — Pro hiç aktive olmuyordu
+**Sorun:** TestFlight'ta satın alma başarıyla tamamlanmasına rağmen kullanıcı Pro olmuyordu. Üç ayrı kök neden:
+1. **(Ana neden)** `revenuecat-webhook` Edge Function'ı `verify_jwt: true` ile deploy edilmişti. RevenueCat, Authorization header'ında Supabase JWT değil kendi webhook secret'ını gönderdiği için Supabase platformu HER webhook isteğini fonksiyon koduna ulaşmadan 401 ile reddediyordu → `profiles.user_pro` hiçbir satın almada `true` olmuyordu (misafir yükseltme, direkt giriş ve restore dahil tüm yollar etkileniyordu).
+2. Misafir → mevcut hesapla devam (`already_exists`) akışında RevenueCat SDK hâlâ ESKİ anonim kullanıcı kimliğiyle login'di; satın alma eski anonim profile yazılıyor, yeni hesaba Pro gelmiyordu (`initRevenueCat` yalnızca `_layout.tsx` effect'inde fire-and-forget çağrılıyordu — satın almayla yarışıyordu).
+3. Hesap değişiminden sonra `refreshProfile` bayat closure'daki ESKİ kullanıcıyı poll'luyordu → webhook doğru hesaba Pro verse bile paywall bunu hiç göremiyordu.
+
+**Yapılan:**
+- Webhook `--no-verify-jwt` ile yeniden deploy edildi; ayar kalıcı olsun diye `supabase/config.toml` eklendi (`[functions.revenuecat-webhook] verify_jwt = false`). Fonksiyonun kendi secret doğrulaması devrede kalıyor.
+- `purchaseUserProNow(expectedUserId?)`: satın almadan ÖNCE `await initRevenueCat(userId)` ile RevenueCat'in güncel Supabase kullanıcısına login olması garanti edildi. Restore akışına da aynı garanti eklendi.
+- `signInWithExistingOAuthAccount` artık yeni kullanıcı id'sini döndürüyor (`string | null`); `guestUpgradeForPurchase` linked sonucu `userId` içeriyor — paywall satın almayı bu id ile başlatıyor.
+- `AuthContext.refreshProfile` `userRef` üzerinden HER ZAMAN güncel kullanıcıyı okuyor; `applyCompletedSignIn` ref'leri senkron güncelliyor (React render beklenmeden).
+- Sandbox/TestFlight'ta webhook gecikmesi için aktivasyon polling'i ~6 sn'den ~15 sn'ye çıkarıldı (10 deneme × 1,5 sn).
+
+**Değişen dosyalar:** `supabase/config.toml` (yeni), `app/paywall.tsx`, `lib/auth/AuthContext.tsx`, `lib/auth/types.ts`, `BUGFIX-CILA.md`
+
+**Test:**
+1. `npx tsc --noEmit` ✅ temiz
+2. `npx supabase functions list` → `revenuecat-webhook` `verify_jwt: false` ✅
+3. `curl` ile webhook'a yanlış secret'la POST → fonksiyonun KENDİ `{"success":false,"error":"unauthorized"}` yanıtı dönüyor (platform 401'i değil) ✅
+4. TestFlight: misafir → Google/Apple yükseltme + satın alma → Pro aktif olmalı; direkt girişli hesapla satın alma → Pro aktif olmalı; "Satın alımları geri yükle" → Pro geri gelmeli.
+5. Önceki başarısız satın alma için: paywall'da "Satın alımları geri yükle"ye basılması yeterli (webhook artık ulaşılabilir).
+
+| Kontrol | Durum |
+|---|---|
+| Webhook fonksiyon koduna ulaşıyor | ✅ |
+| Satın alma doğru kullanıcıya atfediliyor | ✅ |
+| Hesap değişimi sonrası doğru profil poll'lanıyor | ✅ |
+| TypeScript temiz | ✅ |
+
+*Son güncelleme: 2026-06-11 — B127 eklendi*

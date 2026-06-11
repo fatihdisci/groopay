@@ -22,14 +22,13 @@ const GRANT_EVENTS = [
   'NON_RENEWING_PURCHASE',
   'UNCANCELLATION',       // iptal geri alındı
   'PRODUCT_CHANGE',       // plan değişikliği — aktif kalır
+  'TEMPORARY_ENTITLEMENT_GRANT',
+  'REFUND_REVERSED',
 ];
 
 /** Bu event'ler Pro erişimini KALDIRIR */
 const REVOKE_EVENTS = [
   'EXPIRATION',           // abonelik süresi doldu
-  'CANCELLATION',         // kullanıcı iptal etti
-  'REFUND',               // para iadesi
-  'SUBSCRIPTION_PAUSED',  // duraklatıldı
 ];
 
 /** Bu event şimdilik sadece loglanır, user_pro'ya dokunulmaz */
@@ -40,17 +39,23 @@ interface RevenueCatEvent {
     id: string;
     type: string;
     app_id: string;
+    app_user_id?: string;
+    original_app_user_id?: string;
+    aliases?: string[];
     product_id: string;
     entitlement_ids?: string[];
-    subscriber: {
-      app_user_id: string;
-      original_app_user_id: string;
-      attributes?: Record<string, string>;
-    };
+    subscriber_attributes?: Record<string, {
+      value: string;
+      updated_at_ms: number;
+    }>;
     purchased_at_ms: number;
     expiration_at_ms?: number;
   };
 }
+
+const USER_PRO_ENTITLEMENT_ID = 'user_pro';
+const USER_PRO_PRODUCT_ID = 'com.groopay.app.userpro';
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -80,12 +85,9 @@ Deno.serve(async (req: Request) => {
     }
 
     const eventType = event.type;
-    const appUserId = event.subscriber.app_user_id;
     const entitlements = event.entitlement_ids ?? [];
     const expirationMs = event.expiration_at_ms;
     const nowMs = Date.now();
-
-    console.log('[rc-webhook] Event:', eventType, '| user:', appUserId, '| entitlements:', entitlements.join(', '));
 
     // ── 3. Classify event ──
     const isGrant = GRANT_EVENTS.includes(eventType);
@@ -125,8 +127,37 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
+    const candidateUserIds = [
+      event.app_user_id,
+      event.original_app_user_id,
+      ...(event.aliases ?? []),
+    ].filter((value): value is string => typeof value === 'string' && UUID_PATTERN.test(value));
+
+    let appUserId: string | null = null;
+    for (const candidateUserId of [...new Set(candidateUserIds)]) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', candidateUserId)
+        .maybeSingle();
+      if (profile) {
+        appUserId = profile.id;
+        break;
+      }
+    }
+
+    if (!appUserId) {
+      console.error('[rc-webhook] No matching Supabase profile for RevenueCat user');
+      return json({ success: false, error: 'profile not found' }, 404);
+    }
+
+    console.log('[rc-webhook] Event:', eventType, '| user:', appUserId, '| entitlements:', entitlements.join(', '));
+
     // ── 7. Process User Pro ──
-    if (entitlements.includes('user_pro')) {
+    if (
+      entitlements.includes(USER_PRO_ENTITLEMENT_ID)
+      || event.product_id === USER_PRO_PRODUCT_ID
+    ) {
       if (action === 'grant') {
         // Aktif et
         const { error: updateError } = await supabase
@@ -182,7 +213,7 @@ Deno.serve(async (req: Request) => {
 
     // ── 8. Process Group Pro ──
     if (entitlements.includes('group_pro')) {
-      const groupId = event.subscriber.attributes?.group_id;
+      const groupId = event.subscriber_attributes?.group_id?.value;
 
       if (action === 'grant') {
         if (!groupId) {

@@ -20,11 +20,37 @@ import type { CustomerInfo, PurchasesOfferings, PurchasesPackage } from 'react-n
 // Anything else is a placeholder and should not be passed to Purchases.configure().
 const RC_APPLE_KEY_PREFIX = 'appl_';
 const RC_GOOGLE_KEY_PREFIX = 'goog_';
+const USER_PRO_ENTITLEMENT_ID = 'user_pro';
+const USER_PRO_PRODUCT_ID = 'com.groopay.app.userpro';
 
 // ── Module-level state ──
 
 let _nativeAvailable = false;
 let _initError: string | null = null;
+let _configuredUserId: string | null = null;
+
+interface RevenueCatError {
+  message?: string;
+  userCancelled?: boolean;
+  code?: string | number;
+}
+
+function toRevenueCatError(error: unknown): RevenueCatError {
+  if (typeof error !== 'object' || error === null) return {};
+  const value = error as Record<string, unknown>;
+  return {
+    message: typeof value.message === 'string' ? value.message : undefined,
+    userCancelled: value.userCancelled === true,
+    code: typeof value.code === 'string' || typeof value.code === 'number'
+      ? value.code
+      : undefined,
+  };
+}
+
+function hasUserPro(customerInfo: CustomerInfo): boolean {
+  return customerInfo.entitlements.active[USER_PRO_ENTITLEMENT_ID] !== undefined
+    || customerInfo.activeSubscriptions.includes(USER_PRO_PRODUCT_ID);
+}
 
 // ── Public status ──
 
@@ -77,6 +103,22 @@ export async function initRevenueCat(appUserId: string): Promise<void> {
     console.log('[rc] Running in Expo Go — Purchases will use test store or fail gracefully.');
   }
 
+  if (_nativeAvailable) {
+    if (_configuredUserId !== appUserId) {
+      try {
+        await Purchases.logIn(appUserId);
+        _configuredUserId = appUserId;
+        _initError = null;
+        console.log('[rc] User updated:', appUserId);
+      } catch (error: unknown) {
+        const revenueCatError = toRevenueCatError(error);
+        _initError = revenueCatError.message ?? 'RevenueCat user update failed';
+        console.log('[rc] User update failed:', _initError);
+      }
+    }
+    return;
+  }
+
   try {
     if (__DEV__) {
       await Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
@@ -87,11 +129,14 @@ export async function initRevenueCat(appUserId: string): Promise<void> {
       appUserID: appUserId,
     });
     _nativeAvailable = true;
+    _configuredUserId = appUserId;
     _initError = null;
     console.log('[rc] Initialized — user:', appUserId);
-  } catch (e: any) {
+  } catch (error: unknown) {
+    const revenueCatError = toRevenueCatError(error);
     _nativeAvailable = false;
-    _initError = e?.message ?? 'RevenueCat init failed';
+    _configuredUserId = null;
+    _initError = revenueCatError.message ?? 'RevenueCat init failed';
     console.log('[rc] Init failed (likely Expo Go — no native module):', _initError);
   }
 }
@@ -164,8 +209,9 @@ export async function getOfferings(): Promise<OfferingsResult | null> {
       groupPro: groupProPkg ? mapPackage(groupProPkg) : null,
       userPro: userProPkg ? mapPackage(userProPkg) : null,
     };
-  } catch (e: any) {
-    if (__DEV__) console.error('[rc] getOfferings error:', e?.message);
+  } catch (error: unknown) {
+    const revenueCatError = toRevenueCatError(error);
+    if (__DEV__) console.error('[rc] getOfferings error:', revenueCatError.message);
     return null;
   }
 }
@@ -176,6 +222,7 @@ export interface PurchaseResult {
   success: boolean;
   error?: string;
   devBuildRequired?: boolean;
+  entitlementActive?: boolean;
 }
 
 /**
@@ -203,9 +250,10 @@ export async function purchaseGroupPro(
     const { customerInfo } = await Purchases.purchasePackage(pkg);
     const hasPro = customerInfo.entitlements.active['group_pro'] !== undefined;
     return { success: hasPro };
-  } catch (e: any) {
-    if (e?.userCancelled) return { success: false, error: 'cancelled' };
-    return { success: false, error: e?.message ?? 'Purchase failed' };
+  } catch (error: unknown) {
+    const revenueCatError = toRevenueCatError(error);
+    if (revenueCatError.userCancelled) return { success: false, error: 'cancelled' };
+    return { success: false, error: revenueCatError.message ?? 'Purchase failed' };
   }
 }
 
@@ -237,17 +285,19 @@ export async function purchaseUserPro(offeringId: string): Promise<PurchaseResul
     }
 
     const { customerInfo } = await Purchases.purchasePackage(pkg);
-    const hasPro = customerInfo.entitlements.active['user_pro'] !== undefined;
+    const hasPro = hasUserPro(customerInfo);
     if (__DEV__) console.log('[rc] purchaseUserPro: success=', hasPro);
-    return { success: hasPro };
-  } catch (e: any) {
-    if (e?.userCancelled) return { success: false, error: 'cancelled' };
+    // purchasePackage only resolves after the store transaction succeeds.
+    // The webhook remains authoritative for profiles.user_pro.
+    return { success: true, entitlementActive: hasPro };
+  } catch (error: unknown) {
+    const revenueCatError = toRevenueCatError(error);
+    if (revenueCatError.userCancelled) return { success: false, error: 'cancelled' };
     if (__DEV__) {
-      console.log('[rc] purchaseUserPro error code:', e?.code);
-      console.log('[rc] purchaseUserPro error message:', e?.message);
-      console.log('[rc] purchaseUserPro error:', JSON.stringify(e, Object.getOwnPropertyNames(e)));
+      console.log('[rc] purchaseUserPro error code:', revenueCatError.code);
+      console.log('[rc] purchaseUserPro error message:', revenueCatError.message);
     }
-    return { success: false, error: e?.message ?? 'Purchase failed' };
+    return { success: false, error: revenueCatError.message ?? 'Purchase failed' };
   }
 }
 
@@ -261,11 +311,11 @@ export async function restorePurchases(): Promise<PurchaseResult> {
 
   try {
     const customerInfo: CustomerInfo = await Purchases.restorePurchases();
-    const hasActive = customerInfo.activeSubscriptions.length > 0
-      || Object.keys(customerInfo.entitlements.active).length > 0;
-    return { success: hasActive };
-  } catch (e: any) {
-    return { success: false, error: e?.message ?? 'Restore failed' };
+    const hasActive = hasUserPro(customerInfo);
+    return { success: hasActive, entitlementActive: hasActive };
+  } catch (error: unknown) {
+    const revenueCatError = toRevenueCatError(error);
+    return { success: false, error: revenueCatError.message ?? 'Restore failed' };
   }
 }
 
@@ -281,7 +331,7 @@ export async function checkUserProEntitlement(): Promise<boolean> {
 
   try {
     const info: CustomerInfo = await Purchases.getCustomerInfo();
-    return info.entitlements.active['user_pro'] !== undefined;
+    return hasUserPro(info);
   } catch {
     return false;
   }

@@ -41,7 +41,7 @@ function getInitials(name: string): string {
 
 export default function AccountScreen() {
   const { t, i18n } = useTranslation();
-  const { user, updateProfile, signOut } = useAuth();
+  const { user, updateProfile, signOut, refreshProfile } = useAuth();
   const { isUserPro } = usePro();
   const router = useRouter();
   const navigation = useNavigation();
@@ -142,7 +142,11 @@ export default function AccountScreen() {
     try {
       const result = await restorePurchases();
       if (result.success) {
-        Alert.alert(t('paywall.restoreTitle'), t('paywall.restoreSuccess'));
+        const activated = await refreshProfile();
+        Alert.alert(
+          t('paywall.restoreTitle'),
+          activated ? t('paywall.restoreSuccess') : t('paywall.activationPending'),
+        );
       } else {
         Alert.alert(t('paywall.restoreTitle'), t('paywall.restoreEmpty'));
       }
