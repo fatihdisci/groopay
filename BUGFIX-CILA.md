@@ -3280,3 +3280,26 @@ Apple inceleyicisi bu mesajı "app displays an error when attempting to buy a su
 | TypeScript temiz | ✅ |
 
 *Son güncelleme: 2026-06-11 — B127 eklendi*
+
+---
+
+### ✅ B128: Paywall localized legal link düzeltmesi
+**Sorun:** Paywall ekranındaki Gizlilik Politikası ve Kullanım Koşulları bağlantıları yayınlanmayan `groopay.app` alan adını kullanıyor, boş sayfa açıyordu. Ayrıca bağlantılar arayüz diline göre İngilizce sayfalara yönlenmiyordu.
+
+**Yapılan:**
+- Legal link tabanı `https://groopay.vercel.app` olarak düzeltildi.
+- Mevcut `i18n.language` İngilizce ile başlıyorsa `/en/privacy` ve `/en/terms`, diğer dillerde `/privacy` ve `/terms` seçiliyor.
+- Paywall'ın legal linkler dışındaki davranışı değiştirilmedi.
+
+**Değişen dosyalar:** `app/paywall.tsx`, `BUGFIX-CILA.md`
+
+**Test:**
+1. `npx tsc --noEmit` ✅ temiz
+2. `npm test` ✅ 87/87 test geçti
+3. Canlı URL kontrolleri:
+   - `https://groopay.vercel.app/privacy` → Gizlilik Politikası
+   - `https://groopay.vercel.app/terms` → Kullanım Koşulları
+   - `https://groopay.vercel.app/en/privacy` → Privacy Policy
+   - `https://groopay.vercel.app/en/terms` → Terms of Service
+
+*Son güncelleme: 2026-06-11 — B128 eklendi*

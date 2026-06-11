@@ -37,7 +37,7 @@ const PRO_FEATURES: ProFeature[] = [
 ];
 
 export default function PaywallScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const router = useRouter();
   const {
     user,
@@ -50,6 +50,9 @@ export default function PaywallScreen() {
 
   const params = useLocalSearchParams<{ context?: string; groupId?: string }>();
   const context = params.context ?? 'feature';
+  const legalPathPrefix = i18n.language.startsWith('en') ? '/en' : '';
+  const privacyPolicyUrl = `https://groopay.vercel.app${legalPathPrefix}/privacy`;
+  const termsOfUseUrl = `https://groopay.vercel.app${legalPathPrefix}/terms`;
 
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [offerings, setOfferings] = useState<OfferingsResult | null>(null);
@@ -402,7 +405,7 @@ export default function PaywallScreen() {
       {/* Legal links — ABOVE purchase CTA (Apple 3.1.2(c): must be visible before tapping purchase) */}
       <View style={styles.legalLinks}>
         <TouchableOpacity
-          onPress={() => openLinkOrAlert('https://groopay.app/privacy', t('paywall.privacyPolicy'))}
+          onPress={() => openLinkOrAlert(privacyPolicyUrl, t('paywall.privacyPolicy'))}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="link"
           accessibilityLabel={t('paywall.privacyPolicy')}
@@ -411,7 +414,7 @@ export default function PaywallScreen() {
         </TouchableOpacity>
         <Text style={styles.legalLinkSeparator}> · </Text>
         <TouchableOpacity
-          onPress={() => openLinkOrAlert('https://groopay.app/terms', t('paywall.terms'))}
+          onPress={() => openLinkOrAlert(termsOfUseUrl, t('paywall.terms'))}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="link"
           accessibilityLabel={t('paywall.terms')}
