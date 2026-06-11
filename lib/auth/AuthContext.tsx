@@ -22,6 +22,7 @@ import {
   supabase,
   supabaseAuth,
   setSupabaseAccessToken,
+  getSupabaseAccessToken,
   STORAGE_KEY_ACCESS_TOKEN,
   STORAGE_KEY_REFRESH_TOKEN,
   STORAGE_KEY_TOKEN_EXPIRES_AT,
@@ -1052,50 +1053,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // ── GUEST SIGN-IN ──
   const signIn = useCallback(async () => {
+    console.log('[guest] signInAnonymously start');
     const { data, error } = await supabaseAuth.auth.signInAnonymously();
 
     if (error) {
-      console.error('[auth] Anonymous sign-in failed:', error.message);
+      console.error('[guest] error code:', error.code, 'message:', error.message);
       throw error;
     }
 
-    if (data.user && data.session) {
-      setIsAnonymous(true);
-      await persistAuthTokens(
-        data.session.access_token,
-        data.session.refresh_token,
-        data.session.expires_at ?? null,
-      );
-
-      await new Promise((r) => setTimeout(r, 300));
-      let profile = await fetchProfile(data.user.id);
-
-      if (!profile) {
-        const { data: newProfile, error: insertError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            display_name: 'Kullanıcı',
-            avatar_color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]!,
-            locale: 'tr',
-          })
-          .select('*')
-          .single();
-
-        if (insertError) {
-          console.error('[auth] Failed to create profile:', insertError.message);
-          throw insertError;
-        }
-        profile = newProfile as ProfileRow;
-      }
-
-      const mappedProfile = profileRowToProfile(profile);
-      setUser(mappedProfile);
-      await persistAuthSnapshot(mappedProfile, true);
-
-      const hasGroups = await syncOnboardingFlag(data.user.id);
-      if (!hasGroups) setIsOnboarded(false);
+    if (!data.user || !data.session) {
+      console.error('[guest] error: signInAnonymously returned no user/session');
+      throw new Error('Anonymous sign-in did not return a session');
     }
+
+    console.log('[guest] success user id:', data.user.id);
+    console.log('[guest] is_anonymous:', data.user.is_anonymous ?? false);
+
+    setIsAnonymous(true);
+    isAnonymousRef.current = true;
+    await persistAuthTokens(
+      data.session.access_token,
+      data.session.refresh_token,
+      data.session.expires_at ?? null,
+    );
+    console.log('[guest] access token set:', !!getSupabaseAccessToken());
+
+    await new Promise((r) => setTimeout(r, 300));
+    let profile = await fetchProfile(data.user.id);
+    console.log('[guest] profile exists:', !!profile);
+
+    if (!profile) {
+      const { data: newProfile, error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          display_name: 'Kullanıcı',
+          avatar_color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)]!,
+          locale: 'tr',
+        })
+        .select('*')
+        .single();
+
+      if (insertError) {
+        console.error('[guest] profile insert failed:', insertError.message);
+        throw insertError;
+      }
+      profile = newProfile as ProfileRow;
+      console.log('[guest] profile created');
+    }
+
+    const mappedProfile = profileRowToProfile(profile);
+    userRef.current = mappedProfile;
+    setUser(mappedProfile);
+    await persistAuthSnapshot(mappedProfile, true);
+
+    const hasGroups = await syncOnboardingFlag(data.user.id);
+    if (!hasGroups) setIsOnboarded(false);
   }, []);
 
   const signOut = useCallback(async () => {

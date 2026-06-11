@@ -11,7 +11,7 @@
     "ios": {
       "bundleIdentifier": "com.groopay.app",
       "supportsTablet": false,
-      "buildNumber": "16",
+      "buildNumber": "18",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false

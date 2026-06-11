@@ -105,12 +105,12 @@ export default function PaywallScreen() {
   };
 
   // RevenueCat webhook → DB activation can take longer than a few seconds
-  // (especially in sandbox/TestFlight) — poll up to ~15 s.
+  // (especially in sandbox/TestFlight) — poll up to ~30 s.
   const waitForProActivation = async (): Promise<boolean> => {
-    for (let attempt = 0; attempt < 10; attempt += 1) {
+    for (let attempt = 0; attempt < 15; attempt += 1) {
       if (await refreshProfile()) return true;
       await new Promise<void>((resolve) => {
-        setTimeout(resolve, 1500);
+        setTimeout(resolve, 2000);
       });
     }
     return false;
@@ -131,24 +131,33 @@ export default function PaywallScreen() {
     // be logged in as the old anonymous user; await the logIn here so the
     // webhook grants Pro to the right profile.
     const purchaseUserId = expectedUserId ?? user?.id;
-    if (purchaseUserId) {
-      await initRevenueCat(purchaseUserId);
+    if (!purchaseUserId) {
+      Alert.alert(t('paywall.errorTitle'), t('paywall.accountSyncError'));
+      return false;
     }
+    await initRevenueCat(purchaseUserId);
 
-    const result = await purchaseUserPro(offerings.userPro.id);
+    const result = await purchaseUserPro(offerings.userPro.id, purchaseUserId);
     if (result.devBuildRequired) {
       Alert.alert(t('paywall.devBuildTitle'), t('paywall.devBuildMessage'));
+    } else if (result.error === 'account_mismatch') {
+      Alert.alert(t('paywall.errorTitle'), t('paywall.accountSyncError'));
     } else if (result.success) {
+      if (!result.entitlementActive) {
+        Alert.alert(t('paywall.errorTitle'), t('paywall.purchaseNotVerified'));
+        return false;
+      }
       const activated = await waitForProActivation();
       Alert.alert(
         t('paywall.successTitle'),
-        activated ? t('paywall.userProSuccess') : t('paywall.activationPending'),
+        activated ? t('paywall.userProSuccess') : t('paywall.activationTimeout'),
         [
           { text: t('paywall.ok'), onPress: () => router.back() },
         ],
       );
     } else if (result.error !== 'cancelled') {
-      Alert.alert(t('paywall.errorTitle'), result.error);
+      console.log('[paywall] purchase error:', result.error);
+      Alert.alert(t('paywall.errorTitle'), t('paywall.purchaseFailed'));
     }
     return result.success;
   };
@@ -273,22 +282,26 @@ export default function PaywallScreen() {
       Alert.alert(t('paywall.devBuildTitle'), t('paywall.devBuildMessage'));
       return;
     }
+    if (!user?.id) {
+      Alert.alert(t('paywall.errorTitle'), t('paywall.accountSyncError'));
+      return;
+    }
 
     setPurchasing('restore');
     try {
       // Restore links the App Store receipt to the RevenueCat app user —
       // make sure that is the current Supabase user before restoring.
-      if (user?.id) {
-        await initRevenueCat(user.id);
-      }
-      const result = await restorePurchases();
+      await initRevenueCat(user.id);
+      const result = await restorePurchases(user.id);
       if (result.devBuildRequired) {
         Alert.alert(t('paywall.devBuildTitle'), t('paywall.devBuildMessage'));
+      } else if (result.error === 'account_mismatch') {
+        Alert.alert(t('paywall.errorTitle'), t('paywall.accountSyncError'));
       } else if (result.success) {
         const activated = await waitForProActivation();
         Alert.alert(
           t('paywall.restoreTitle'),
-          activated ? t('paywall.restoreSuccess') : t('paywall.activationPending'),
+          activated ? t('paywall.restoreSuccess') : t('paywall.activationTimeout'),
           [
             { text: t('paywall.ok'), onPress: () => router.back() },
           ],
@@ -304,7 +317,7 @@ export default function PaywallScreen() {
   const userProPrice = offerings?.userPro?.priceString;
   const isWaitingForPrice = !offeringsLoaded && !priceTimeout;
   const isPriceUnavailable = priceTimeout || (offeringsLoaded && !userProPrice);
-  const isPurchaseDisabled = purchasing !== null || isWaitingForPrice;
+  const isPurchaseDisabled = purchasing !== null || isWaitingForPrice || isPriceUnavailable;
 
   // ── Already Pro ──
   if (isUserPro) {

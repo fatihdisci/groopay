@@ -3303,3 +3303,63 @@ Apple inceleyicisi bu mesajı "app displays an error when attempting to buy a su
    - `https://groopay.vercel.app/en/terms` → Terms of Service
 
 *Son güncelleme: 2026-06-11 — B128 eklendi*
+
+---
+
+### ✅ B129: RevenueCat satın alma aktivasyonu + misafir auth tanı/düzeltme
+**Sorun:** TestFlight'ta (1) "Misafir olarak devam et" sonrası Supabase Auth Users listesinde kullanıcı görünmüyordu, (2) Apple ile girişte Pro satın alma "Pro will activate soon" diyor ama Pro hiç aktive olmuyordu.
+
+**Tanı sonuçları:**
+1. **Misafir auth — backend çalışıyor.** Canlı projede `POST /auth/v1/signup` (boş body) ile anonim kullanıcı doğrudan test edildi: yeni `auth.users` satırı (`is_anonymous: true`) ve otomatik tetikleyiciyle eşleşen `public.profiles` satırı oluştu. Yani **Anonymous Sign-In projede AÇIK** ve profil tetikleyicisi çalışıyor. En olası açıklama: Supabase Dashboard → Authentication → Users listesinde **"Show anonymous users" filtresi varsayılan olarak KAPALI** — kullanıcı muhtemelen oradaydı ama görünmüyordu.
+2. Yine de `AuthContext.signIn()` içinde sessiz hata potansiyeli vardı: `data.user`/`data.session` boş dönerse fonksiyon hatasız return ediyordu ve `sign-in.tsx` yine de onboarding'e yönlendiriyordu — gerçek oturum olmadan uygulamaya giriş ihtimali.
+3. **RevenueCat env değişkeni doğru:** EAS production ortamında `EXPO_PUBLIC_REVENUECAT_APPLE_KEY=appl_TRLg...` mevcut ve `appl_` prefix'i geçerli.
+4. **RevenueCat appUserID garantisi eksikti:** `purchaseUserPro()` / `restorePurchases()` RevenueCat'in güncel `appUserID`'sinin Supabase `auth.uid()` ile eşleştiğini DOĞRULAMIYORDU — `initRevenueCat` çağrısı başarısız olsa bile satın alma yine de eski/yanlış kullanıcıya gidebilirdi.
+5. Paywall, `purchasePackage` başarılı dönse bile RevenueCat `entitlements.active`/`activeSubscriptions` BOŞ olsa dahi her zaman "Satın alımınız tamamlandı, Pro aktive olacak" mesajı gösteriyordu — yanlış pozitif kullanıcı algısı.
+6. `sync-pro-status` Edge Function'ı **mevcut değil** — DB tarafı aktivasyon tek başına webhook'a bağımlı (B127'de webhook zaten düzeltildi, ama deterministik bir senkron yol yok).
+
+**Yapılan:**
+- `AuthContext.signIn()`: `[guest] …` production-safe loglar eklendi (signInAnonymously start/success/error code-message, `is_anonymous`, access token set, profile exists/created). `data.user`/`data.session` boşsa artık `throw` ediyor — gerçek oturum yoksa onboarding'e geçiş engelleniyor. `userRef`/`isAnonymousRef` senkron güncelleniyor.
+- `app/(auth)/sign-in.tsx`: `handleGuestSignIn` artık ham hata mesajını göstermiyor; `t('auth.guestSignInFailed')` ile kullanıcı dostu mesaj gösteriyor, hata `console.error` ile loglanıyor.
+- `lib/revenuecat/index.ts`:
+  - `initRevenueCat`: `[rc] init start / env name used / platform / api key present / api key prefix (ilk 8 karakter) / requested appUserID / configure called / getAppUserID after configure-login / getCustomerInfo (active entitlement keys + activeSubscriptions)` logları eklendi.
+  - `getOfferings`: `[rc] getOfferings start / current offering id / available packages count / her paket (identifier, packageType, productId, priceString) / chosen package` logları artık `__DEV__` koşuluna bağlı değil (TestFlight'ta da görünür).
+  - Yeni `ensureAppUserId(expectedUserId)`: `Purchases.getAppUserID()` ile karşılaştırır, eşleşmiyorsa `Purchases.logIn(expectedUserId)` çağırır ve tekrar doğrular; hâlâ eşleşmiyorsa `null` döner.
+  - `purchaseUserPro(offeringId, expectedUserId)` ve `restorePurchases(expectedUserId)`: imza değişti — satın alma/restore başlamadan `ensureAppUserId` ile appUserID doğrulanıyor; eşleşmezse `{ success:false, error:'account_mismatch' }` ile satın alma BAŞLATILMIYOR. Satın alma öncesi/sonrası `[rc] purchase start/appUserID/package.../purchase returned/customerInfo originalAppUserId/active entitlement keys/activeSubscriptions/allPurchasedProductIdentifiers` logları eklendi. Hata durumunda `code/message/userCancelled/underlyingErrorMessage` loglanıyor.
+- `app/paywall.tsx`:
+  - `purchaseUserProNow`: `purchaseUserId` yoksa (`accountSyncError`) erken çıkış. `result.error === 'account_mismatch'` → `accountSyncError` gösterilir. Satın alma `success: true` ama `entitlementActive: false` ise artık **"Pro aktive olacak" GÖSTERİLMİYOR** — `paywall.purchaseNotVerified` ("Satın alma tamamlanmadı veya doğrulanamadı. Lütfen Satın alımları geri yükle ile tekrar deneyin.") gösteriliyor.
+  - Diğer (iptal dışı) hatalarda artık ham RevenueCat mesajı yerine `paywall.purchaseFailed` gösteriliyor; ham hata `console.log` ile loglanıyor.
+  - `waitForProActivation`: 10×1.5sn (~15sn) → **15×2sn (~30sn)** olarak genişletildi. Timeout sonrası `activationPending` yerine `paywall.activationTimeout` ("App Store onayladı ama hesabınızda henüz görünmüyor, birkaç dakika sonra geri yükle'yi deneyin") gösteriliyor.
+  - `handleRestore`: `user?.id` yoksa erken çıkış; `restorePurchases(user.id)` + `account_mismatch` ve `activationTimeout` işleniyor.
+  - `isPurchaseDisabled` artık `isPriceUnavailable` durumunda da CTA'yı pasif yapıyor (fiyat/ürün yoksa satın alma denenemez).
+- `app/(tabs)/account.tsx`: "Satın alımları geri yükle" aksiyonu da `initRevenueCat(user.id)` + `restorePurchases(user.id)` + `account_mismatch`/`activationTimeout` ile güncellendi.
+- `locales/tr.json` + `locales/en.json`: `auth.guestSignInFailed`, `paywall.purchaseNotVerified`, `paywall.purchaseFailed`, `paywall.accountSyncError`, `paywall.activationTimeout` eklendi.
+
+**Değişen dosyalar:** `lib/auth/AuthContext.tsx`, `app/(auth)/sign-in.tsx`, `lib/revenuecat/index.ts`, `app/paywall.tsx`, `app/(tabs)/account.tsx`, `locales/tr.json`, `locales/en.json`, `BUGFIX-CILA.md`
+
+**Test:**
+1. `npx tsc --noEmit` ✅ temiz
+2. `npm test` ✅ 87/87 test geçti
+3. Canlı Supabase Auth API'ye `POST /auth/v1/signup` (boş body) ile anonim kullanıcı testi → kullanıcı + profil satırı oluştu (Anonymous Sign-In açık, trigger çalışıyor) ✅
+4. `npx supabase functions list` → `revenuecat-webhook` `verify_jwt: false`, `REVENUECAT_WEBHOOK_SECRET` Vault'ta tanımlı ✅
+5. `eas env:list --environment production` → `EXPO_PUBLIC_REVENUECAT_APPLE_KEY=appl_...` mevcut ve geçerli prefix ✅
+
+| Kontrol | Durum |
+|---|---|
+| Anonim giriş backend'i (signInAnonymously) | ✅ Çalışıyor |
+| Misafir profili otomatik oluşuyor | ✅ |
+| Misafir auth hatası artık sessizce yutulmuyor | ✅ |
+| RC appUserID = Supabase user id garantisi (purchase/restore) | ✅ |
+| Sahte "Pro aktive olacak" mesajı kaldırıldı | ✅ |
+| Ham RC/Supabase hatası kullanıcıya gösterilmiyor | ✅ |
+| TypeScript temiz | ✅ |
+
+**Manuel TestFlight kontrol listesi:**
+1. Yeni build yükle (RC env değişkeni değiştiyse YENİ build şart — değişmedi, mevcut build env'i zaten doğru).
+2. "Misafir olarak devam et" → Supabase Dashboard → Authentication → Users → **"Show anonymous users" filtresini AÇ** → yeni kullanıcı görünmeli; `public.profiles` aynı id ile satır içermeli.
+3. Apple ile giriş → satın alma → konsol loglarında `[rc] getAppUserID after configure/login` = Supabase `auth.uid()` ile eşleşmeli; `[rc] customerInfo active entitlement keys` içinde `user_pro` olmalı.
+4. RevenueCat Dashboard'da sandbox görünürlüğü AÇIK olmalı; customer ID Supabase user id ile eşleşmeli (`$RCAnonymousID` GÖRÜNMEMELİ).
+5. Satın alma sonrası `profiles.user_pro` 30 sn içinde `true` olmalı; olmazsa "Satın alımları geri yükle" Pro'yu aktive etmeli.
+
+**Not (temizlik):** Tanı sırasında canlı projede gerçek bir anonim test kullanıcısı oluştu (`id: e3077bc8-7efe-4c58-9010-ce5ca8055086`). İstenirse Supabase Dashboard'dan silinebilir.
+
+*Son güncelleme: 2026-06-11 — B129 eklendi*

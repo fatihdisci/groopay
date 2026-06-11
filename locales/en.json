@@ -196,7 +196,8 @@
     "appleSessionMissing": "The Apple session could not be created. Please try again.",
     "appleUpgradeMismatch": "The guest account could not be linked to Apple safely. Your data is preserved; please try again.",
     "sessionExpiredTitle": "Session expired",
-    "sessionExpiredMessage": "For your security, please sign in again."
+    "sessionExpiredMessage": "For your security, please sign in again.",
+    "guestSignInFailed": "Guest sign-in failed. Please try again."
   },
   "onboarding": {
     "skip": "Skip",
@@ -332,6 +333,10 @@
     "successTitle": "Success",
     "userProSuccess": "Upgraded to Pro! All Pro features are now active.",
     "activationPending": "Your purchase is complete. Pro access is being verified and will activate automatically within a few seconds.",
+    "activationTimeout": "Your purchase was confirmed by the App Store but hasn't appeared on your account yet. Please try \"Restore purchases\" in a few minutes.",
+    "purchaseNotVerified": "Your purchase could not be completed or verified. Please try Restore Purchases to try again.",
+    "purchaseFailed": "The purchase could not be completed. Please try again.",
+    "accountSyncError": "We couldn't verify your account. Please restart the app and try again.",
     "restoreTitle": "Restore",
     "restoreSuccess": "Your purchases have been restored.",
     "restoreEmpty": "No purchases found to restore.",

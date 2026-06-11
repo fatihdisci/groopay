@@ -20,7 +20,7 @@ import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { useAuth, AVATAR_COLORS } from '@/lib/auth';
 import { getAvatarHeaderGradient } from '@/constants/avatarColors';
 import { usePro } from '@/hooks/usePro';
-import { isRevenueCatAvailable, restorePurchases } from '@/lib/revenuecat';
+import { isRevenueCatAvailable, initRevenueCat, restorePurchases } from '@/lib/revenuecat';
 import { supabase, getSupabaseAccessToken } from '@/lib/supabase/client';
 import { getUserCurrencies } from '@/lib/supabase/queries';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -138,14 +138,21 @@ export default function AccountScreen() {
       Alert.alert(t('paywall.devBuildTitle'), t('paywall.devBuildMessage'));
       return;
     }
+    if (!user?.id) {
+      Alert.alert(t('paywall.errorTitle'), t('paywall.accountSyncError'));
+      return;
+    }
     setRestoring(true);
     try {
-      const result = await restorePurchases();
-      if (result.success) {
+      await initRevenueCat(user.id);
+      const result = await restorePurchases(user.id);
+      if (result.error === 'account_mismatch') {
+        Alert.alert(t('paywall.errorTitle'), t('paywall.accountSyncError'));
+      } else if (result.success) {
         const activated = await refreshProfile();
         Alert.alert(
           t('paywall.restoreTitle'),
-          activated ? t('paywall.restoreSuccess') : t('paywall.activationPending'),
+          activated ? t('paywall.restoreSuccess') : t('paywall.activationTimeout'),
         );
       } else {
         Alert.alert(t('paywall.restoreTitle'), t('paywall.restoreEmpty'));

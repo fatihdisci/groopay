@@ -50,8 +50,9 @@ export default function SignInScreen() {
     try {
       await signIn();
       router.replace('/(onboarding)/intro');
-    } catch (e: any) {
-      Alert.alert(t('auth.error'), e?.message ?? t('auth.unknownError'));
+    } catch (e: unknown) {
+      console.error('[guest] sign-in failed:', e instanceof Error ? e.message : e);
+      Alert.alert(t('auth.error'), t('auth.guestSignInFailed'));
     } finally {
       setInProgress(null);
     }
