@@ -12,7 +12,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 // react-native-purchases native calls fail gracefully in Expo Go;
 // the import itself works fine (JS bundle), only native methods throw.
-import Purchases, { LOG_LEVEL } from 'react-native-purchases';
+import Purchases, { LOG_LEVEL, STOREKIT_VERSION } from 'react-native-purchases';
 import type { CustomerInfo, PurchasesOfferings, PurchasesPackage } from 'react-native-purchases';
 
 // ── RevenueCat API key validation ──
@@ -210,6 +210,7 @@ export async function initRevenueCat(appUserId: string): Promise<void> {
     await Purchases.configure({
       apiKey,
       appUserID: appUserId,
+      storeKitVersion: STOREKIT_VERSION.STOREKIT_1,
     });
     _nativeAvailable = true;
     _configuredUserId = appUserId;
@@ -271,45 +272,60 @@ export async function getOfferings(): Promise<OfferingsResult | null> {
     return null;
   }
 
-  try {
-    const offerings: PurchasesOfferings = await Purchases.getOfferings();
-    const current = offerings.current;
+  const maxAttempts = 5;
 
-    console.log('[rc] current offering id:', current?.identifier ?? 'null');
-    console.log('[rc] available packages count:', current?.availablePackages?.length ?? 0);
-    current?.availablePackages?.forEach((p) => {
-      console.log('[rc] package:', {
-        identifier: p.identifier,
-        packageType: p.packageType,
-        productId: p.product?.identifier ?? 'null',
-        priceString: p.product?.priceString ?? 'null',
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const offerings: PurchasesOfferings = await Purchases.getOfferings();
+      const current = offerings.current;
+
+      console.log('[rc] current offering id:', current?.identifier ?? 'null');
+      console.log('[rc] available packages count:', current?.availablePackages?.length ?? 0);
+      current?.availablePackages?.forEach((p) => {
+        console.log('[rc] package:', {
+          identifier: p.identifier,
+          packageType: p.packageType,
+          productId: p.product?.identifier ?? 'null',
+          priceString: p.product?.priceString ?? 'null',
+        });
       });
-    });
 
-    if (!current) return null;
+      // User Pro is a monthly subscription — map to current.monthly.
+      // Group Pro (deprecated in UI, kept for future use) also maps to monthly.
+      const userProPkg = current?.monthly ?? current?.availablePackages[0] ?? null;
+      const groupProPkg = current?.monthly ?? current?.availablePackages[0] ?? null;
 
-    // User Pro is a monthly subscription — map to current.monthly.
-    // Group Pro (deprecated in UI, kept for future use) also maps to monthly.
-    const userProPkg = current.monthly ?? current.availablePackages[0] ?? null;
-    const groupProPkg = current.monthly ?? current.availablePackages[0] ?? null;
+      if (userProPkg) {
+        console.log('[rc] chosen package:', {
+          identifier: userProPkg.identifier,
+          packageType: userProPkg.packageType,
+          productId: userProPkg.product?.identifier ?? 'null',
+        });
+      }
 
-    if (userProPkg) {
-      console.log('[rc] chosen package:', {
-        identifier: userProPkg.identifier,
-        packageType: userProPkg.packageType,
-        productId: userProPkg.product?.identifier ?? 'null',
-      });
+      const hasValidProduct = current !== null
+        && userProPkg?.product !== undefined
+        && userProPkg.product.priceString.trim().length > 0;
+
+      if (hasValidProduct) {
+        return {
+          groupPro: groupProPkg ? mapPackage(groupProPkg) : null,
+          userPro: mapPackage(userProPkg),
+        };
+      }
+    } catch (error: unknown) {
+      const revenueCatError = toRevenueCatError(error);
+      console.log('[rc] getOfferings error:', revenueCatError.message);
     }
 
-    return {
-      groupPro: groupProPkg ? mapPackage(groupProPkg) : null,
-      userPro: userProPkg ? mapPackage(userProPkg) : null,
-    };
-  } catch (error: unknown) {
-    const revenueCatError = toRevenueCatError(error);
-    console.log('[rc] getOfferings error:', revenueCatError.message);
-    return null;
+    if (attempt < maxAttempts) {
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 1500);
+      });
+    }
   }
+
+  return null;
 }
 
 // ── Purchases ──

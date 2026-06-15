@@ -64,9 +64,12 @@ export default function PaywallScreen() {
     let cancelled = false;
     const timeout = setTimeout(() => {
       if (!cancelled) setPriceTimeout(true);
-    }, 5000);
+    }, 20000);
 
     (async () => {
+      if (user?.id) {
+        await initRevenueCat(user.id);
+      }
       const off = await getOfferings();
       if (cancelled) return;
       clearTimeout(timeout);
@@ -90,7 +93,7 @@ export default function PaywallScreen() {
       cancelled = true;
       clearTimeout(timeout);
     };
-  }, []);
+  }, [user?.id]);
 
   const openLinkOrAlert = async (url: string, label: string) => {
     try {

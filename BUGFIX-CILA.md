@@ -3363,3 +3363,26 @@ Apple inceleyicisi bu mesajı "app displays an error when attempting to buy a su
 **Not (temizlik):** Tanı sırasında canlı projede gerçek bir anonim test kullanıcısı oluştu (`id: e3077bc8-7efe-4c58-9010-ce5ca8055086`). İstenirse Supabase Dashboard'dan silinebilir.
 
 *Son güncelleme: 2026-06-11 — B129 eklendi*
+
+---
+
+### ✅ B131: IAP review reliability — StoreKit 1 + cold-load retry + configure race
+**Sorun:** App Review'da soğuk iPad ve yeni sandbox hesabıyla In-App Purchase ürünleri ilk yüklemede gelmiyordu. StoreKit 2'nin ilk soğuk çağrıda boş ürün döndürmesi, `getOfferings()` için retry olmaması, paywall'ın 5 saniyelik erken timeout'u ve RevenueCat configure tamamlanmadan offering istenebilmesi birlikte Guideline 2.1(b) reddine yol açıyordu.
+
+**Yapılan:**
+- RevenueCat iOS istemcisi `STOREKIT_VERSION.STOREKIT_1` ile configure ediliyor.
+- `getOfferings()` en fazla 5 kez deneniyor; denemeler arasında 1500 ms bekleniyor.
+- Offering yalnızca current offering, seçili package product'ı ve dolu `priceString` birlikte mevcutsa başarılı kabul ediliyor.
+- Mevcut RevenueCat offering tanı logları her denemede korunuyor.
+- Paywall offering yüklemeden önce mevcut kullanıcı için `initRevenueCat(user.id)` sonucunu bekliyor.
+- Paywall fiyat timeout'u soğuk yükleme için 5 saniyeden 20 saniyeye çıkarıldı; retry tamamlanana kadar loading state korunuyor.
+
+**Değişen dosyalar:** `lib/revenuecat/index.ts`, `app/paywall.tsx`, `BUGFIX-CILA.md`
+
+**Test:**
+1. `npx tsc --noEmit` ✅ temiz
+2. `npm test` ✅ 87/87 test geçti
+3. TestFlight soğuk cihaz + daha önce satın almamış yeni sandbox hesabında fiyat ve ürün yüklenmeli.
+4. İlk StoreKit ürün çağrısı boş dönerse sonraki denemeler 1500 ms arayla devam etmeli.
+
+*Son güncelleme: 2026-06-15 — B131 eklendi*
